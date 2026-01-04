@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金管理后台</title>
+    <link rel="stylesheet" href="app.css">
+    <style>
+        /* 添加一些全局样式 */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* 登录状态样式 */
+        .logged-out {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+        
+        .logged-out-content {
+            max-width: 500px;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logged-out-content h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .logged-out-content p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+        
+        .auth-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 导航栏 -->
+        <nav class="navbar">
+            <div class="nav-container">
+                <h1 class="nav-logo">基金管理平台</h1>
+                <div class="nav-links" id="navLinks">
+                    <span id="userInfo" class="user-info"></span>
+                    <button id="logoutBtn" class="btn btn-secondary">退出登录</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 未登录状态 -->
+            <div id="loggedOutSection" class="logged-out">
+                <div class="logged-out-content">
+                    <h2>欢迎使用基金管理平台</h2>
+                    <p>请登录以管理您的基金投资组合</p>
+                    <div class="auth-buttons">
+                        <button id="loginRedirectBtn" class="btn btn-primary">登录</button>
+                        <button id="registerRedirectBtn" class="btn btn-outline">注册</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 登录后的基金管理页面 -->
+            <div id="fundsPage" class="funds-page hidden">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h2>基金概览</h2>
+                        <p class="page-subtitle">管理您的基金投资</p>
+                    </div>
+                    <div class="page-actions">
+                        <button id="viewFundsBtn" class="btn btn-outline">基金列表</button>
+                        <button id="refreshPortfolioBtn" class="btn btn-outline">刷新收益</button>
+                        <button id="addFundBtn" class="btn btn-primary">添加基金</button>
+                        <button id="backToPortfolioBtn" class="btn btn-outline" onclick="app.showPortfolioView()">返回概览</button>
+                    </div>
+                </div>
+                
+                <!-- 投资组合概览页面 -->
+                <div id="portfolioPage" class="portfolio-page">
+                    <div id="portfolioSummaryContainer">
+                        <!-- 投资组合概览内容将在这里动态生成 -->
+                    </div>
+                </div>
+                
+                <!-- 基金列表页面 -->
+                <div id="fundsListPage" class="funds-list-page" style="display: none;">
+                    <!-- <div class="page-subheader">
+                        <h3>基金列表</h3>
+                        
+                    </div> -->
+                    <div class="funds-list" id="fundsList">
+                        <!-- 基金列表将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 消息提示 -->
+        <div id="message" class="message" style="display: none;"></div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modalContainer"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
