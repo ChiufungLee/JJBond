@@ -15,3 +15,5 @@ build/
 .vscode/
 .idea/
 *.swp
+
+fund_web_log.log

@@ -42,8 +42,8 @@ def calculate_portfolio(
     current_user: schemas.User = Depends(get_current_user)
 ):
     funds = user_crud.get_user_funds(db=db, user_id=current_user.id)
-    if not funds:
-        raise HTTPException(status_code=404, detail="No funds found")
+    # if not funds:
+    #     raise HTTPException(status_code=404, detail="No funds found")
     
     funds_data = [
         {

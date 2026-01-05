@@ -14,7 +14,7 @@ class FundManagerApp {
     init() {
         if (!this.isAuthenticated) {
             // 未登录，跳转到登录页面
-            window.location.href = 'login.html';
+            window.location.href = 'login';
             // this.showUnauthenticatedUI();
             return;
         }
@@ -64,13 +64,13 @@ class FundManagerApp {
         
         if (loginRedirectBtn) {
             loginRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'login.html';
+                window.location.href = 'login';
             });
         }
         
         if (registerRedirectBtn) {
             registerRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'register.html';
+                window.location.href = 'register';
             });
         }
     }
@@ -203,13 +203,13 @@ class FundManagerApp {
         
         if (loginRedirectBtn) {
             loginRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'login.html';
+                window.location.href = 'login';
             });
         }
         
         if (registerRedirectBtn) {
             registerRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'register.html';
+                window.location.href = 'register';
             });
         }
     }
@@ -262,7 +262,7 @@ class FundManagerApp {
                 this.clearAuth();
                 this.showMessage('登录已过期，请重新登录', 'error');
                 setTimeout(() => {
-                    window.location.href = 'login.html';
+                    window.location.href = 'login';
                 }, 500);
                 throw new Error('认证失败，请重新登录');
             }
@@ -450,6 +450,9 @@ class FundManagerApp {
         const textColorClass = isPositive ? 'profit-positive' : 'profit-negative';
         const greetingText = isPositive ? '恭喜发财！' : '请开心起来！';
 
+        const isTotalPositive = total_revenue >= 0;
+        const total_ColorClass = isTotalPositive ? 'profit-positive' : 'profit-negative';
+
         portfolioContainer.innerHTML = `
             <div class="portfolio-summary">
                 <div class="summary-section">
@@ -460,7 +463,7 @@ class FundManagerApp {
                         </div>
                         <div class="summary-item">
                             <label>累计收益</label>
-                            <span class="value ${textColorClass}">¥${total_revenue.toFixed(2)}</span>
+                            <span class="value ${total_ColorClass}">¥${total_revenue.toFixed(2)}</span>
                         </div>
                         <div class="summary-item">
                             <label>今日收益</label>
@@ -531,7 +534,7 @@ class FundManagerApp {
                                 
                                 // 比较今日估值和成本价，显示上下箭头
                                 const costPrice = fund.cost_price || 0;
-                                const isUp = todayValue > costPrice;
+                                const isUp = todayValue > shangrijingzhi;
                                 const arrowIcon = isUp ? '↑' : '↓';
                                 const arrowClass = isUp ? 'profit-positive' : 'profit-negative';
 
@@ -571,7 +574,7 @@ class FundManagerApp {
         this.clearAuth();
         // this.showMessage('已退出登录', 'info');
         setTimeout(() => {
-            window.location.href = 'login.html';
+            window.location.href = 'login';
         }, 200);
     }
 
