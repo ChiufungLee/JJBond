@@ -24,11 +24,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 @router.post("/register", response_model=schemas.User)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = user_crud.get_user_by_username(db, username=user.username)
+    db_user_email = user_crud.get_user_by_email(db, email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="该用户名已存在！")
     # db_user = user_crud.get_user_by_email(db, email=user.email)
-    # if db_user:
-    #     raise HTTPException(status_code=400, detail="Email already registered")
+    if db_user_email:
+        raise HTTPException(status_code=400, detail="该邮箱已被使用！")
     return user_crud.create_user(db=db, user=user)
 
 @router.post("/login", response_model=schemas.Token)
