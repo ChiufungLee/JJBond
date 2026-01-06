@@ -437,6 +437,7 @@ class FundManagerApp {
         
         if (!portfolioContainer) return;
         
+        const fund_count = summary.fund_count || 0;
         const total_cost = summary.total_cost || 0;
         const today_revenue = summary.today_revenue || 0;
         const total_revenue = summary.fund_details && summary.fund_details.length > 0 ? 
@@ -501,7 +502,7 @@ class FundManagerApp {
                     <div class="valuation-grid">
                         ${low_fund_list.length > 0 ? `
                         <div class="valuation-item low-valuation">
-                            <h5>低估值基金</h5>
+                            <h5>跌幅大于3%的基金</h5>
                             <div class="fund-codes">
                                 ${low_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
                             </div>
@@ -510,7 +511,7 @@ class FundManagerApp {
                         
                         ${high_fund_list.length > 0 ? `
                         <div class="valuation-item high-valuation">
-                            <h5>高估值基金</h5>
+                            <h5>涨幅大于3%的基金</h5>
                             <div class="fund-codes">
                                 ${high_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
                             </div>
@@ -522,7 +523,7 @@ class FundManagerApp {
 
                 ${fund_details.length > 0 ? `
                 <div class="funds-details-section">
-                    <h4>基金明细</h4>
+                    <h4>基金明细(共${fund_count}只基金)</h4>
                     <div class="funds-table-container">
                         <table class="funds-table">
                             <thead>

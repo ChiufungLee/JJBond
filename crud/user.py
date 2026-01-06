@@ -54,30 +54,6 @@ def create_user_fund(db: Session, fund: FundCreate, user_id: int):
     print(db_fund)
     return db_fund
 
-# def create_user_fund(db: Session, fund: FundCreate, user_id: int, fund_name: Optional[str] = None):
-#     if not fund_name:
-#         fund_name = get_fund_name_by_code(fund.fund_code)
-#     db_fund = UserFund(**fund.dict(), user_id=user_id)
-#     db.add(db_fund)
-#     db.commit()
-#     db.refresh(db_fund)
-#     print(db_fund)
-#     return db_fund
-
-def get_fund_name_by_code(fund_code: str) -> Optional[str]:
-    """
-    根据基金代码获取基金名称
-    可以调用第三方接口，也可以使用本地缓存
-    """
-    # 这里可以添加缓存逻辑
-    # 示例：调用简单接口获取基金名称
-    try:
-        # 模拟调用第三方接口
-        # 实际实现时请替换为真实的第三方接口
-        return f"基金{fund_code}"
-    except:
-        return None
-
 
 def update_user_fund(db: Session, fund_id: int, fund_update: FundCreate, user_id: int):
     db_fund = get_user_fund(db, user_id, fund_id)

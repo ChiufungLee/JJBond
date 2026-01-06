@@ -69,12 +69,6 @@ async def search_fund(
     """
     搜索基金
     """
-    # try:
-    #     # 调用第三方基金搜索接口
-    #     funds = await search_funds_from_api(q, limit)
-    #     return funds
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=f"搜索失败: {str(e)}")
     try:
         if use_api:
             # 使用第三方API

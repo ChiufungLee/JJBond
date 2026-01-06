@@ -245,8 +245,11 @@ class FundCalculator:
             print(f"fund_detail:{fund_detail}")
             fund_details.append(fund_detail)
 
+        fund_count = len(fund_details)
+
         # 汇总信息
         summary = {
+            'fund_count': fund_count,
             'total_cost': round(self.full_cost, 2),
             'yesterday_holding_amount': round(self.yesterday_holding_amount, 2),
             'yesterday_holding_income': round(self.yesterday_holding_income, 2),
@@ -254,7 +257,7 @@ class FundCalculator:
             'today_holding_amount': round(self.full_today_holding_amount, 2),
             'low_fund_list': low_fund_list,
             'high_fund_list': high_fund_list,
-            'fund_details': fund_details
+            'fund_details': fund_details,
         }
-        
+
         return summary

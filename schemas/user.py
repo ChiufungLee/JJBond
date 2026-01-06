@@ -75,6 +75,7 @@ class FundCalculator(BaseModel):
     recent_changes: str
 
 class PortfolioSummary(BaseModel):
+    fund_count: int
     total_cost: float
     yesterday_holding_amount: float
     yesterday_holding_income: float
