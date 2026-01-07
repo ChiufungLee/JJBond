@@ -5,6 +5,8 @@ class FundManagerApp {
         this.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
         this.searchCache = {};
         this.selectedFund = null;
+        this.chart = null; // 存储当前图表实例
+        this.currentPortfolioSummary = null; // 添加这个属性来存储当前的数据
         
         // 检查登录状态
         this.checkAuthStatus();
@@ -362,6 +364,7 @@ class FundManagerApp {
     async calculatePortfolio() {
         try {
             const summary = await this.makeRequest('/funds/calculate');
+            this.currentPortfolioSummary = summary;
             this.displayPortfolioSummary(summary);
         } catch (error) {
             if (error.message.includes('404')) {
@@ -433,6 +436,9 @@ class FundManagerApp {
     }
 
     displayPortfolioSummary(summary) {
+
+        this.currentPortfolioSummary = summary;
+
         const portfolioContainer = document.getElementById('portfolioSummaryContainer');
         
         if (!portfolioContainer) return;
@@ -536,7 +542,8 @@ class FundManagerApp {
                                     <th>涨跌幅度</th>
                                     <th>今日收益</th>
                                     <th>总收益</th>
-                                    <th>盈亏比例</th>
+                                    <th>收益比例</th>
+                                    <th>涨跌走势</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -560,6 +567,9 @@ class FundManagerApp {
                                 const arrowIcon = isUp ? '↑' : '↓';
                                 const arrowClass = isUp ? 'profit-positive' : 'profit-negative';
 
+                                // 检查是否有趋势数据
+                                const hasTrendData = fund.recent_changes && fund.recent_changes.length > 0;
+
                                 return `
                                 <tr>
                                     <td class="fund-code">${fund.fund_code || '-'}</td>
@@ -579,6 +589,12 @@ class FundManagerApp {
                                     <td class="${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">
                                         ${profitLossRatio.toFixed(2)}%
                                     </td>
+                                    <td>
+                                        ${hasTrendData ? 
+                                            `<button class="btn trend-button" onclick="app.showFundTrendModal('${fund.fund_code}', '${fund.fund_name.replace(/'/g, "\\'")}')">查看趋势</button>` :
+                                            `<span class="no-trend-data">暂无数据</span>`
+                                        }
+                                    </td>
                                 </tr>
                                 `;
                             }).join('')}
@@ -590,6 +606,227 @@ class FundManagerApp {
                 ` : '<div class="no-data">暂无基金明细数据</div>'}
             </div>
         `;
+    }
+
+        // 显示基金趋势图模态框
+    // 显示基金趋势图模态框 - 修复这个方法
+    showFundTrendModal(fundCode, fundName) {
+        console.log('正在显示趋势图，基金代码:', fundCode, '基金名称:', fundName);
+        console.log('当前组合数据:', this.currentPortfolioSummary);
+        
+        // 从当前数据中查找基金
+        if (!this.currentPortfolioSummary || !this.currentPortfolioSummary.fund_details) {
+            this.showMessage('无法获取基金数据，请刷新页面后重试', 'error');
+            return;
+        }
+        
+        const fund = this.currentPortfolioSummary.fund_details.find(f => f.fund_code === fundCode);
+        
+        console.log('找到的基金数据:', fund);
+        
+        if (!fund) {
+            this.showMessage(`未找到基金 ${fundCode} 的数据`, 'error');
+            return;
+        }
+        
+        if (!fund.recent_changes || fund.recent_changes.length === 0) {
+            this.showMessage('该基金暂无趋势数据', 'info');
+            return;
+        }
+
+        const recentChanges = fund.recent_changes;
+        console.log('趋势数据:', recentChanges);
+        
+        // 准备图表数据 - 注意：数据已经按日期从新到旧排列，我们需要反转顺序
+        const dates = recentChanges.map(item => item.date);
+        const navValues = recentChanges.map(item => item.unit_nav);
+        const growthValues = recentChanges.map(item => item.daily_growth_value);
+        
+        // 反转数据，让日期从旧到新
+        const reversedDates = [...dates].reverse();
+        const reversedNavValues = [...navValues].reverse();
+        const reversedGrowthValues = [...growthValues].reverse();
+        
+        const modalHTML = `
+            <div class="modal show trend-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>${fundName} (${fundCode}) - 最近涨跌趋势</h3>
+                        <button class="close-btn" onclick="app.closeModal('chart')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="trend-chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                        <div class="trend-data-summary" style="margin-top: 20px;">
+                            <h4>最近 ${recentChanges.length} 日数据</h4>
+                            <table class="funds-table" style="font-size: 12px; width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>单位净值</th>
+                                        <th>日增长率</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${recentChanges.map(item => {
+                                        const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
+                                        return `
+                                            <tr>
+                                                <td>${item.date}</td>
+                                                <td>${item.unit_nav.toFixed(4)}</td>
+                                                <td class="${growthClass}">${item.daily_growth}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="padding: 15px; text-align: right;">
+                        <button class="btn btn-secondary" onclick="app.closeModal('chart')">关闭</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.showModal(modalHTML,'chart');
+        
+        // 延迟执行，确保DOM已渲染
+        setTimeout(() => {
+            this.renderTrendChart(fundCode, fundName, reversedDates, reversedNavValues, reversedGrowthValues);
+        }, 100);
+    }
+
+    // 渲染趋势图 - 修复可能的错误
+    renderTrendChart(fundCode, fundName, dates, navValues, growthValues) {
+        const ctx = document.getElementById('trendChart');
+        if (!ctx) {
+            console.error('找不到图表canvas元素');
+            return;
+        }
+
+        // 销毁之前的图表实例
+        if (this.chart) {
+            this.chart.destroy();
+        }
+
+        try {
+            // 创建新的图表
+            this.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '单位净值',
+                            data: navValues,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            yAxisID: 'y',
+                            tension: 0.4
+                        },
+                        {
+                            label: '日增长率(%)',
+                            data: growthValues,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            yAxisID: 'y1',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${fundName} (${fundCode}) 净值走势`,
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.datasetIndex === 0) {
+                                        label += context.parsed.y.toFixed(4);
+                                    } else {
+                                        label += context.parsed.y.toFixed(2) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '单位净值'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(4);
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '日增长率(%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log('图表渲染成功');
+        } catch (error) {
+            console.error('图表渲染失败:', error);
+            // 显示错误信息
+            const chartContainer = document.querySelector('.trend-chart-container');
+            if (chartContainer) {
+                chartContainer.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">图表渲染失败: ${error.message}</div>`;
+            }
+        }
     }
 
     logout() {
@@ -887,33 +1124,90 @@ class FundManagerApp {
         }
     }
 
-    showModal(html) {
-        const modalContainer = document.getElementById('modalContainer');
-        if (modalContainer) {
-            modalContainer.innerHTML = html;
-        }
-    }
-
-    closeModal() {
-        const modalContainer = document.getElementById('modalContainer');
-        if (modalContainer) {
-            modalContainer.innerHTML = '';
-        }
-        this.selectedFund = null;
-    }
-
-    showMessage(message, type = 'info') {
-        const messageEl = document.getElementById('message');
-        if (!messageEl) return;
+    showModal(html, modalType = 'normal') {
+        let modalContainer;
         
-        messageEl.textContent = message;
-        messageEl.className = `message ${type}`;
-        messageEl.style.display = 'block';
-
-        setTimeout(() => {
-            messageEl.style.display = 'none';
-        }, 3000);
+        if (modalType === 'chart') {
+            modalContainer = document.getElementById('chartModalContainer');
+            if (modalContainer) {
+                // 显示模态框容器
+                modalContainer.style.display = 'block';
+                modalContainer.classList.remove('hidden');
+                // 添加 show 类
+                modalContainer.classList.add('show');
+                modalContainer.innerHTML = html;
+                
+                // 添加点击遮罩关闭功能
+                setTimeout(() => {
+                    const modal = modalContainer.querySelector('.modal');
+                    if (modal) {
+                        modal.addEventListener('click', (e) => {
+                            if (e.target === modal) {
+                                this.closeModal('chart');
+                            }
+                        });
+                    }
+                }, 0);
+            }
+        } else {
+            modalContainer = document.getElementById('modalContainer');
+            if (modalContainer) {
+                modalContainer.innerHTML = html;
+                
+                // 普通模态框的遮罩关闭功能
+                setTimeout(() => {
+                    const modal = modalContainer.querySelector('.modal');
+                    if (modal) {
+                        modal.addEventListener('click', (e) => {
+                            if (e.target === modal) {
+                                this.closeModal();
+                            }
+                        });
+                    }
+                }, 0);
+            }
+        }
     }
+
+    // 修改 closeModal 方法
+    closeModal(modalType = 'normal') {
+        let modalContainer;
+        
+        if (modalType === 'chart') {
+            modalContainer = document.getElementById('chartModalContainer');
+            if (modalContainer) {
+                modalContainer.style.display = 'none';
+                modalContainer.classList.remove('show');
+                modalContainer.innerHTML = '';
+            }
+        } else {
+            modalContainer = document.getElementById('modalContainer');
+            if (modalContainer) {
+                modalContainer.innerHTML = '';
+            }
+        }
+        
+        this.selectedFund = null;
+        
+        // 销毁图表实例
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+        }
+    }
+
+        showMessage(message, type = 'info') {
+            const messageEl = document.getElementById('message');
+            if (!messageEl) return;
+            
+            messageEl.textContent = message;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
 }
 
 // 初始化应用

@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 from lxml import etree
 from bs4 import BeautifulSoup
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from core.database import redis_client
 
 # 配置日志
@@ -158,6 +158,136 @@ class FundCalculator:
         except Exception as e:
             logger.error(f"获取近期涨跌失败: {fund_code}, 错误: {str(e)}")
             return "获取失败"
+    
+    def get_fund_nav_history_simple(self, fund_code: str, days: int = 30) -> List[Dict[str, Any]]:
+        """
+        获取基金历史净值数据（仅提取日期、单位净值、增长率）
+        
+        Args:
+            fund_code: 基金代码
+            days: 获取最近多少天的数据，默认30天
+        
+        Returns:
+            [
+                {
+                    "date": "净值日期",
+                    "unit_nav": 单位净值,
+                    "daily_growth": "日增长率",
+                    "daily_growth_value": 日增长率数值（不带%）
+                },
+                ...
+            ]
+        """
+        # 计算日期范围
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=days)
+        
+        # 格式化日期字符串
+        sdate = start_date.strftime("%Y-%m-%d")
+        edate = end_date.strftime("%Y-%m-%d")
+        
+        # 缓存键
+        cache_key = f"fund_nav_simple:{fund_code}:{sdate}:{edate}"
+        cached_data = redis_client.get(cache_key)
+        
+        if cached_data:
+            try:
+                return json.loads(cached_data)
+            except json.JSONDecodeError:
+                pass
+        
+        url = f"http://fund.eastmoney.com/f10/F10DataApi.aspx?type=lsjz&code={fund_code}&page=1&sdate={sdate}&edate={edate}&per=50"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
+            'Connection': 'close'
+        }
+        
+        result = []
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            # 提取内容
+            pattern = r'content:"(.*?)",records:'
+            match = re.search(pattern, response.text, re.DOTALL)
+            
+            if not match:
+                logger.warning(f"未匹配到基金净值数据: {fund_code}")
+                return result
+            
+            content = match.group(1)
+            
+            # 清理HTML内容
+            content = content.replace('\\r\\n', '\n').replace('\\t', '\t')
+            
+            # 解析HTML表格
+            html = etree.HTML(content)
+            
+            # 使用XPath获取表格行
+            rows = html.xpath('//tr')
+            
+            for row in rows[1:]:  # 跳过表头行
+                # 获取所有单元格
+                cells = row.xpath('./td')
+                if len(cells) < 4:  # 至少需要前4列数据
+                    continue
+                    
+                try:
+                    # 提取日期、单位净值、增长率
+                    date = cells[0].xpath('string(.)').strip()
+                    unit_nav_str = cells[1].xpath('string(.)').strip()
+                    daily_growth = cells[3].xpath('string(.)').strip()
+                    
+                    # 转换单位净值
+                    unit_nav = None
+                    if unit_nav_str and unit_nav_str != '-':
+                        try:
+                            unit_nav = float(unit_nav_str)
+                        except ValueError:
+                            pass
+                    
+                    # 提取增长率数值（去掉百分号）
+                    daily_growth_value = None
+                    if daily_growth and daily_growth != '-':
+                        try:
+                            daily_growth_value = float(daily_growth.rstrip('%'))
+                        except ValueError:
+                            pass
+                    
+                    # 只添加有净值数据的数据
+                    if unit_nav is not None:
+                        nav_data = {
+                            "date": date,
+                            "unit_nav": unit_nav,
+                            "daily_growth": daily_growth,
+                            "daily_growth_value": daily_growth_value
+                        }
+                        result.append(nav_data)
+                        
+                except Exception as e:
+                    logger.warning(f"解析基金净值行数据失败: {fund_code}, 行数据: {etree.tostring(row)}, 错误: {str(e)}")
+                    continue
+            
+            # 按日期排序（最新的在前面）
+            result.sort(key=lambda x: x["date"], reverse=True)
+            
+            # 缓存结果（15分钟）
+            redis_client.setex(cache_key, 900, json.dumps(result, ensure_ascii=False))
+            
+            logger.info(f"获取基金净值历史成功: {fund_code}, 记录数: {len(result)}")
+            return result
+            
+        except requests.exceptions.Timeout:
+            logger.error(f"获取基金净值超时: {fund_code}")
+            return []
+        except requests.exceptions.RequestException as e:
+            logger.error(f"获取基金净值网络错误: {fund_code}, 错误: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"获取基金净值失败: {fund_code}, 错误: {str(e)}")
+            return []
 
     def calculate_portfolio(self, funds_data: List[Dict]) -> Dict:
         """计算投资组合"""
@@ -212,7 +342,7 @@ class FundCalculator:
                 change_rate = "--"
             
             # 近期涨跌
-            rise_fall = self.get_change_recent_days(fund_code)
+            rise_fall = self.get_fund_nav_history_simple(fund_code)
             
             # 更新汇总数据
             self.full_cost += count

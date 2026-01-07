@@ -749,3 +749,218 @@ body {
 .funds-table tr:hover td.profit-negative {
     background-color: rgba(56, 161, 105, 0.1);
 }
+
+
+/* 基金表格样式 */
+.funds-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.funds-table th,
+.funds-table td {
+    padding: 8px 12px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+
+.funds-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.funds-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 涨跌颜色 */
+.profit-positive {
+    color: #dc3545; /* 红色表示上涨 */
+}
+
+.profit-negative {
+    color: #28a745; /* 绿色表示下跌 */
+}
+
+/* 模态框样式 */
+.modal {
+    display: block;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    color: #343a40;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.trend-button {
+    color: #1768ea;
+    text-decoration: underline;
+}
+
+/* 添加一些全局样式 */
+.hidden {
+    display: none !important;
+}
+
+/* 登录状态样式 */
+.logged-out {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    text-align: center;
+}
+
+.logged-out-content {
+    max-width: 500px;
+    padding: 40px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.logged-out-content h2 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.logged-out-content p {
+    color: #666;
+    margin-bottom: 25px;
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+        /* 新增图表模态框专用样式 */
+#chartModalContainer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1100; /* 比普通模态框更高的层级 */
+}
+
+#chartModalContainer.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 图表模态框可以比普通模态框更大 */
+.trend-modal .modal-content {
+    width: 90%;
+    max-width: 1400px;
+    height: 85vh;
+}
+
+.chart-modal .trend-chart-container {
+    height: 500px;
+}
+
+/* 调整关闭按钮位置，使其更明显 */
+.chart-modal .close-btn {
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 10;
+}
+
+.chart-modal .close-btn:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.trend-chart-container {
+    width: 100%;
+    height: 100%;
+}
+
+.trend-chart-container canvas {
+    display: block; /* 确保 block 显示 */
+    box-sizing: border-box;
+    width: 100% !important;
+    height: 100% !important;
+}

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field
 # from typing import Optional
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class UserBase(BaseModel):
@@ -72,7 +72,7 @@ class FundCalculator(BaseModel):
     today_revenue: float
     total_revenue: float
     profit_loss_ratio: float
-    recent_changes: str
+    recent_changes: List[Dict[str, Any]]
 
 class PortfolioSummary(BaseModel):
     fund_count: int

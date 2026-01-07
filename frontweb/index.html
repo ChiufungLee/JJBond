@@ -5,45 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基金管理后台</title>
     <link rel="stylesheet" href="app.css">
-    <style>
-        /* 添加一些全局样式 */
-        .hidden {
-            display: none !important;
-        }
-        
-        /* 登录状态样式 */
-        .logged-out {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 60vh;
-            text-align: center;
-        }
-        
-        .logged-out-content {
-            max-width: 500px;
-            padding: 40px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .logged-out-content h2 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-        
-        .logged-out-content p {
-            color: #666;
-            margin-bottom: 25px;
-        }
-        
-        .auth-buttons {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-        }
-    </style>
+    <script src="chart.js"></script>
 </head>
 <body>
     <div id="app">
@@ -113,6 +75,7 @@
 
     <!-- 模态框容器 -->
     <div id="modalContainer"></div>
+    <div id="chartModalContainer" class="hidden"></div>
 
     <script src="app.js"></script>
 </body>
