@@ -367,13 +367,19 @@ class FundCalculator:
                 'shangrijingzhi': shangrijingzhi,
                 'today_value': today_value,
                 'change_rate': change_rate,
+                'change_rate_value': gszzl,  # 添加用于排序的数值字段
                 'today_revenue': today_revenue,
                 'total_revenue': total_revenue,
                 'profit_loss_ratio': profit_and_loss_ratio,
                 'recent_changes': rise_fall
             }
-            print(f"fund_detail:{fund_detail}")
             fund_details.append(fund_detail)
+
+        # 按照涨跌幅度（change_rate_value）由大到小排序
+        fund_details.sort(key=lambda x: x['change_rate_value'], reverse=True)
+        # 删除排序用的临时字段（可选）
+        for detail in fund_details:
+            detail.pop('change_rate_value', None)
 
         fund_count = len(fund_details)
 

@@ -721,7 +721,7 @@ class FundManagerApp {
                         {
                             label: '单位净值',
                             data: navValues,
-                            borderColor: 'rgb(75, 192, 192)',
+                            borderColor: '#4c74b1',
                             backgroundColor: 'rgba(75, 192, 192, 0.1)',
                             borderWidth: 2,
                             fill: true,
@@ -731,7 +731,7 @@ class FundManagerApp {
                         {
                             label: '日增长率(%)',
                             data: growthValues,
-                            borderColor: 'rgb(255, 99, 132)',
+                            borderColor: '#f7a35c',
                             backgroundColor: 'rgba(255, 99, 132, 0.1)',
                             borderWidth: 2,
                             fill: false,
