@@ -34,12 +34,46 @@ INITIAL_FUNDS = [
 
 
 def init_fund_lib(db: Session) -> None:
-    """首次启动时将初始数据写入数据库，已存在则跳过"""
-    if db.query(FundLib).count() > 0:
+    """
+    启动时初始化基金库：
+    - 优先从 data/funds.json 加载完整数据（约 25000+ 条）
+    - funds.json 不存在时降级使用 INITIAL_FUNDS（20 条兜底数据）
+    - 数据库已有 100 条以上则认为已初始化，跳过
+    """
+    if db.query(FundLib).count() > 100:
+        logger.info("基金库已初始化，跳过")
         return
-    db.bulk_insert_mappings(FundLib, INITIAL_FUNDS)
+
+    # 优先读取 funds.json
+    funds_to_insert = _load_funds_json()
+    if not funds_to_insert:
+        logger.warning("funds.json 未找到或为空，使用内置兜底数据")
+        funds_to_insert = INITIAL_FUNDS
+
+    # 清空旧的不完整数据，重新写入
+    db.query(FundLib).delete()
+    db.bulk_insert_mappings(FundLib, funds_to_insert)
     db.commit()
-    logger.info(f"初始化基金库，写入 {len(INITIAL_FUNDS)} 条记录")
+    logger.info(f"初始化基金库完成，写入 {len(funds_to_insert)} 条记录")
+
+
+def _load_funds_json() -> List[Dict]:
+    """从 data/funds.json 加载基金数据，过滤掉 FundLib 不认识的字段"""
+    import os, json
+    # 相对于项目根目录寻找
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_path = os.path.join(base_dir, 'data', 'funds.json')
+    if not os.path.exists(json_path):
+        return []
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+        # 只保留 FundLib 需要的字段
+        allowed = {'fund_code', 'fund_name', 'fund_type'}
+        return [{k: v for k, v in item.items() if k in allowed} for item in raw]
+    except Exception as e:
+        logger.error(f"读取 funds.json 失败: {e}")
+        return []
 
 
 def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
