@@ -47,11 +47,16 @@ def get_user_fund(db: Session, user_id: int, fund_id: int):
     ).first()
 
 def create_user_fund(db: Session, fund: FundCreate, user_id: int):
+    existing = db.query(UserFund).filter(
+        UserFund.user_id == user_id,
+        UserFund.fund_code == fund.fund_code
+    ).first()
+    if existing:
+        return None  # 由调用方决定如何处理重复
     db_fund = UserFund(**fund.dict(), user_id=user_id)
     db.add(db_fund)
     db.commit()
     db.refresh(db_fund)
-    print(db_fund)
     return db_fund
 
 

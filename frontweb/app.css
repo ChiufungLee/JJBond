@@ -924,9 +924,11 @@ body {
 
 /* 图表模态框可以比普通模态框更大 */
 .trend-modal .modal-content {
-    width: 90%;
+    width: 92%;
     max-width: 1400px;
-    height: 85vh;
+    max-height: 92vh;
+    overflow-y: auto;
+    height: auto;
 }
 
 .chart-modal .trend-chart-container {
@@ -955,7 +957,7 @@ body {
 
 .trend-chart-container {
     width: 100%;
-    height: 100%;
+    height: 300px;  /* 移动端默认高度 */
 }
 
 .trend-chart-container canvas {
@@ -963,4 +965,277 @@ body {
     box-sizing: border-box;
     width: 100% !important;
     height: 100% !important;
+}
+
+/* =============================================
+   移动端基金卡片样式
+   ============================================= */
+
+/* 桌面/移动端显示切换 */
+/* 移动端/桌面端显示切换 */
+.mobile-only { display: none !important; }
+
+/* desktop-only 不强制 display 值，避免覆盖元素自身的 flex/grid */
+@media (max-width: 768px) {
+    /* 通用mobile-only恢复显示，flex容器单独覆盖 */
+    .mobile-only                     { display: block !important; }
+    .mobile-only.fund-cards-list     { display: flex !important; }
+    .mobile-only.summary-mobile-grid { display: grid !important; }
+    .desktop-only                    { display: none !important; }
+}
+
+/* 卡片列表容器 */
+.fund-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 0;
+}
+
+/* 单张卡片 */
+.fund-mobile-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+/* 数据获取失败状态 */
+.fund-mobile-card--unavailable {
+    border-color: #fed7d7;
+    background: #fff5f5;
+}
+
+/* 卡片头部：名称 + 涨跌幅 */
+.fmc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.fmc-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0; /* 防止长名称撑破布局 */
+}
+
+.fmc-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2d3748;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fmc-code {
+    font-size: 12px;
+    color: #a0aec0;
+    font-family: monospace;
+}
+
+.fmc-change {
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-left: 12px;
+    text-align: right;
+}
+
+/* 核心数据行：今日收益 / 总收益 / 收益比例 */
+.fmc-key-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 12px 16px;
+    gap: 8px;
+    background: #fafbfc;
+}
+
+.fmc-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.fmc-metric-label {
+    font-size: 11px;
+    color: #718096;
+}
+
+.fmc-metric-value {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* 次要数据行：净值、成本 */
+.fmc-sub-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 10px 16px;
+    gap: 8px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.fmc-sub-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.fmc-sub-label {
+    font-size: 11px;
+    color: #a0aec0;
+}
+
+.fmc-sub-value {
+    font-size: 13px;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+/* 卡片底部：操作按钮 */
+.fmc-footer {
+    padding: 10px 16px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.fmc-trend-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: #f0eeff;
+    color: #6b46c1;
+    border: 1px solid #d6bcfa;
+    font-weight: 500;
+}
+
+.fmc-trend-btn:hover {
+    background: #e9d8fd;
+}
+
+.fmc-no-trend {
+    font-size: 12px;
+    color: #a0aec0;
+}
+
+/* 移动端按钮触控区域增大 */
+@media (max-width: 768px) {
+    .page-actions .btn {
+        padding: 10px 14px;
+        font-size: 13px;
+        min-height: 40px;
+    }
+
+    .funds-details-section h4 {
+        font-size: 15px;
+        margin-bottom: 12px;
+    }
+}
+
+/* =============================================
+   移动端趋势图适配
+   ============================================= */
+@media (max-width: 768px) {
+    /* 模态框撑满屏幕，便于阅读 */
+    .trend-modal .modal-content {
+        width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+        margin: 0;
+    }
+
+    /* 图表区域在手机上给固定高度，不随内容撑开 */
+    .trend-chart-container {
+        height: 220px;
+    }
+
+    /* 模态框标题字号缩小 */
+    .trend-modal .modal-header h3 {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+
+    /* 数据表格在手机上字号缩小，列宽紧凑 */
+    .trend-data-summary table {
+        font-size: 12px;
+    }
+
+    .trend-data-summary th,
+    .trend-data-summary td {
+        padding: 6px 8px;
+    }
+}
+
+@media (min-width: 769px) {
+    /* 桌面端图表给更大高度 */
+    .trend-chart-container {
+        height: 420px;
+    }
+}
+
+/* =============================================
+   移动端汇总区域 2 卡片样式
+   ============================================= */
+.summary-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;          /* 撑满父容器宽度 */
+    box-sizing: border-box;
+}
+
+.summary-mobile-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 14px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-top: 3px solid #8264ee;
+    min-width: 0;         /* 防止内容撑破网格列 */
+}
+
+.smc-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.smc-label {
+    font-size: 11px;
+    color: #a0aec0;
+}
+
+.smc-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+/* 颜色优先级：profit类覆盖smc-value默认色 */
+.smc-value.profit-positive { color: #dc3545; }
+.smc-value.profit-negative { color: #28a745; }
+
+.smc-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 10px 0;
+}
+
+.smc-greeting {
+    align-items: center;
+    text-align: center;
+}
+
+.smc-greeting .smc-value {
+    font-size: 15px;
 }

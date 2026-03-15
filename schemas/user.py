@@ -36,8 +36,8 @@ class TokenData(BaseModel):
 # 基金相关
 class FundBase(BaseModel):
     fund_code: str
-    cost_price: float
-    shares: float
+    cost_price: float = Field(..., gt=0, description="持仓成本价，必须大于0")
+    shares: float = Field(..., gt=0, description="持仓份额，必须大于0")
 
 class FundCreate(FundBase):
     # pass
@@ -64,15 +64,17 @@ class FundCalculator(BaseModel):
     fund_code: str
     fund_name: str
     cost: float
-    amount: float
     cost_price: float
-    shangrijingzhi: float
-    today_value: float
-    change_rate: str
-    today_revenue: float
-    total_revenue: float
-    profit_loss_ratio: float
-    recent_changes: List[Dict[str, Any]]
+    shares: float
+    data_unavailable: bool = False  # True 表示行情获取失败，以下字段为 None
+    amount: Optional[float] = None
+    shangrijingzhi: Optional[float] = None
+    today_value: Optional[float] = None
+    change_rate: Optional[str] = None
+    today_revenue: Optional[float] = None
+    total_revenue: Optional[float] = None
+    profit_loss_ratio: Optional[float] = None
+    recent_changes: List[Dict[str, Any]] = []
 
 class PortfolioSummary(BaseModel):
     fund_count: int

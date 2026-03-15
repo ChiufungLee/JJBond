@@ -1,6 +1,8 @@
+const API_BASE_URL = '/api';
+
 class FundManagerApp {
     constructor() {
-        this.baseURL = '/api';
+        this.baseURL = API_BASE_URL;
         this.token = localStorage.getItem('authToken');
         this.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
         this.searchCache = {};
@@ -435,36 +437,189 @@ class FundManagerApp {
         `}).join('');
     }
 
-    displayPortfolioSummary(summary) {
+    // 构建移动端基金卡片列表 HTML（独立方法，避免嵌套模板字符串）
+    _buildFundCards(fund_details) {
+        return fund_details.map(fund => {
+            const changeRate       = fund.change_rate || '--';
+            const todayValue       = fund.today_value;
+            const todayRevenue     = fund.today_revenue;
+            const totalRevenue     = fund.total_revenue;
+            const profitLossRatio  = fund.profit_loss_ratio;
+            const shangrijingzhi   = fund.shangrijingzhi;
+            const isUnavailable    = fund.data_unavailable;
+            const changeRateClass  = changeRate.includes('-') ? 'profit-negative' : 'profit-positive';
+            const hasTrendData     = fund.recent_changes && fund.recent_changes.length > 0;
+            const isUp             = todayValue != null && shangrijingzhi != null && todayValue > shangrijingzhi;
+            const safeName         = (fund.fund_name || '-').replace(/'/g, "\\'");
 
+            let bodyHtml = '';
+            if (!isUnavailable) {
+                bodyHtml = `
+                <div class="fmc-key-metrics">
+                    <div class="fmc-metric">
+                        <span class="fmc-metric-label">今日收益</span>
+                        <span class="fmc-metric-value ${todayRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
+                            ${todayRevenue >= 0 ? '+' : ''}¥${todayRevenue.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="fmc-metric">
+                        <span class="fmc-metric-label">总收益</span>
+                        <span class="fmc-metric-value ${totalRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
+                            ${totalRevenue >= 0 ? '+' : ''}¥${totalRevenue.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="fmc-metric">
+                        <span class="fmc-metric-label">收益比例</span>
+                        <span class="fmc-metric-value ${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">
+                            ${profitLossRatio >= 0 ? '+' : ''}${profitLossRatio.toFixed(2)}%
+                        </span>
+                    </div>
+                </div>
+                <div class="fmc-sub-metrics">
+                    <div class="fmc-sub-item">
+                        <span class="fmc-sub-label">昨日净值</span>
+                        <span class="fmc-sub-value">${shangrijingzhi != null ? shangrijingzhi.toFixed(4) : '-'}</span>
+                    </div>
+                    <div class="fmc-sub-item">
+                        <span class="fmc-sub-label">今日估值</span>
+                        <span class="fmc-sub-value ${isUp ? 'profit-positive' : 'profit-negative'}">
+                            ${todayValue != null ? todayValue.toFixed(4) : '-'} ${isUp ? '↑' : '↓'}
+                        </span>
+                    </div>
+                    <div class="fmc-sub-item">
+                        <span class="fmc-sub-label">持仓成本</span>
+                        <span class="fmc-sub-value">¥${(fund.cost || 0).toFixed(2)}</span>
+                    </div>
+                </div>`;
+            }
+
+            const footerHtml = hasTrendData
+                ? `<button class="btn btn-sm trend-button fmc-trend-btn" onclick="app.showFundTrendModal('${fund.fund_code}', '${safeName}')">📈 查看趋势</button>`
+                : `<span class="fmc-no-trend">暂无趋势数据</span>`;
+
+            return `
+            <div class="fund-mobile-card ${isUnavailable ? 'fund-mobile-card--unavailable' : ''}">
+                <div class="fmc-header">
+                    <div class="fmc-title">
+                        <span class="fmc-name">${fund.fund_name || '-'}</span>
+                        <span class="fmc-code">${fund.fund_code || '-'}</span>
+                    </div>
+                    <div class="fmc-change ${isUnavailable ? '' : changeRateClass}">
+                        ${isUnavailable ? '数据获取失败' : changeRate}
+                    </div>
+                </div>
+                ${bodyHtml}
+                <div class="fmc-footer">${footerHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    displayPortfolioSummary(summary) {
         this.currentPortfolioSummary = summary;
 
         const portfolioContainer = document.getElementById('portfolioSummaryContainer');
-        
         if (!portfolioContainer) return;
-        
-        const fund_count = summary.fund_count || 0;
-        const total_cost = summary.total_cost || 0;
+
+        const fund_count    = summary.fund_count || 0;
+        const total_cost    = summary.total_cost || 0;
         const today_revenue = summary.today_revenue || 0;
-        const total_revenue = summary.fund_details && summary.fund_details.length > 0 ? 
-            summary.fund_details.reduce((sum, fund) => sum + (fund.total_revenue || 0), 0) : 0;
-        
-        const low_fund_list = summary.low_fund_list || [];
+        const total_revenue = summary.fund_details && summary.fund_details.length > 0
+            ? summary.fund_details.reduce((sum, f) => sum + (f.total_revenue || 0), 0) : 0;
+
+        const low_fund_list  = summary.low_fund_list  || [];
         const high_fund_list = summary.high_fund_list || [];
-        const fund_details = summary.fund_details || [];
+        const fund_details   = summary.fund_details   || [];
 
-        const isPositive = today_revenue >= 0;
-        const textColorClass = isPositive ? 'profit-positive' : 'profit-negative';
-
-        const greetingText = isPositive ? "恭喜发财！" : "请开心起来!";
-
+        const isPositive      = today_revenue >= 0;
+        const textColorClass  = isPositive ? 'profit-positive' : 'profit-negative';
+        const greetingText    = isPositive ? '恭喜发财！' : '请开心起来!';
         const isTotalPositive = total_revenue >= 0;
         const total_ColorClass = isTotalPositive ? 'profit-positive' : 'profit-negative';
+
+        // 涨跌预警区块
+        let valuationHtml = '';
+        if (low_fund_list.length > 0 || high_fund_list.length > 0) {
+            const lowHtml = low_fund_list.length > 0 ? `
+                <div class="valuation-item low-valuation">
+                    <h5>跌幅大于3%的基金</h5>
+                    <div class="fund-codes">
+                        ${low_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                    </div>
+                </div>` : '';
+            const highHtml = high_fund_list.length > 0 ? `
+                <div class="valuation-item high-valuation">
+                    <h5>涨幅大于3%的基金</h5>
+                    <div class="fund-codes">
+                        ${high_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                    </div>
+                </div>` : '';
+            valuationHtml = `
+                <div class="valuation-section">
+                    <div class="valuation-grid">${lowHtml}${highHtml}</div>
+                </div>`;
+        }
+
+        // 基金明细区块（桌面表格 + 移动卡片）
+        let detailHtml = '<div class="no-data">暂无基金明细数据</div>';
+        if (fund_details.length > 0) {
+            // 桌面端：表格
+            const tableRows = fund_details.map(fund => {
+                const changeRate      = fund.change_rate || '0.00%';
+                const todayValue      = fund.today_value || 0;
+                const todayRevenue    = fund.today_revenue || 0;
+                const totalRevenue    = fund.total_revenue || 0;
+                const profitLossRatio = fund.profit_loss_ratio || 0;
+                const shangrijingzhi  = fund.shangrijingzhi || 0;
+                const changeRateClass = changeRate.includes('-') ? 'profit-negative' : 'profit-positive';
+                const isUp            = todayValue > shangrijingzhi;
+                const arrowClass      = isUp ? 'profit-positive' : 'profit-negative';
+                const arrowIcon       = isUp ? '↑' : '↓';
+                const hasTrendData    = fund.recent_changes && fund.recent_changes.length > 0;
+                const safeName        = (fund.fund_name || '-').replace(/'/g, "\\'");
+                const trendBtn        = hasTrendData
+                    ? `<button class="btn trend-button" onclick="app.showFundTrendModal('${fund.fund_code}', '${safeName}')">查看趋势</button>`
+                    : `<span class="no-trend-data">暂无数据</span>`;
+                return `
+                <tr>
+                    <td class="fund-code">${fund.fund_code || '-'}</td>
+                    <td class="fund-name">${fund.fund_name || '-'}</td>
+                    <td>¥${(fund.cost || 0).toFixed(2)}</td>
+                    <td>${(fund.cost_price || 0).toFixed(4)}</td>
+                    <td>${shangrijingzhi.toFixed(4)}/${todayValue.toFixed(4)} <span class="price-arrow ${arrowClass}">${arrowIcon}</span></td>
+                    <td class="${changeRateClass}">${changeRate}</td>
+                    <td class="${todayRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">¥${todayRevenue.toFixed(2)}</td>
+                    <td class="${totalRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">¥${totalRevenue.toFixed(2)}</td>
+                    <td class="${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">${profitLossRatio.toFixed(2)}%</td>
+                    <td>${trendBtn}</td>
+                </tr>`;
+            }).join('');
+
+            detailHtml = `
+                <div class="funds-details-section">
+                    <h4>基金明细(共${fund_count}只基金)</h4>
+                    <div class="funds-table-container desktop-only">
+                        <table class="funds-table">
+                            <thead>
+                                <tr>
+                                    <th>基金代码</th><th>基金名称</th><th>购买金额</th>
+                                    <th>持仓成本</th><th>上日净值/今日估值</th><th>涨跌幅度</th>
+                                    <th>今日收益</th><th>总收益</th><th>收益比例</th><th>涨跌走势</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </div>
+                    <div class="fund-cards-list mobile-only">
+                        ${this._buildFundCards(fund_details)}
+                    </div>
+                </div>`;
+        }
 
         portfolioContainer.innerHTML = `
             <div class="portfolio-summary">
                 <div class="summary-section">
-                    <div class="simplified-summary-grid">
+                    <!-- 桌面端：4格独立卡片 -->
+                    <div class="simplified-summary-grid desktop-only">
                         <div class="summary-item">
                             <label>总成本</label>
                             <span class="value">¥${total_cost.toFixed(2)}</span>
@@ -481,115 +636,37 @@ class FundManagerApp {
                             <span class="greeting-text ${textColorClass}">${greetingText}</span>
                         </div>
                     </div>
-                </div>
-
-                ${low_fund_list.length > 0 || high_fund_list.length > 0 ? `
-                <div class="valuation-section">
-                    <div class="valuation-grid">
-                        ${low_fund_list.length > 0 ? `
-                        <div class="valuation-item low-valuation">
-                            <h5>跌幅大于3%的基金</h5>
-                            <div class="fund-codes">
-                                ${low_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                    <!-- 移动端：2张合并卡片 -->
+                    <div class="summary-mobile-grid mobile-only">
+                        <div class="summary-mobile-card">
+                            <div class="smc-row">
+                                <span class="smc-label">总成本</span>
+                                <span class="smc-value">¥${total_cost.toFixed(2)}</span>
+                            </div>
+                            <div class="smc-divider"></div>
+                            <div class="smc-row">
+                                <span class="smc-label">累计收益</span>
+                                <span class="smc-value ${total_ColorClass}">¥${total_revenue.toFixed(2)}</span>
                             </div>
                         </div>
-                        ` : ''}
-                        
-                        ${high_fund_list.length > 0 ? `
-                        <div class="valuation-item high-valuation">
-                            <h5>涨幅大于3%的基金</h5>
-                            <div class="fund-codes">
-                                ${high_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                        <div class="summary-mobile-card">
+                            <div class="smc-row">
+                                <span class="smc-label">今日收益</span>
+                                <span class="smc-value ${textColorClass}">${today_revenue >= 0 ? '+' : ''}¥${today_revenue.toFixed(2)}</span>
+                            </div>
+                            <div class="smc-divider"></div>
+                            <div class="smc-row smc-greeting">
+                                <span class="smc-value ${textColorClass}">${greetingText}</span>
                             </div>
                         </div>
-                        ` : ''}
                     </div>
                 </div>
-                ` : ''}
-
-                ${fund_details.length > 0 ? `
-                <div class="funds-details-section">
-                    <h4>基金明细(共${fund_count}只基金)</h4>
-                    <div class="funds-table-container">
-                        <table class="funds-table">
-                            <thead>
-                                <tr>
-                                    <th>基金代码</th>
-                                    <th>基金名称</th>
-                                    <th>购买金额</th>
-                                    <th>持仓成本</th>
-                                    <th>上日净值/今日估值</th>
-                                    <th>涨跌幅度</th>
-                                    <th>今日收益</th>
-                                    <th>总收益</th>
-                                    <th>收益比例</th>
-                                    <th>涨跌走势</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${fund_details.map(fund => {
-                                // 从后端数据获取值
-                                const changeRate = fund.change_rate || '0.00%';
-                                const todayValue = fund.today_value || 0;
-                                const todayRevenue = fund.today_revenue || 0;
-                                const totalRevenue = fund.total_revenue || 0;
-                                const profitLossRatio = fund.profit_loss_ratio || 0;
-                                const shangrijingzhi = fund.shangrijingzhi || 0;
-                                
-                                // 判断涨跌幅是否有负号
-                                const changeRateHasNegativeSign = changeRate.includes('-');
-                                // 判断涨跌幅样式（负数显示绿色，正数显示红色）
-                                const changeRateClass = changeRateHasNegativeSign ? 'profit-negative' : 'profit-positive';
-                                
-                                // 比较今日估值和成本价，显示上下箭头
-                                const costPrice = fund.cost_price || 0;
-                                const isUp = todayValue > shangrijingzhi;
-                                const arrowIcon = isUp ? '↑' : '↓';
-                                const arrowClass = isUp ? 'profit-positive' : 'profit-negative';
-
-                                // 检查是否有趋势数据
-                                const hasTrendData = fund.recent_changes && fund.recent_changes.length > 0;
-
-                                return `
-                                <tr>
-                                    <td class="fund-code">${fund.fund_code || '-'}</td>
-                                    <td class="fund-name">${fund.fund_name || '-'}</td>
-                                    <td>¥${(fund.cost || 0).toFixed(2)}</td>
-                                    <td>${(fund.cost_price || 0).toFixed(4)}</td>
-                                    <td>${(fund.shangrijingzhi || 0).toFixed(4)}/${(fund.today_value || 0).toFixed(4)} <span class="price-arrow ${arrowClass}">${arrowIcon}</span></td>
-                                    <td class="${changeRateClass}">
-                                        ${changeRate}
-                                    </td>
-                                    <td class="${todayRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
-                                        ¥${todayRevenue.toFixed(2)}
-                                    </td>
-                                    <td class="${totalRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
-                                        ¥${totalRevenue.toFixed(2)}
-                                    </td>
-                                    <td class="${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">
-                                        ${profitLossRatio.toFixed(2)}%
-                                    </td>
-                                    <td>
-                                        ${hasTrendData ? 
-                                            `<button class="btn trend-button" onclick="app.showFundTrendModal('${fund.fund_code}', '${fund.fund_name.replace(/'/g, "\\'")}')">查看趋势</button>` :
-                                            `<span class="no-trend-data">暂无数据</span>`
-                                        }
-                                    </td>
-                                </tr>
-                                `;
-                            }).join('')}
-
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                ` : '<div class="no-data">暂无基金明细数据</div>'}
+                ${valuationHtml}
+                ${detailHtml}
             </div>
         `;
     }
 
-        // 显示基金趋势图模态框
-    // 显示基金趋势图模态框 - 修复这个方法
     showFundTrendModal(fundCode, fundName) {
         console.log('正在显示趋势图，基金代码:', fundCode, '基金名称:', fundName);
         console.log('当前组合数据:', this.currentPortfolioSummary);
@@ -686,13 +763,13 @@ class FundManagerApp {
             return;
         }
 
-        // 销毁之前的图表实例
         if (this.chart) {
             this.chart.destroy();
         }
 
+        const isMobile = window.innerWidth <= 768;
+
         try {
-            // 创建新的图表
             this.chart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -706,7 +783,9 @@ class FundManagerApp {
                             borderWidth: 2,
                             fill: true,
                             yAxisID: 'y',
-                            tension: 0.4
+                            tension: 0.4,
+                            pointRadius: isMobile ? 2 : 4,
+                            pointHoverRadius: isMobile ? 4 : 6,
                         },
                         {
                             label: '日增长率(%)',
@@ -716,12 +795,14 @@ class FundManagerApp {
                             borderWidth: 2,
                             fill: false,
                             yAxisID: 'y1',
-                            tension: 0.4
+                            tension: 0.4,
+                            pointRadius: isMobile ? 2 : 4,
+                            pointHoverRadius: isMobile ? 4 : 6,
                         }
                     ]
                 },
                 options: {
-                    responsive: false,
+                    responsive: true,
                     maintainAspectRatio: false,
                     interaction: {
                         mode: 'index',
@@ -729,23 +810,23 @@ class FundManagerApp {
                     },
                     plugins: {
                         title: {
-                            display: true,
+                            display: !isMobile,   // 移动端隐藏标题，节省空间
                             text: `${fundName} (${fundCode}) 净值走势`,
-                            font: {
-                                size: 16
-                            }
+                            font: { size: 14 }
                         },
                         legend: {
                             display: true,
                             position: 'top',
+                            labels: {
+                                font: { size: isMobile ? 11 : 13 },
+                                boxWidth: isMobile ? 12 : 20,
+                            }
                         },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
+                                    if (label) label += ': ';
                                     if (context.datasetIndex === 0) {
                                         label += context.parsed.y.toFixed(4);
                                     } else {
@@ -759,8 +840,14 @@ class FundManagerApp {
                     scales: {
                         x: {
                             title: {
-                                display: true,
+                                display: !isMobile,
                                 text: '日期'
+                            },
+                            ticks: {
+                                // 移动端自动跳过标签，避免重叠
+                                maxTicksLimit: isMobile ? 5 : 10,
+                                maxRotation: isMobile ? 45 : 30,
+                                font: { size: isMobile ? 10 : 12 },
                             }
                         },
                         y: {
@@ -768,12 +855,13 @@ class FundManagerApp {
                             display: true,
                             position: 'left',
                             title: {
-                                display: true,
+                                display: !isMobile,
                                 text: '单位净值'
                             },
                             ticks: {
+                                font: { size: isMobile ? 10 : 12 },
                                 callback: function(value) {
-                                    return value.toFixed(4);
+                                    return value.toFixed(isMobile ? 3 : 4);
                                 }
                             }
                         },
@@ -782,13 +870,12 @@ class FundManagerApp {
                             display: true,
                             position: 'right',
                             title: {
-                                display: true,
+                                display: !isMobile,
                                 text: '日增长率(%)'
                             },
-                            grid: {
-                                drawOnChartArea: false,
-                            },
+                            grid: { drawOnChartArea: false },
                             ticks: {
+                                font: { size: isMobile ? 10 : 12 },
                                 callback: function(value) {
                                     return value.toFixed(2) + '%';
                                 }
@@ -797,11 +884,9 @@ class FundManagerApp {
                     }
                 }
             });
-            
             console.log('图表渲染成功');
         } catch (error) {
             console.error('图表渲染失败:', error);
-            // 显示错误信息
             const chartContainer = document.querySelector('.trend-chart-container');
             if (chartContainer) {
                 chartContainer.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">图表渲染失败: ${error.message}</div>`;
@@ -940,7 +1025,7 @@ class FundManagerApp {
             searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
             searchResults.classList.add('show');
 
-            const url = `/api/funds/search?q=${encodeURIComponent(keyword)}&limit=10`;
+            const url = `${this.baseURL}/funds/search?q=${encodeURIComponent(keyword)}&limit=10`;
             
             const response = await fetch(url, {
                 method: 'GET',

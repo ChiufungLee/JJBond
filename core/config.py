@@ -1,7 +1,5 @@
 # core/config.py
 
-import os
-# from pydantic import BaseSettings
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -9,20 +7,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
-    # 数据库配置
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "mysql+pymysql://root:lzfdd937@localhost/fund_web_db")
-    
-    # JWT配置
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
-    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
-    
+    # 数据库配置（必填，不提供默认值，强制从 .env 读取）
+    DATABASE_URL: str
+
+    # JWT配置（SECRET_KEY 必填，其余保留安全的默认值）
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     # CORS配置
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8000"]
-    
+
     # 第三方API配置
-    FUND_API_BASE_URL: str = os.getenv("FUND_API_BASE_URL", "https://fund.eastmoney.com")
-    
+    FUND_API_BASE_URL: str = "https://fund.eastmoney.com"
+
     class Config:
         env_file = ".env"
 

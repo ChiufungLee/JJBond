@@ -1,16 +1,21 @@
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy.orm import Session
 
 from core.database import SessionLocal, engine
 from models import base as models
 from core.config import settings
 from routers import auth, user, funds
+from utils.fund_data_manager import init_fund_lib
 
 # 创建数据库表
 models.Base.metadata.create_all(bind=engine)
+
+# 首次启动时初始化基金库
+db = SessionLocal()
+try:
+    init_fund_lib(db)
+finally:
+    db.close()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -30,23 +35,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 挂载静态文件目录
-# app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
 # 注册路由
 app.include_router(auth.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
-app.include_router(funds.router, prefix="/api", tags=["funds"])
-# app.include_router(funds.router, prefix="/api")
+app.include_router(funds.router, prefix="/api")
+
 
 @app.get("/")
 async def root():
     return {"message": "欢迎使用基金查询网站API", "status": "运行正常"}
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
-    
+
 
 if __name__ == "__main__":
     import uvicorn

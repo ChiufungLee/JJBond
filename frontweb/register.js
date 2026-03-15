@@ -1,6 +1,8 @@
+const API_BASE_URL = '/api';
+
 class RegisterManager {
     constructor() {
-        this.baseURL = '/api';
+        this.baseURL = API_BASE_URL;
         this.initialize();
     }
     
