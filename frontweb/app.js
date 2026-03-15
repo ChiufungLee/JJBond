@@ -456,27 +456,7 @@ class FundManagerApp {
         const isPositive = today_revenue >= 0;
         const textColorClass = isPositive ? 'profit-positive' : 'profit-negative';
 
-        const positiveGreetings = [
-        "恭喜发财！",
-        "以为要亏，结果涨了！",
-        "小赚一笔，今日元气拉满！",
-        "我这手气，买啥涨啥哈哈哈！",
-        "今日小胜，明日大赚！"
-        ];
-
-        const negativeGreetings = [
-        "我这手气，买啥跌啥，简直是股市的'反向指标'。",
-        "居然亏钱了？！对，你没听错，一个本该稳如老狗的东西，亏了。",
-        "每次看基金收益，都有种在坐过山车的感觉——直线下坠版。",
-        "又跌？我买你图个啥？不就图个你比余额宝那三瓜俩枣稍微强点儿么？",
-        "亏损？我陪你笑一笑！",
-        "小亏一下，大赚在后头！"
-        ];
-
-        // 随机抽取问候语
-        const greetingText = isPositive 
-        ? positiveGreetings[Math.floor(Math.random() * positiveGreetings.length)]
-        : negativeGreetings[Math.floor(Math.random() * negativeGreetings.length)];
+        const greetingText = isPositive ? "恭喜发财！" : "请开心起来!";
 
         const isTotalPositive = total_revenue >= 0;
         const total_ColorClass = isTotalPositive ? 'profit-positive' : 'profit-negative';

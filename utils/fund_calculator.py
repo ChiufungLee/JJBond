@@ -84,8 +84,8 @@ class FundCalculator:
             except (requests.RequestException, json.JSONDecodeError) as e:
                 logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
                 time.sleep(1)
-        
-        raise Exception(f"无法获取基金信息: {fund_code}")
+        # raise Exception(f"无法获取基金信息: {fund_code}")
+        return None
 
     def _get_lof_fund_info(self, fund_code: str) -> Dict:
         """获取LOF基金信息"""
