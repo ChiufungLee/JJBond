@@ -1,1 +1,1 @@
-from .user import User, UserBase, UserCreate, UserLogin, Token, TokenData, Fund, FundCreate, FundBase, FundCalculator, PortfolioSummary
+from .user import User, UserBase, UserCreate, UserLogin, Token, TokenData, Fund, FundCreate, FundBase, FundDetail, PortfolioSummary

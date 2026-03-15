@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,15 +9,22 @@ from core.config import settings
 from routers import auth, user, funds
 from utils.fund_data_manager import init_fund_lib
 
-# 创建数据库表
-models.Base.metadata.create_all(bind=engine)
 
-# 首次启动时初始化基金库
-db = SessionLocal()
-try:
-    init_fund_lib(db)
-finally:
-    db.close()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期：启动时建表并初始化基金库"""
+    # 创建数据库表（已存在则跳过）
+    models.Base.metadata.create_all(bind=engine)
+
+    # 首次启动时写入初始基金库数据
+    db = SessionLocal()
+    try:
+        init_fund_lib(db)
+    finally:
+        db.close()
+
+    yield  # 应用正常运行阶段
+
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -24,6 +33,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan,
 )
 
 # 配置CORS中间件

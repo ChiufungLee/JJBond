@@ -1,7 +1,6 @@
 # schemas/user.py
 
 from pydantic import BaseModel, EmailStr, Field
-# from typing import Optional
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -40,7 +39,6 @@ class FundBase(BaseModel):
     shares: float = Field(..., gt=0, description="持仓份额，必须大于0")
 
 class FundCreate(FundBase):
-    # pass
     fund_name: str
 
 class FundSearchResult(BaseModel):
@@ -60,7 +58,7 @@ class Fund(FundBase):
         from_attributes = True
 
 # 基金计算结果
-class FundCalculator(BaseModel):
+class FundDetail(BaseModel):
     fund_code: str
     fund_name: str
     cost: float
@@ -85,4 +83,4 @@ class PortfolioSummary(BaseModel):
     today_holding_amount: float
     low_fund_list: List[str]
     high_fund_list: List[str]
-    fund_details: List[FundCalculator]
+    fund_details: List[FundDetail]

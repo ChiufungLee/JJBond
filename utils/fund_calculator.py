@@ -69,35 +69,37 @@ class FundCalculator:
             return None
 
     async def _get_common_fund_info(self, fund_code: str) -> Optional[Dict]:
-        """获取普通基金信息（异步）"""
+        """获取普通基金信息（异步，复用 ClientSession 重试）"""
         url = f"http://fundgz.1234567.com.cn/js/{fund_code}.js"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Connection': 'close'
         }
-        for i in range(3):  # 重试3次
-            try:
-                async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:
+            for i in range(3):
+                try:
                     async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                         resp.raise_for_status()
                         text = await resp.text()
                         matched = re.findall(r'^jsonpgz\((.*)\)', text)
                         if matched:
                             return json.loads(matched[0])
-            except Exception as e:
-                logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
+                except Exception as e:
+                    logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
+                    if i < 2:
+                        await asyncio.sleep(1)
         return None
 
     async def _get_lof_fund_info(self, fund_code: str) -> Optional[Dict]:
-        """获取LOF基金信息（异步）"""
+        """获取LOF基金信息（异步，复用 ClientSession 重试）"""
         url = f'http://fund.eastmoney.com/{fund_code}.html'
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Connection': 'close'
         }
-        for i in range(3):  # 重试3次
-            try:
-                async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession() as session:
+            for i in range(3):
+                try:
                     async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                         resp.raise_for_status()
                         body = await resp.read()
@@ -113,8 +115,10 @@ class FundCalculator:
                         date_str = date_element.getText() if date_element else "未知日期"
 
                         return {'name': name, 'value': value, 'data': date_str}
-            except Exception as e:
-                logger.warning(f"获取LOF基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
+                except Exception as e:
+                    logger.warning(f"获取LOF基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
+                    if i < 2:
+                        await asyncio.sleep(1)
         return None
 
     async def get_change_recent_days(self, fund_code: str) -> str:

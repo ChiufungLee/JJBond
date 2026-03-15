@@ -16,21 +16,16 @@ class LoginManager {
     }
 
     checkAutoLogin() {
-        const token = localStorage.getItem('authToken');
-        const user = localStorage.getItem('currentUser');
-        const lastLogin = localStorage.getItem('last_login');
-        
-        if (token && user && lastLogin) {
-            // 检查登录是否在7天内
-            const lastLoginDate = new Date(lastLogin);
-            const now = new Date();
-            const daysDiff = (now - lastLoginDate) / (1000 * 60 * 60 * 24);
-            
-            if (daysDiff < 7) {
-                console.log('自动登录，跳转到主页面');
+        const token     = localStorage.getItem('authToken');
+        const user      = localStorage.getItem('currentUser');
+        const expiresAt = localStorage.getItem('token_expires_at');
+
+        if (token && user && expiresAt) {
+            if (new Date() < new Date(expiresAt)) {
+                // token 仍在有效期内，直接跳转主页
                 window.location.href = 'index.html';
             } else {
-                console.log('登录已过期，需要重新登录');
+                // token 已过期，清除并留在登录页
                 this.clearAuth();
             }
         }
@@ -118,9 +113,11 @@ class LoginManager {
             // 保存token和用户信息
             localStorage.setItem('authToken', data.access_token);
             localStorage.setItem('currentUser', JSON.stringify({ username }));
-            
-            // 保存登录时间
-            localStorage.setItem('last_login', new Date().toISOString());
+
+            // 保存登录时间和 token 过期时间（与后端 ACCESS_TOKEN_EXPIRE_MINUTES=30 保持一致）
+            const now = new Date();
+            localStorage.setItem('last_login', now.toISOString());
+            localStorage.setItem('token_expires_at', new Date(now.getTime() + 30 * 60 * 1000).toISOString());
             
             // 保存登录凭据（如果选择了记住密码）
             if (rememberMe) {
@@ -195,6 +192,7 @@ class LoginManager {
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         localStorage.removeItem('last_login');
+        localStorage.removeItem('token_expires_at');
     }
 }
 

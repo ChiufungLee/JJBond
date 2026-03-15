@@ -5,7 +5,6 @@ from core.database import get_db
 from schemas.user import User
 from crud.user import get_user_by_username
 from core.dependencies import get_current_user
-from schemas.user import User
 
 router = APIRouter(prefix="/users", tags=["用户"])
 

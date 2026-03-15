@@ -29,28 +29,23 @@ class FundManagerApp {
     }
 
     checkAuthStatus() {
-        // 检查token是否存在
-        const token = localStorage.getItem('authToken');
-        const user = localStorage.getItem('currentUser');
-        const lastLogin = localStorage.getItem('last_login');
-        
-        if (token && user && lastLogin) {
-            // 检查登录是否在7天内
-            const lastLoginDate = new Date(lastLogin);
-            const now = new Date();
-            const daysDiff = (now - lastLoginDate) / (1000 * 60 * 60 * 24);
-            
-            if (daysDiff < 7) {
+        const token      = localStorage.getItem('authToken');
+        const user       = localStorage.getItem('currentUser');
+        const expiresAt  = localStorage.getItem('token_expires_at');
+
+        if (token && user && expiresAt) {
+            // 校验 token 是否在有效期内（与后端 ACCESS_TOKEN_EXPIRE_MINUTES=30 一致）
+            if (new Date() < new Date(expiresAt)) {
                 this.token = token;
                 this.currentUser = JSON.parse(user);
                 this.isAuthenticated = true;
                 return;
             } else {
-                console.log('登录已过期');
+                // token 已过期，清除本地存储
                 this.clearAuth();
             }
         }
-        
+
         this.isAuthenticated = false;
     }
 
@@ -175,7 +170,6 @@ class FundManagerApp {
     }
 
     showUnauthenticatedUI() {
-        console.log('显示未登录界面');
         
         // 显示未登录界面，隐藏已登录界面
         const loggedOutSection = document.getElementById('loggedOutSection');
@@ -196,26 +190,7 @@ class FundManagerApp {
         if (userInfo) userInfo.classList.add('hidden');
         if (logoutBtn) logoutBtn.classList.add('hidden');
         
-        // 绑定重定向按钮事件
-        this.bindRedirectEvents();
-    }
 
-    bindRedirectEvents() {
-        // 登录跳转按钮
-        const loginRedirectBtn = document.getElementById('loginRedirectBtn');
-        const registerRedirectBtn = document.getElementById('registerRedirectBtn');
-        
-        if (loginRedirectBtn) {
-            loginRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'login.html';
-            });
-        }
-        
-        if (registerRedirectBtn) {
-            registerRedirectBtn.addEventListener('click', () => {
-                window.location.href = 'register';
-            });
-        }
     }
 
     // 显示基金列表
@@ -235,13 +210,18 @@ class FundManagerApp {
     showPortfolioView() {
         const portfolioPage = document.getElementById('portfolioPage');
         const fundsListPage = document.getElementById('fundsListPage');
-        
+
         if (fundsListPage) fundsListPage.style.display = 'none';
         if (portfolioPage) portfolioPage.style.display = 'block';
-        
+
         this.setButtonVisibilityForPortfolio();
 
-        this.calculatePortfolio();
+        // 已有缓存数据则直接渲染，无需重新请求
+        if (this.currentPortfolioSummary) {
+            this.displayPortfolioSummary(this.currentPortfolioSummary);
+        } else {
+            this.calculatePortfolio();
+        }
     }
 
     async makeRequest(url, options = {}) {
@@ -668,8 +648,6 @@ class FundManagerApp {
     }
 
     showFundTrendModal(fundCode, fundName) {
-        console.log('正在显示趋势图，基金代码:', fundCode, '基金名称:', fundName);
-        console.log('当前组合数据:', this.currentPortfolioSummary);
         
         // 从当前数据中查找基金
         if (!this.currentPortfolioSummary || !this.currentPortfolioSummary.fund_details) {
@@ -679,7 +657,6 @@ class FundManagerApp {
         
         const fund = this.currentPortfolioSummary.fund_details.find(f => f.fund_code === fundCode);
         
-        console.log('找到的基金数据:', fund);
         
         if (!fund) {
             this.showMessage(`未找到基金 ${fundCode} 的数据`, 'error');
@@ -692,7 +669,6 @@ class FundManagerApp {
         }
 
         const recentChanges = fund.recent_changes;
-        console.log('趋势数据:', recentChanges);
         
         // 准备图表数据 - 注意：数据已经按日期从新到旧排列，我们需要反转顺序
         const dates = recentChanges.map(item => item.date);
@@ -884,7 +860,6 @@ class FundManagerApp {
                     }
                 }
             });
-            console.log('图表渲染成功');
         } catch (error) {
             console.error('图表渲染失败:', error);
             const chartContainer = document.querySelector('.trend-chart-container');
@@ -906,6 +881,7 @@ class FundManagerApp {
         localStorage.removeItem('authToken');
         localStorage.removeItem('currentUser');
         localStorage.removeItem('last_login');
+        localStorage.removeItem('token_expires_at');
         this.token = null;
         this.currentUser = null;
         this.isAuthenticated = false;
@@ -1019,7 +995,6 @@ class FundManagerApp {
         
         if (!searchResults) return;
         
-        console.log(`搜索基金: "${keyword}"`);
         
         try {
             searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
@@ -1037,7 +1012,6 @@ class FundManagerApp {
             
             if (response.ok) {
                 const data = await response.json();
-                console.log(`搜索成功，找到 ${data.length} 个结果`);
                 this.displaySearchResults(data);
             } else {
                 searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
@@ -1277,6 +1251,5 @@ class FundManagerApp {
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('页面加载完成，初始化应用...');
     window.app = new FundManagerApp();
 });
