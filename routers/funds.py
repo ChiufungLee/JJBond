@@ -55,7 +55,7 @@ async def calculate_portfolio(
     funds_data = [
         {
             'fund_code': fund.fund_code,
-            'fund_name': fund.fund_name or fund.fund_code,  # 降级时用代码代替名称
+            'fund_name': fund.fund_name or fund.fund_code,
             'cost_price': fund.cost_price,
             'shares': fund.shares,
         }
@@ -87,7 +87,7 @@ async def search_fund(
                     if api_funds:
                         funds = api_funds[:limit]
                 except Exception:
-                    pass  # API 失败时保留本地结果
+                    pass
 
         logger.info(f"搜索成功，返回 {len(funds)} 个结果")
         return funds
@@ -120,7 +120,7 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
 @router.put("/{fund_id}", response_model=schemas.Fund)
 def update_fund(
     fund_id: int,
-    fund_update: schemas.FundCreate,
+    fund_update: schemas.FundUpdate,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):

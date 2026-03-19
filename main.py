@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.database import SessionLocal, engine
 from models import base as models
 from core.config import settings
-from routers import auth, user, funds
+from routers import auth, user, funds, watchlist
 from utils.fund_data_manager import init_fund_lib
 
 
@@ -49,7 +49,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
 app.include_router(funds.router, prefix="/api")
-
+app.include_router(watchlist.router, prefix="/api")
 
 @app.get("/")
 async def root():

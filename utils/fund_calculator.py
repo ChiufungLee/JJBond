@@ -13,11 +13,20 @@ logger = logging.getLogger(__name__)
 
 class FundCalculator:
     """基金计算器类，封装所有基金计算功能"""
-    
+
     def __init__(self):
         # 日期相关
         self.yesterday = str(date.today() + timedelta(days=-1))
         self.six_days_ago = str(date.today() + timedelta(days=-11))
+
+    def _reset_state(self):
+        """重置累计状态"""
+        self.total_revenue = 0
+        self.full_today_revenue = 0
+        self.yesterday_holding_income = 0
+        self.full_cost = 0
+        self.full_today_holding_amount = 0
+        self.yesterday_holding_amount = 0
 
     def _cache_get(self, key: str) -> Optional[str]:
         """从 Redis 读取缓存，Redis 不可用时返回 None"""

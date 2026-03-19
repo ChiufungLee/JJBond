@@ -42,10 +42,13 @@
                         <p class="page-subtitle">管理您的基金投资</p>
                     </div>
                     <div class="page-actions">
+                        <button id="viewWatchlistBtn" class="btn btn-outline">自选基金</button>
                         <button id="viewFundsBtn" class="btn btn-outline">基金列表</button>
                         <button id="refreshPortfolioBtn" class="btn btn-outline">刷新收益</button>
                         <button id="addFundBtn" class="btn btn-primary">添加基金</button>
                         <button id="backToPortfolioBtn" class="btn btn-outline" onclick="app.showPortfolioView()">返回概览</button>
+                        <button id="addToWatchlistBtn" class="btn btn-primary" onclick="app.showAddWatchlistModal()">添加自选</button>
+                        <button id="backToPortfolioFromWatchlistBtn" class="btn btn-outline" onclick="app.showPortfolioView()">返回概览</button>
                     </div>
                 </div>
                 
@@ -60,10 +63,17 @@
                 <div id="fundsListPage" class="funds-list-page" style="display: none;">
                     <!-- <div class="page-subheader">
                         <h3>基金列表</h3>
-                        
+
                     </div> -->
                     <div class="funds-list" id="fundsList">
                         <!-- 基金列表将在这里动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 自选基金页面 -->
+                <div id="watchlistPage" class="watchlist-page" style="display: none;">
+                    <div id="watchlistContainer">
+                        <!-- 自选基金列表将在这里动态生成 -->
                     </div>
                 </div>
             </div>

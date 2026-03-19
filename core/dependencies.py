@@ -17,13 +17,12 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
     username = verify_token(token)
     if username is None:
         raise credentials_exception
-    
+
     user = get_user_by_username(db, username=username)
     if user is None:
         raise credentials_exception
-    
+
     return user

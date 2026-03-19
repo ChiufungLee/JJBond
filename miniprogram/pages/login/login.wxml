@@ -1,0 +1,50 @@
+<!--pages/login/login.wxml-->
+<view class="login-container">
+  <view class="login-header">
+    <view class="logo">📊</view>
+    <text class="title">基金管理</text>
+    <text class="subtitle">您的投资组合管家</text>
+  </view>
+
+  <view class="login-form">
+    <view class="form-item">
+      <view class="input-wrapper">
+        <text class="input-icon">👤</text>
+        <input
+          class="input"
+          type="text"
+          placeholder="请输入用户名"
+          value="{{username}}"
+          bindinput="onUsernameInput"
+        />
+      </view>
+    </view>
+
+    <view class="form-item">
+      <view class="input-wrapper">
+        <text class="input-icon">🔒</text>
+        <input
+          class="input"
+          type="password"
+          placeholder="请输入密码"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+        />
+      </view>
+    </view>
+
+    <button
+      class="btn-login"
+      bindtap="handleLogin"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      登录
+    </button>
+
+    <view class="register-link">
+      <text>还没有账号？</text>
+      <text class="link" bindtap="goToRegister">立即注册</text>
+    </view>
+  </view>
+</view>

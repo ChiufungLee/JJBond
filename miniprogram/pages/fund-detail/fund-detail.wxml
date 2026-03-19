@@ -1,0 +1,122 @@
+<!--pages/fund-detail/fund-detail.wxml-->
+<view class="detail-container">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <block wx:elif="{{fundInfo}}">
+    <!-- 基金基本信息 -->
+    <view class="info-card">
+      <view class="fund-header">
+        <view class="fund-title">
+          <text class="fund-name">{{fundInfo.fund_name}}</text>
+          <text class="fund-code">{{fundInfo.fund_code}}</text>
+        </view>
+        <view class="fund-rate {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">
+          {{fundInfo.change_rate}}
+        </view>
+      </view>
+
+      <view class="fund-main">
+        <view class="revenue-section">
+          <view class="revenue-label">累计收益</view>
+          <view class="revenue-value {{fundInfo.total_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.total_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : fundInfo.total_revenue_formatted}}</view>
+        </view>
+
+        <view class="divider"></view>
+
+        <view class="revenue-section">
+          <view class="revenue-label">今日收益</view>
+          <view class="revenue-value {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">
+            <text>{{fundInfo.today_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : fundInfo.today_revenue_formatted}}</text>
+            <view class="eye-icon" bindtap="toggleHideAmount">
+              <view class="eye-shape">
+                <view class="eye-pupil"></view>
+              </view>
+              <view class="eye-slash" wx:if="{{hideAmount}}"></view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 持仓信息 -->
+    <view class="section">
+      <view class="section-title">持仓信息</view>
+      <view class="info-list">
+        <view class="info-item">
+          <text class="info-label">购买金额</text>
+          <text class="info-value">{{hideAmount ? '****' : fundInfo.cost_formatted}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">持有份额</text>
+          <text class="info-value">{{hideAmount ? '****' : fundInfo.shares}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">持仓成本</text>
+          <text class="info-value">{{hideAmount ? '****' : fundInfo.cost_price}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">今日估值</text>
+          <text class="info-value {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.today_value}} {{fundInfo.today_revenue >= 0 ? '↑' : '↓'}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">累计收益</text>
+          <text class="info-value {{fundInfo.total_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.total_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : fundInfo.total_revenue_formatted}}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">收益率</text>
+          <text class="info-value {{fundInfo.profit_loss_ratio >= 0 ? 'up' : 'down'}}">{{fundInfo.profit_loss_ratio_formatted}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 净值走势图 -->
+    <view class="section">
+      <view class="section-title">近期净值走势</view>
+      <view class="chart-info">
+        <text class="cost-price-label">-- 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
+        <text class="{{tooltip.show ? 'info-highlight' : ''}}">— 净值: {{tooltip.value}} ({{tooltip.date}})</text>
+      </view>
+      <view class="chart-container">
+        <view class="chart-wrapper">
+          <canvas type="2d" id="fundChart" class="fund-chart"></canvas>
+          <!-- 触摸层 -->
+          <view class="chart-overlay" catchtouchstart="handleChartTouchStart" catchtouchmove="handleChartTouchMove" catchtouchend="handleChartTouchEnd"></view>
+        </view>
+        <!-- 十字光标 -->
+        <view class="crosshair-layer" wx:if="{{tooltip.show}}">
+          <view class="crosshair-x" style="left: {{tooltip.x}}px;"></view>
+          <view class="crosshair-y" style="top: {{tooltip.y}}px;"></view>
+          <view class="crosshair-dot" style="left: {{tooltip.x}}px; top: {{tooltip.y}}px;"></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 近期变化 -->
+    <view class="section" wx:if="{{fundInfo.recent_changes && fundInfo.recent_changes.length > 0}}">
+      <view class="section-title">近期净值</view>
+      <view class="change-list">
+        <!-- 表头 -->
+        <view class="change-header">
+          <text class="change-header-item">日期</text>
+          <text class="change-header-item">净值</text>
+          <text class="change-header-item">涨幅</text>
+        </view>
+        <!-- 数据行 -->
+        <view class="change-item" wx:for="{{fundInfo.recent_changes}}" wx:key="date">
+          <text class="change-date">{{item.date}}</text>
+          <text class="change-value">{{item.unit_nav}}</text>
+          <text class="change-rate {{item.daily_growth_value >= 0 ? 'up' : 'down'}}">{{item.daily_growth}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 空状态 -->
+  <view wx:else class="empty-state">
+    <text class="empty-icon">📊</text>
+    <text class="empty-text">暂无数据</text>
+  </view>
+</view>

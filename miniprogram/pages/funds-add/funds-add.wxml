@@ -1,0 +1,87 @@
+<!--pages/funds-add/funds-add.wxml-->
+<view class="add-container">
+  <!-- 搜索区域 -->
+  <view class="search-section">
+    <view class="section-title">搜索基金</view>
+
+    <!-- 已选中基金 -->
+    <view wx:if="{{selectedFund}}" class="selected-fund">
+      <view class="selected-info">
+        <text class="selected-name">{{selectedFund.fund_name}}</text>
+        <text class="selected-code">{{selectedFund.fund_code}}</text>
+      </view>
+      <text class="clear-btn" bindtap="clearSelected">✕</text>
+    </view>
+
+    <!-- 搜索输入框 -->
+    <view wx:else class="search-box">
+      <input
+        class="search-input"
+        type="text"
+        placeholder="输入基金代码或名称搜索"
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+      />
+    </view>
+
+    <!-- 搜索结果 -->
+    <view wx:if="{{searchResults.length > 0}}" class="search-results">
+      <view
+        class="result-item"
+        wx:for="{{searchResults}}"
+        wx:key="fund_code"
+        bindtap="selectFund"
+        data-code="{{item.fund_code}}"
+        data-name="{{item.fund_name}}"
+      >
+        <view class="result-info">
+          <text class="result-name">{{item.fund_name}}</text>
+          <text class="result-code">{{item.fund_code}}</text>
+        </view>
+        <text class="result-type">{{item.fund_type || '其他'}}</text>
+      </view>
+    </view>
+
+    <!-- 搜索中状态 -->
+    <view wx:if="{{searching}}" class="searching">
+      <text>搜索中...</text>
+    </view>
+  </view>
+
+  <!-- 持仓信息 -->
+  <view wx:if="{{selectedFund}}" class="form-section">
+    <view class="section-title">持仓信息</view>
+
+    <view class="form-item">
+      <text class="form-label">成本价</text>
+      <input
+        class="form-input"
+        type="digit"
+        placeholder="请输入成本价"
+        value="{{cost_price}}"
+        bindinput="onCostPriceInput"
+      />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">持有份额</text>
+      <input
+        class="form-input"
+        type="digit"
+        placeholder="请输入持有份额"
+        value="{{shares}}"
+        bindinput="onSharesInput"
+      />
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-section" wx:if="{{selectedFund}}">
+    <button
+      class="submit-btn"
+      bindtap="handleSubmit"
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+    >确认添加</button>
+  </view>
+</view>

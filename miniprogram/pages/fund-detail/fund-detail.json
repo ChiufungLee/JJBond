@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "基金详情",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "usingComponents": {}
+}

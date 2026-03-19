@@ -1,0 +1,88 @@
+/* components/fund-card/fund-card.wxss */
+.fund-card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.fund-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
+}
+
+.fund-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.fund-name {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fund-code {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.fund-rate {
+  font-size: 28rpx;
+  font-weight: 600;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  margin-left: 16rpx;
+}
+
+.fund-body {
+  display: flex;
+  justify-content: space-between;
+}
+
+.fund-item {
+  text-align: center;
+  flex: 1;
+}
+
+.fund-item .label {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.fund-item .value {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+/* 涨跌颜色 */
+.up {
+  color: #ff4d4f;
+}
+
+.down {
+  color: #52c41a;
+}
+
+.fund-rate.up {
+  background-color: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+}
+
+.fund-rate.down {
+  background-color: rgba(82, 196, 26, 0.1);
+  color: #52c41a;
+}

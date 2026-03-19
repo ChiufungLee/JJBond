@@ -41,6 +41,33 @@ class FundBase(BaseModel):
 class FundCreate(FundBase):
     fund_name: str
 
+class FundUpdate(BaseModel):
+    """基金更新模型 - 只更新可修改的字段"""
+    cost_price: float
+    shares: float
+
+
+# 自选基金相关
+class WatchlistCreate(BaseModel):
+    """添加自选基金"""
+    fund_code: str
+    fund_name: str
+
+class WatchlistItem(BaseModel):
+    """自选基金项"""
+    id: int
+    fund_code: str
+    fund_name: Optional[str] = None
+    cost_nav: float  # 添加时的净值
+    added_at: datetime
+    is_holding: bool = False  # 是否已持有
+    current_nav: Optional[float] = None  # 当前净值
+    change_rate: Optional[str] = None  # 今日涨跌幅
+    total_change_rate: Optional[float] = None  # 加入自选以来涨跌幅(%)
+
+    class Config:
+        from_attributes = True
+
 class FundSearchResult(BaseModel):
     """基金搜索结果模型"""
     fund_code: str

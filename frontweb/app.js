@@ -56,17 +56,20 @@ class FundManagerApp {
         document.getElementById('viewFundsBtn').addEventListener('click', () => this.showFundsList());
         document.getElementById('refreshPortfolioBtn').addEventListener('click', () => this.refreshPortfolioWithMessage());
         document.getElementById('backToPortfolioBtn').addEventListener('click', () => this.showPortfolioView());
+        document.getElementById('viewWatchlistBtn').addEventListener('click', () => this.showWatchlistPage());
+        document.getElementById('addToWatchlistBtn').addEventListener('click', () => this.showAddWatchlistModal());
+        document.getElementById('backToPortfolioFromWatchlistBtn').addEventListener('click', () => this.showPortfolioView());
 
         // 如果有登录/注册重定向按钮（在未登录状态显示）
         const loginRedirectBtn = document.getElementById('loginRedirectBtn');
         const registerRedirectBtn = document.getElementById('registerRedirectBtn');
-        
+
         if (loginRedirectBtn) {
             loginRedirectBtn.addEventListener('click', () => {
                 window.location.href = 'login.html';
             });
         }
-        
+
         if (registerRedirectBtn) {
             registerRedirectBtn.addEventListener('click', () => {
                 window.location.href = 'register.html';
@@ -116,30 +119,64 @@ class FundManagerApp {
         const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
         const addFundBtn = document.getElementById('addFundBtn');
         const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
-        
-        // 显示：基金列表、刷新收益、添加基金
+        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
+        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
+        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
+
+        // 显示：基金列表、刷新收益、添加基金、自选基金
         if (viewFundsBtn) viewFundsBtn.style.display = 'inline-block';
         if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'inline-block';
         if (addFundBtn) addFundBtn.style.display = 'inline-block';
-        
-        // 隐藏：返回概览
+        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'inline-block';
+
+        // 隐藏：返回概览、添加自选
         if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'none';
+        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'none';
+        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'none';
     }
-    
+
     // 设置基金列表页面按钮状态
     setButtonVisibilityForFundsList() {
         const viewFundsBtn = document.getElementById('viewFundsBtn');
         const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
         const addFundBtn = document.getElementById('addFundBtn');
         const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
-        
-        // 隐藏：基金列表、刷新收益
+        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
+        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
+        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
+
+        // 隐藏：基金列表、刷新收益、自选基金
         if (viewFundsBtn) viewFundsBtn.style.display = 'none';
         if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'none';
-        
+        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'none';
+        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'none';
+        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'none';
+
         // 显示：添加基金、返回概览
         if (addFundBtn) addFundBtn.style.display = 'inline-block';
         if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'inline-block';
+    }
+
+    // 设置自选基金页面按钮状态
+    setButtonVisibilityForWatchlist() {
+        const viewFundsBtn = document.getElementById('viewFundsBtn');
+        const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
+        const addFundBtn = document.getElementById('addFundBtn');
+        const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
+        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
+        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
+        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
+
+        // 隐藏：基金列表、刷新收益、添加基金、自选基金、返回概览(持仓)
+        if (viewFundsBtn) viewFundsBtn.style.display = 'none';
+        if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'none';
+        if (addFundBtn) addFundBtn.style.display = 'none';
+        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'none';
+        if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'none';
+
+        // 显示：添加自选、返回概览(自选)
+        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'inline-block';
+        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'inline-block';
     }
 
     showAuthenticatedUI() {
@@ -210,8 +247,10 @@ class FundManagerApp {
     showPortfolioView() {
         const portfolioPage = document.getElementById('portfolioPage');
         const fundsListPage = document.getElementById('fundsListPage');
+        const watchlistPage = document.getElementById('watchlistPage');
 
         if (fundsListPage) fundsListPage.style.display = 'none';
+        if (watchlistPage) watchlistPage.style.display = 'none';
         if (portfolioPage) portfolioPage.style.display = 'block';
 
         this.setButtonVisibilityForPortfolio();
@@ -222,6 +261,319 @@ class FundManagerApp {
         } else {
             this.calculatePortfolio();
         }
+    }
+
+    // 显示自选基金页面
+    showWatchlistPage() {
+        const portfolioPage = document.getElementById('portfolioPage');
+        const fundsListPage = document.getElementById('fundsListPage');
+        const watchlistPage = document.getElementById('watchlistPage');
+
+        if (portfolioPage) portfolioPage.style.display = 'none';
+        if (fundsListPage) fundsListPage.style.display = 'none';
+        if (watchlistPage) watchlistPage.style.display = 'block';
+
+        this.setButtonVisibilityForWatchlist();
+        this.loadWatchlist();
+    }
+
+    // 加载自选基金列表
+    async loadWatchlist() {
+        const container = document.getElementById('watchlistContainer');
+        if (!container) return;
+
+        container.innerHTML = '<div class="loading-state"><text>加载中...</text></div>';
+
+        try {
+            const watchlist = await this.makeRequest('/watchlist/');
+            this.displayWatchlist(watchlist);
+        } catch (error) {
+            console.error('加载自选失败:', error);
+            container.innerHTML = '<div class="no-data">加载自选基金失败，请稍后重试</div>';
+        }
+    }
+
+    // 显示自选基金列表
+    displayWatchlist(watchlist) {
+        const container = document.getElementById('watchlistContainer');
+        if (!container) return;
+
+        if (!watchlist || watchlist.length === 0) {
+            container.innerHTML = `
+                <div class="no-funds">
+                    <p>暂无自选基金</p>
+                    <p class="no-funds-hint">点击"添加自选"开始关注您感兴趣的基金</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="watchlist-summary">
+                <h3>我的自选 (共 ${watchlist.length} 只)</h3>
+            </div>
+            <div class="watchlist-table-container">
+                <table class="funds-table">
+                    <thead>
+                        <tr>
+                            <th>基金代码</th>
+                            <th>基金名称</th>
+                            <th>状态</th>
+                            <th>加入时间</th>
+                            <th>加入时净值</th>
+                            <th>当前净值</th>
+                            <th>今日涨跌</th>
+                            <th>自选涨幅</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${watchlist.map(item => {
+                            const isHolding = item.is_holding;
+                            const addedAt = new Date(item.added_at).toLocaleDateString();
+                            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
+                            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
+                            const totalChangeDisplay = item.total_change_rate !== null ?
+                                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
+
+                            return `
+                                <tr>
+                                    <td class="fund-code">${item.fund_code}</td>
+                                    <td class="fund-name">${item.fund_name || '-'}</td>
+                                    <td>${isHolding ? '<span class="holding-tag">已持有</span>' : '<span class="not-holding-tag">未持有</span>'}</td>
+                                    <td>${addedAt}</td>
+                                    <td>${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</td>
+                                    <td>${item.current_nav ? item.current_nav.toFixed(4) : '-'}</td>
+                                    <td class="${changeRateClass}">${item.change_rate || '--'}</td>
+                                    <td class="${totalChangeClass}">${totalChangeDisplay}</td>
+                                    <td class="action-cell">
+                                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${(item.fund_name || '').replace(/'/g, "\\'")}')">买入</button>` : ''}
+                                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${(item.fund_name || '').replace(/'/g, "\\'")}')">移除</button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    // 显示添加自选模态框
+    showAddWatchlistModal() {
+        const modalHTML = `
+            <div class="modal show">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>添加自选基金</h3>
+                        <button class="close-btn" onclick="app.closeModal()">&times;</button>
+                    </div>
+                    <form id="addWatchlistForm">
+                        <div class="form-group">
+                            <label for="watchlistFundSearch">选择基金 <span class="red">*</span></label>
+                            <div class="search-container">
+                                <input type="text"
+                                       id="watchlistFundSearch"
+                                       name="fund_search"
+                                       required
+                                       placeholder="输入基金名称或代码搜索..."
+                                       autocomplete="off">
+                                <div id="watchlistSearchResults" class="search-results"></div>
+                            </div>
+                            <input type="hidden" id="watchlistFundCode" name="fund_code">
+                            <input type="hidden" id="watchlistFundName" name="fund_name">
+                            <small class="form-text">添加后将自动记录当前净值，方便后续跟踪涨跌幅</small>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="app.closeModal()">取消</button>
+                            <button type="submit" class="btn btn-primary">添加</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        this.showModal(modalHTML);
+        this.initWatchlistFundSearch();
+
+        const form = document.getElementById('addWatchlistForm');
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const fundCode = document.getElementById('watchlistFundCode').value;
+                const fundName = document.getElementById('watchlistFundName').value;
+
+                if (!fundCode) {
+                    this.showMessage('请先选择基金', 'error');
+                    return;
+                }
+
+                await this.addToWatchlist(fundCode, fundName);
+            });
+        }
+    }
+
+    // 初始化自选基金搜索
+    initWatchlistFundSearch() {
+        const searchInput = document.getElementById('watchlistFundSearch');
+        const searchResults = document.getElementById('watchlistSearchResults');
+
+        if (!searchInput || !searchResults) return;
+
+        let searchTimeout;
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const keyword = e.target.value.trim();
+
+            if (keyword.length < 2) {
+                searchResults.innerHTML = '';
+                searchResults.classList.remove('show');
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                await this.searchFundsForWatchlist(keyword);
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (searchResults && searchInput &&
+                !searchResults.contains(e.target) && e.target !== searchInput) {
+                searchResults.classList.remove('show');
+            }
+        });
+    }
+
+    // 搜索自选基金
+    async searchFundsForWatchlist(keyword) {
+        const searchResults = document.getElementById('watchlistSearchResults');
+        if (!searchResults) return;
+
+        try {
+            searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
+            searchResults.classList.add('show');
+
+            const url = `/api/funds/search?q=${encodeURIComponent(keyword)}&limit=10`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.displayWatchlistSearchResults(data);
+            } else {
+                searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
+            }
+        } catch (error) {
+            console.error('搜索异常:', error);
+            searchResults.innerHTML = '<div class="search-error">搜索失败</div>';
+        }
+    }
+
+    // 显示自选搜索结果
+    displayWatchlistSearchResults(funds) {
+        const searchResults = document.getElementById('watchlistSearchResults');
+        const searchInput = document.getElementById('watchlistFundSearch');
+
+        if (!searchResults || !searchInput) return;
+
+        if (!funds || funds.length === 0) {
+            searchResults.innerHTML = '<div class="search-empty">未找到相关基金</div>';
+            return;
+        }
+
+        let resultsHTML = '';
+        funds.forEach(fund => {
+            resultsHTML += `
+                <div class="search-item"
+                     data-code="${fund.fund_code}"
+                     data-name="${fund.fund_name}">
+                    <div class="fund-name">${fund.fund_name}</div>
+                    <div class="fund-code">${fund.fund_code}</div>
+                </div>
+            `;
+        });
+
+        searchResults.innerHTML = resultsHTML;
+        searchResults.classList.add('show');
+
+        const items = searchResults.querySelectorAll('.search-item');
+        items.forEach(item => {
+            item.addEventListener('click', () => {
+                const codeInput = document.getElementById('watchlistFundCode');
+                const nameInput = document.getElementById('watchlistFundName');
+                if (codeInput) codeInput.value = item.dataset.code;
+                if (nameInput) nameInput.value = item.dataset.name;
+                searchInput.value = item.dataset.name;
+                searchResults.classList.remove('show');
+                this.showMessage(`已选择: ${item.dataset.name} (${item.dataset.code})`, 'info');
+            });
+        });
+    }
+
+    // 添加到自选
+    async addToWatchlist(fundCode, fundName) {
+        try {
+            await this.makeRequest('/watchlist/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    fund_code: fundCode,
+                    fund_name: fundName
+                })
+            });
+
+            this.showMessage('已添加到自选！', 'success');
+            this.closeModal();
+            this.loadWatchlist();
+        } catch (error) {
+            console.error('添加自选失败:', error);
+        }
+    }
+
+    // 从自选移除
+    async removeFromWatchlist(watchlistId, fundName) {
+        if (!confirm(`确定要将 ${fundName} 从自选中移除吗？`)) {
+            return;
+        }
+
+        try {
+            await this.makeRequest(`/watchlist/${watchlistId}`, {
+                method: 'DELETE'
+            });
+
+            this.showMessage('已从自选移除！', 'success');
+            this.loadWatchlist();
+        } catch (error) {
+            console.error('移除自选失败:', error);
+        }
+    }
+
+    // 从自选买入（跳转到添加基金）
+    buyFundFromWatchlist(fundCode, fundName) {
+        this.showPortfolioView();
+        this.showAddFundModal();
+
+        // 延迟设置基金信息
+        setTimeout(() => {
+            const searchInput = document.getElementById('fundSearch');
+            const codeInput = document.getElementById('fundCode');
+            const nameInput = document.getElementById('fundName');
+
+            if (searchInput) searchInput.value = fundName;
+            if (codeInput) codeInput.value = fundCode;
+            if (nameInput) nameInput.value = fundName;
+
+            this.selectedFund = {
+                fund_code: fundCode,
+                fund_name: fundName
+            };
+        }, 100);
     }
 
     async makeRequest(url, options = {}) {

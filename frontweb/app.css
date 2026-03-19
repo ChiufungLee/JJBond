@@ -1092,3 +1092,107 @@ body {
 .smc-greeting .smc-value {
     font-size: 15px;
 }
+
+/* 自选基金页面样式 */
+.watchlist-page {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.watchlist-summary {
+    margin-bottom: 20px;
+}
+
+.watchlist-summary h3 {
+    margin: 0;
+    color: #2d3748;
+    font-size: 18px;
+}
+
+.watchlist-table-container {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow-x: auto;
+}
+
+.funds-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.funds-table th,
+.funds-table td {
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.funds-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #4a5568;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.funds-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.funds-table .fund-code {
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.funds-table .fund-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.action-cell {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+.action-cell .btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* 持有状态标签 */
+.holding-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: #e6f7ff;
+    color: #1890ff;
+}
+
+.not-holding-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: #f5f5f5;
+    color: #999;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+    .watchlist-table-container {
+        overflow-x: scroll;
+    }
+
+    .funds-table {
+        min-width: 900px;
+    }
+}

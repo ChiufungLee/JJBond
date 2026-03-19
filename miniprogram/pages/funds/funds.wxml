@@ -1,0 +1,49 @@
+<!--pages/funds/funds.wxml-->
+<view class="funds-container">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{funds.length === 0}}" class="empty-state">
+    <text class="empty-icon">📊</text>
+    <text class="empty-text">暂无持仓基金</text>
+    <button class="btn-add" bindtap="goToAddFund">添加基金</button>
+  </view>
+
+  <!-- 基金列表 -->
+  <view wx:else class="fund-list">
+    <view class="fund-item" wx:for="{{funds}}" wx:key="id">
+      <view class="fund-main" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+        <view class="fund-info">
+          <text class="fund-name">{{item.fund_name}}</text>
+          <text class="fund-code">{{item.fund_code}}</text>
+        </view>
+        <view class="fund-data">
+          <view class="fund-row">
+            <text class="label">持仓成本</text>
+            <text class="value">{{item.cost_formatted}}</text>
+          </view>
+          <view class="fund-row">
+            <text class="label">成本价</text>
+            <text class="value">{{item.cost_price_formatted}}</text>
+          </view>
+          <view class="fund-row">
+            <text class="label">份额</text>
+            <text class="value">{{item.shares_formatted}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="fund-actions">
+        <button class="btn-edit" catchtap="goToEditFund" data-id="{{item.id}}">编辑</button>
+        <button class="btn-delete" catchtap="deleteFund" data-id="{{item.id}}" data-name="{{item.fund_name}}">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn-wrapper" wx:if="{{!loading && funds.length > 0}}">
+    <button class="add-btn" bindtap="goToAddFund">+ 添加基金</button>
+  </view>
+</view>
