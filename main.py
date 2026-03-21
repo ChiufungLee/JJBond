@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.database import SessionLocal, engine
 from models import base as models
 from core.config import settings
-from routers import auth, user, funds, watchlist
+from core.scheduler import setup_scheduler, start_scheduler, shutdown_scheduler
+from routers import auth, user, funds, watchlist, ranking
 from utils.fund_data_manager import init_fund_lib
 
 
@@ -23,7 +24,14 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # 配置并启动定时任务调度器
+    setup_scheduler()
+    start_scheduler()
+
     yield  # 应用正常运行阶段
+
+    # 应用关闭时关闭调度器
+    shutdown_scheduler()
 
 
 # 创建FastAPI应用
@@ -50,6 +58,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
 app.include_router(funds.router, prefix="/api")
 app.include_router(watchlist.router, prefix="/api")
+app.include_router(ranking.router)
 
 @app.get("/")
 async def root():

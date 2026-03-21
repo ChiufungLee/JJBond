@@ -46,7 +46,7 @@
   margin-bottom: 8rpx;
 }
 
-.user-id {
+.user-days {
   display: block;
   font-size: 24rpx;
   opacity: 0.8;
@@ -87,6 +87,24 @@
   color: #52c41a;
 }
 
+/* 重置 button 默认样式 */
+button {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  line-height: normal !important;
+  text-align: left !important;
+  font-size: inherit !important;
+  color: inherit !important;
+}
+
+button::after {
+  border: none !important;
+}
+
 /* 菜单区域 */
 .menu-section {
   margin: 24rpx;
@@ -123,7 +141,8 @@
 }
 
 .menu-icon {
-  font-size: 36rpx;
+  width: 44rpx;
+  height: 44rpx;
   margin-right: 20rpx;
 }
 
@@ -137,24 +156,18 @@
   color: #ccc;
 }
 
-/* 退出登录 */
-.logout-section {
-  margin: 40rpx 24rpx;
-}
-
-.logout-btn {
+/* 使用 open-type 的菜单按钮 */
+.menu-btn {
   width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background-color: #ffffff;
-  color: #ff4d4f;
-  font-size: 30rpx;
-  border-radius: 16rpx;
-  border: none;
 }
 
-.logout-btn::after {
-  border: none;
+.menu-btn-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 24rpx;
+  background-color: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
 }
 
 /* 版本信息 */

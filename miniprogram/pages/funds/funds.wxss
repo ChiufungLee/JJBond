@@ -52,94 +52,120 @@
   border: none;
 }
 
-/* 基金列表 */
-.fund-list {
-  margin-top: 16rpx;
-}
-
-.fund-item {
+/* 基金表格 */
+.fund-table {
   background-color: #ffffff;
   border-radius: 16rpx;
-  margin-bottom: 20rpx;
   overflow: hidden;
 }
 
-.fund-main {
-  padding: 28rpx 24rpx;
+/* 表头 */
+.table-header {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 20rpx;
+  background-color: #fafafa;
+  border-bottom: 1rpx solid #f0f0f0;
 }
 
-.fund-info {
-  margin-bottom: 20rpx;
-}
-
-.fund-name {
-  display: block;
-  font-size: 32rpx;
+.table-header text {
+  font-size: 24rpx;
+  color: #999;
   font-weight: 500;
+}
+
+/* 表格内容 */
+.table-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+/* 列宽度 */
+.col-info {
+  flex: 2.5;
+  min-width: 0;
+}
+
+.col-cost {
+  flex: 1.5;
+  text-align: right;
+}
+
+.col-price {
+  flex: 1.2;
+  text-align: right;
+}
+
+.col-shares {
+  flex: 1.5;
+  text-align: right;
+}
+
+.col-action {
+  width: 140rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 基金信息 */
+.col-info .fund-name {
+  display: block;
+  font-size: 28rpx;
   color: #333;
-  margin-bottom: 8rpx;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 4rpx;
 }
 
-.fund-code {
+.col-info .fund-code {
   display: block;
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #999;
 }
 
-.fund-data {
-  display: flex;
-  justify-content: space-between;
-}
-
-.fund-row {
-  flex: 1;
-}
-
-.fund-row .label {
-  display: block;
-  font-size: 24rpx;
-  color: #999;
-  margin-bottom: 8rpx;
-}
-
-.fund-row .value {
-  display: block;
-  font-size: 28rpx;
+/* 数值显示 */
+.col-cost text,
+.col-price text,
+.col-shares text {
+  font-size: 26rpx;
   color: #333;
-  font-weight: 500;
 }
 
-.fund-actions {
+/* 操作按钮 */
+.col-action {
   display: flex;
-  border-top: 1rpx solid #f0f0f0;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
 }
 
-.fund-actions button {
-  flex: 1;
-  height: 88rpx;
-  line-height: 88rpx;
-  font-size: 28rpx;
-  border-radius: 0;
-  border: none;
-  background: transparent;
-  margin: 0;
-  padding: 0;
+.action-btn {
+  font-size: 24rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
 }
 
-.fund-actions button::after {
-  border: none;
-}
-
-.btn-edit {
+.action-btn.edit {
   color: #722ed1;
-  border-right: 1rpx solid #f0f0f0 !important;
+  background-color: #f9f0ff;
 }
 
-.btn-delete {
+.action-btn.delete {
   color: #ff4d4f;
+  background-color: #fff1f0;
 }
 
 /* 添加按钮 */

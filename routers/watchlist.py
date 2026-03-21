@@ -14,7 +14,7 @@ router = APIRouter(prefix="/watchlist", tags=["watchlist"])
 
 
 @router.get("/", response_model=List[schemas.WatchlistItem])
-def get_watchlist(
+async def get_watchlist(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
@@ -30,7 +30,7 @@ def get_watchlist(
     result = []
 
     for item in watchlist:
-        fund_info = calculator.get_fund_info(item.fund_code)
+        fund_info = await calculator.get_fund_info(item.fund_code)
 
         watchlist_item = schemas.WatchlistItem(
             id=item.id,
@@ -64,7 +64,7 @@ def get_watchlist(
 
 
 @router.post("/", response_model=schemas.WatchlistItem)
-def add_to_watchlist(
+async def add_to_watchlist(
     watchlist_data: schemas.WatchlistCreate,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
@@ -77,7 +77,7 @@ def add_to_watchlist(
 
     # 获取当前净值
     calculator = FundCalculator()
-    fund_info = calculator.get_fund_info(watchlist_data.fund_code)
+    fund_info = await calculator.get_fund_info(watchlist_data.fund_code)
 
     if not fund_info:
         raise HTTPException(status_code=404, detail="无法获取基金信息，请检查基金代码")

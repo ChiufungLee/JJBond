@@ -1,0 +1,25 @@
+<!--pages/calendar/calendar.wxml-->
+<view class="calendar-container">
+  <!-- 标题 -->
+  <view class="calendar-header">
+    <text class="header-title">收益日历</text>
+    <text class="header-subtitle">记录每日收益变化</text>
+  </view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{calendarData.length === 0}}" class="empty-state">
+    <text class="empty-icon">📅</text>
+    <text class="empty-text">暂无收益记录</text>
+    <text class="empty-hint">添加基金后开始记录收益</text>
+  </view>
+
+  <!-- 日历内容 -->
+  <view wx:else class="calendar-content">
+    <!-- TODO: 日历组件 -->
+  </view>
+</view>

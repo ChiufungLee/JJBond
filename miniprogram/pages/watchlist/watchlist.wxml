@@ -3,7 +3,7 @@
   <!-- 搜索框 -->
   <view class="search-section">
     <view class="search-box">
-      <text class="search-icon">🔍</text>
+      <image class="search-icon" src="/icons/search.svg" mode="aspectFit"></image>
       <input
         class="search-input"
         type="text"
@@ -18,16 +18,25 @@
   <view wx:if="{{searchKeyword && searchResults.length > 0}}" class="search-results">
     <view class="result-list">
       <view class="result-item" wx:for="{{searchResults}}" wx:key="fund_code">
-        <view class="result-main">
-          <view class="result-info">
-            <text class="result-name">{{item.fund_name}}</text>
-            <text class="result-code">{{item.fund_code}}</text>
+        <!-- 基金信息 -->
+        <view class="item-info" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <view class="item-header">
+            <text class="item-name">{{item.fund_name}}</text>
+            <text class="item-type" wx:if="{{item.fund_type}}">{{item.fund_type}}</text>
           </view>
-          <text class="result-type">{{item.fund_type || '其他'}}</text>
+          <view class="item-meta">
+            <text class="item-code">{{item.fund_code}}</text>
+          </view>
         </view>
-        <view class="result-action">
-          <button class="btn-add" catchtap="addToWatchlist" data-code="{{item.fund_code}}" data-name="{{item.fund_name}}">+ 加自选</button>
-          <button class="btn-buy" catchtap="goToAddFund" data-code="{{item.fund_code}}" data-name="{{item.fund_name}}">买入</button>
+
+        <!-- 操作按钮 -->
+        <view class="item-action">
+          <view
+            class="btn-add"
+            catchtap="addToWatchlist"
+            data-code="{{item.fund_code}}"
+            data-name="{{item.fund_name}}"
+          >+</view>
         </view>
       </view>
     </view>
@@ -63,39 +72,45 @@
 
     <!-- 自选列表 -->
     <view wx:else class="watchlist-list">
-      <view class="watchlist-item" wx:for="{{watchlist}}" wx:key="id">
-        <view class="item-main" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-          <view class="item-header">
+      <!-- 表头 -->
+      <view class="list-header">
+        <text class="col-info">基金信息</text>
+        <text class="col-today">今日涨幅</text>
+        <text class="col-total">自选以来</text>
+        <text class="col-action">移除</text>
+      </view>
+
+      <!-- 列表内容 -->
+      <view class="list-body">
+        <view class="list-item" wx:for="{{watchlist}}" wx:key="id">
+          <!-- 基金信息 -->
+          <view class="col-info" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
             <text class="item-name">{{item.fund_name}}</text>
-            <view class="item-tags">
-              <text wx:if="{{item.is_holding}}" class="tag tag-holding">持有</text>
+            <view class="item-meta">
+              <text class="item-code">{{item.fund_code}}</text>
+              <text class="item-holding" wx:if="{{item.is_holding}}">已持有</text>
             </view>
           </view>
-          <view class="item-info">
-            <text class="item-code">{{item.fund_code}}</text>
-            <text class="item-date">{{item.added_at_formatted}}加入</text>
+
+          <!-- 今日涨幅 -->
+          <view class="col-today {{item.change_rate && item.change_rate.indexOf('-') >= 0 ? 'down' : 'up'}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+            <text>{{item.change_rate || '--'}}</text>
           </view>
-        </view>
-        <view class="item-data">
-          <view class="data-row">
-            <text class="data-label">当前净值</text>
-            <text class="data-value">{{item.current_nav || '--'}}</text>
+
+          <!-- 自选以来涨幅 -->
+          <view class="col-total {{item.total_change_rate >= 0 ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+            <text>{{item.total_change_formatted || '--'}}</text>
           </view>
-          <view class="data-row">
-            <text class="data-label">今日涨跌</text>
-            <text class="data-change {{item.change_rate && item.change_rate.indexOf('-') >= 0 ? 'down' : 'up'}}">{{item.change_rate || '--'}}</text>
+
+          <!-- 移除按钮 -->
+          <view class="col-action">
+            <view
+              class="btn-remove"
+              catchtap="removeFromWatchlist"
+              data-id="{{item.id}}"
+              data-name="{{item.fund_name}}"
+            >-</view>
           </view>
-          <view class="data-row">
-            <text class="data-label">自选涨幅</text>
-            <text class="data-change {{item.total_change_rate >= 0 ? 'up' : 'down'}}">
-              {{item.total_change_rate >= 0 ? '+' : ''}}{{item.total_change_formatted}}
-            </text>
-          </view>
-        </view>
-        <view class="item-actions">
-          <button wx:if="{{!item.is_holding}}" class="btn-action btn-buy" catchtap="goToAddFund" data-code="{{item.fund_code}}" data-name="{{item.fund_name}}">买入</button>
-          <button wx:else class="btn-action btn-disabled" disabled>已持有</button>
-          <button class="btn-action btn-remove" catchtap="removeFromWatchlist" data-id="{{item.id}}" data-name="{{item.fund_name}}">移除</button>
         </view>
       </view>
     </view>

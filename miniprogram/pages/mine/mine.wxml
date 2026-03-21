@@ -8,7 +8,7 @@
       </view>
       <view class="user-info">
         <text class="username">{{userInfo.username || '用户'}}</text>
-        <text class="user-id">ID: {{userInfo.username || '-'}}</text>
+        <text class="user-days">已陪伴你 {{daysTogether}} 天</text>
       </view>
     </view>
 
@@ -23,8 +23,8 @@
         <text class="stat-label">总成本</text>
       </view>
       <view class="stat-item">
-        <text class="stat-value {{stats.todayRevenueIsUp ? 'up' : 'down'}}">{{stats.todayRevenueIsUp ? '+' : ''}}{{stats.todayRevenue}}</text>
-        <text class="stat-label">今日收益</text>
+        <text class="stat-value {{stats.totalRevenueIsUp ? 'up' : 'down'}}">{{stats.totalRevenue}}</text>
+        <text class="stat-label">累计收益</text>
       </view>
     </view>
   </view>
@@ -33,25 +33,37 @@
   <view class="menu-section">
     <view class="section-title">功能</view>
     <view class="menu-list">
-      <view
-        class="menu-item"
-        wx:for="{{menuList}}"
-        wx:key="title"
-        bindtap="goToMenu"
-        data-path="{{item.path}}"
-      >
-        <view class="menu-left">
-          <text class="menu-icon">{{item.icon}}</text>
-          <text class="menu-title">{{item.title}}</text>
+      <block wx:for="{{menuList}}" wx:key="title">
+        <!-- 普通菜单项 -->
+        <view
+          wx:if="{{!item.openType}}"
+          class="menu-item"
+          bindtap="goToMenu"
+          data-path="{{item.path}}"
+        >
+          <view class="menu-left">
+            <image class="menu-icon" src="/icons/{{item.icon}}.svg" mode="aspectFit"></image>
+            <text class="menu-title">{{item.title}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
         </view>
-        <text class="menu-arrow">›</text>
-      </view>
-    </view>
-  </view>
 
-  <!-- 退出登录 -->
-  <view class="logout-section">
-    <button class="logout-btn" bindtap="handleLogout">退出登录</button>
+        <!-- 特殊菜单项（使用微信官方功能） -->
+        <button
+          wx:else
+          class="menu-btn"
+          open-type="{{item.openType}}"
+        >
+          <view class="menu-btn-inner">
+            <view class="menu-left">
+              <image class="menu-icon" src="/icons/{{item.icon}}.svg" mode="aspectFit"></image>
+              <text class="menu-title">{{item.title}}</text>
+            </view>
+            <text class="menu-arrow">›</text>
+          </view>
+        </button>
+      </block>
+    </view>
   </view>
 
   <!-- 版本信息 -->

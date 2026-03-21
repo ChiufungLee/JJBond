@@ -52,8 +52,11 @@ Page({
 
     try {
       const res = await login(username, password)
-      // 保存token
-      saveLoginInfo(res.access_token, { username })
+      // 保存token和用户信息
+      saveLoginInfo(res.access_token, {
+        username: res.username,
+        created_at: res.created_at
+      })
 
       hideLoading()
       showToast('登录成功')

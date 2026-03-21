@@ -2,6 +2,7 @@
   "pages": [
     "pages/index/index",
     "pages/watchlist/watchlist",
+    "pages/ranking/ranking",
     "pages/mine/mine",
     "pages/login/login",
     "pages/register/register",
@@ -9,7 +10,10 @@
     "pages/funds-add/funds-add",
     "pages/funds-edit/funds-edit",
     "pages/fund-detail/fund-detail",
-    "pages/search/search"
+    "pages/search/search",
+    "pages/calendar/calendar",
+    "pages/feedback/feedback",
+    "pages/contact/contact"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -30,6 +34,10 @@
       {
         "pagePath": "pages/watchlist/watchlist",
         "text": "自选"
+      },
+      {
+        "pagePath": "pages/ranking/ranking",
+        "text": "排行榜"
       },
       {
         "pagePath": "pages/mine/mine",

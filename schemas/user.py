@@ -26,6 +26,8 @@ class User(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    username: str
+    created_at: datetime
 
 class TokenData(BaseModel):
     username: Optional[str] = None

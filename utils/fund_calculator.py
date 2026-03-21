@@ -97,6 +97,51 @@ class FundCalculator:
                     logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
                     if i < 2:
                         await asyncio.sleep(1)
+
+            # 常规接口失败，尝试备用接口（使用同一个 session）
+            logger.info(f"常规接口获取失败，尝试备用接口: {fund_code}")
+            return await self._get_fund_info_backup(session, fund_code)
+
+    async def _get_fund_info_backup(self, session, fund_code: str) -> Optional[Dict]:
+        """备用接口获取基金信息（天天基金 API）"""
+        url = "https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+        # 请求参数
+        fields = 'SHORTNAME,RZDF,DWJZ,LJJZ,SYL_1N,SYL_LN,FSRQ,ISBUY,DTZT,FTYPE,FCODE,ISSALES,ISSBDATE,ISSEDATE,TSRQ,BACKCODE,MINSG,MINSBSG,SHZT,SGZT,SOURCERATE,RATE,REALSGCODE,FEATURE,SYL,MINRG,SYL_Z,BFUNDTYPE,QDCODE,MINDT,BAGTYPE,FUNDTYPE,BENCH,ESTABDATE,SELLSTATE,ESTDIFF,SYSDATE,PTYPE,FUNDTYPE,ISEXCHG,ISNEW,BTYPE'
+        data = {
+            'deviceid': '1234567.py.service',
+            'version': '6.5.5',
+            'appVersion': '6.5.5',
+            'product': 'EFund',
+            'plat': 'Iphone',
+            'FCODES': fund_code,
+            'FIELDS': fields
+        }
+        try:
+            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                resp.raise_for_status()
+                result = await resp.json()
+
+                if result.get('success') and result.get('data'):
+                    item = result['data'][0]
+                    # 转换为统一格式
+                    fund_info = {
+                        'fundcode': item.get('FCODE', fund_code),
+                        'name': item.get('SHORTNAME', ''),
+                        'dwjz': str(item.get('DWJZ', '0')),
+                        'gsz': str(item.get('DWJZ', '0')),  # 使用单位净值作为估算值
+                        'gszzl': str(item.get('RZDF', '0')),  # 日涨跌幅
+                        'jzrq': item.get('FSRQ', ''),  # 净值日期
+                        'ftype': item.get('FTYPE', ''),  # 基金类型
+                    }
+                    logger.info(f"备用接口获取成功: {fund_code}")
+                    return fund_info
+        except Exception as e:
+            logger.error(f"备用接口获取失败: {fund_code}, 错误: {str(e)}")
+
         return None
 
     async def _get_lof_fund_info(self, fund_code: str) -> Optional[Dict]:
@@ -235,6 +280,133 @@ class FundCalculator:
             logger.error(f"获取基金净值历史失败: {fund_code}, 错误: {str(e)}")
             return []
 
+
+    async def calculate_portfolio_simple(self, funds_data: List[Dict]) -> Dict:
+        """
+        计算投资组合（轻量版，仅获取行情，不获取历史净值）。
+        用于首页和"我的"页面快速加载。
+        """
+        if not funds_data:
+            return {
+                'fund_count': 0, 'total_cost': 0,
+                'yesterday_holding_amount': 0, 'yesterday_holding_income': 0,
+                'today_revenue': 0, 'today_holding_amount': 0,
+                'low_fund_list': [], 'high_fund_list': [], 'fund_details': [],
+            }
+
+        fund_codes = [f['fund_code'] for f in funds_data]
+
+        # 只并发抓取行情数据
+        fund_infos = await asyncio.gather(*[self.get_fund_info(code) for code in fund_codes])
+
+        low_fund_list = []
+        high_fund_list = []
+        fund_details = []
+
+        full_cost = 0
+        full_today_revenue = 0
+        yesterday_holding_income = 0
+        yesterday_holding_amount = 0
+        full_today_holding_amount = 0
+
+        for fund_data, fund_info in zip(funds_data, fund_infos):
+            fund_code  = fund_data['fund_code']
+            fund_name  = fund_data.get('fund_name', fund_code)
+            cost_price = fund_data['cost_price']
+            share      = fund_data['shares']
+            count      = round(cost_price * share, 2)
+
+            if not fund_info:
+                logger.warning(f"基金 {fund_code} 行情获取失败，返回降级记录")
+                fund_details.append({
+                    'fund_code': fund_code,
+                    'fund_name': fund_name,
+                    'cost': count,
+                    'cost_price': cost_price,
+                    'shares': share,
+                    'data_unavailable': True,
+                    'amount': None,
+                    'shangrijingzhi': None,
+                    'today_value': None,
+                    'change_rate': None,
+                    'change_rate_value': -999,
+                    'today_revenue': None,
+                    'total_revenue': None,
+                    'profit_loss_ratio': None,
+                    'recent_changes': [],
+                })
+                continue
+
+            if 'dwjz' in fund_info:
+                amount        = round(float(fund_info['dwjz']) * share, 2)
+                today_value   = float(fund_info.get('gsz', fund_info['dwjz']))
+                fund_name     = fund_info['name']
+                shangrijingzhi = float(fund_info['dwjz'])
+            else:
+                amount        = round(float(fund_info['value']) * share, 2)
+                today_value   = float(fund_info['value'])
+                fund_name     = fund_info['name']
+                shangrijingzhi = today_value
+
+            if 'dwjz' in fund_info:
+                today_revenue = round((today_value - float(fund_info['dwjz'])) * share, 2)
+            else:
+                today_revenue = 0
+
+            total_revenue = round((today_value - cost_price) * share, 2)
+            profit_and_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
+
+            if 'gszzl' in fund_info:
+                gszzl       = float(fund_info['gszzl'])
+                change_rate = f"{gszzl}%"
+            else:
+                gszzl       = 0
+                change_rate = "--"
+
+            full_cost += count
+            yesterday_holding_amount += amount
+            yesterday_holding_income += total_revenue - today_revenue
+            full_today_revenue        = round(full_today_revenue + today_revenue, 2)
+            full_today_holding_amount = yesterday_holding_amount + full_today_revenue
+
+            if gszzl <= -3:
+                low_fund_list.append(f"{fund_name} 跌幅为: {gszzl}%")
+            if gszzl >= 3:
+                high_fund_list.append(f"{fund_name} 涨幅为: +{gszzl}%")
+
+            fund_details.append({
+                'fund_code': fund_code,
+                'fund_name': fund_name,
+                'cost': count,
+                'cost_price': cost_price,
+                'shares': share,
+                'data_unavailable': False,
+                'amount': amount,
+                'shangrijingzhi': shangrijingzhi,
+                'today_value': today_value,
+                'change_rate': change_rate,
+                'change_rate_value': gszzl,
+                'today_revenue': today_revenue,
+                'total_revenue': total_revenue,
+                'profit_loss_ratio': profit_and_loss_ratio,
+                'recent_changes': [],
+            })
+
+        fund_details.sort(key=lambda x: x['change_rate_value'], reverse=True)
+        for detail in fund_details:
+            detail.pop('change_rate_value', None)
+
+        return {
+            'fund_count': len(fund_details),
+            'total_cost': round(full_cost, 2),
+            'yesterday_holding_amount': round(yesterday_holding_amount, 2),
+            'yesterday_holding_income': round(yesterday_holding_income, 2),
+            'today_revenue': round(full_today_revenue, 2),
+            'today_holding_amount': round(full_today_holding_amount, 2),
+            'low_fund_list': low_fund_list,
+            'high_fund_list': high_fund_list,
+            'fund_details': fund_details,
+        }
 
     async def calculate_portfolio(self, funds_data: List[Dict]) -> Dict:
         """

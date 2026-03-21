@@ -12,32 +12,37 @@
     <button class="btn-add" bindtap="goToAddFund">添加基金</button>
   </view>
 
-  <!-- 基金列表 -->
-  <view wx:else class="fund-list">
-    <view class="fund-item" wx:for="{{funds}}" wx:key="id">
-      <view class="fund-main" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-        <view class="fund-info">
+  <!-- 基金表格 -->
+  <view wx:else class="fund-table">
+    <!-- 表头 -->
+    <view class="table-header">
+      <text class="col-info">基金信息</text>
+      <text class="col-cost">持仓成本</text>
+      <text class="col-price">成本价</text>
+      <text class="col-shares">份额</text>
+      <text class="col-action">操作</text>
+    </view>
+
+    <!-- 表格内容 -->
+    <view class="table-body">
+      <view class="table-row" wx:for="{{funds}}" wx:key="id">
+        <view class="col-info" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
           <text class="fund-name">{{item.fund_name}}</text>
           <text class="fund-code">{{item.fund_code}}</text>
         </view>
-        <view class="fund-data">
-          <view class="fund-row">
-            <text class="label">持仓成本</text>
-            <text class="value">{{item.cost_formatted}}</text>
-          </view>
-          <view class="fund-row">
-            <text class="label">成本价</text>
-            <text class="value">{{item.cost_price_formatted}}</text>
-          </view>
-          <view class="fund-row">
-            <text class="label">份额</text>
-            <text class="value">{{item.shares_formatted}}</text>
-          </view>
+        <view class="col-cost" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text>{{item.cost_formatted}}</text>
         </view>
-      </view>
-      <view class="fund-actions">
-        <button class="btn-edit" catchtap="goToEditFund" data-id="{{item.id}}">编辑</button>
-        <button class="btn-delete" catchtap="deleteFund" data-id="{{item.id}}" data-name="{{item.fund_name}}">删除</button>
+        <view class="col-price" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text>{{item.cost_price_formatted}}</text>
+        </view>
+        <view class="col-shares" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text>{{item.shares_formatted}}</text>
+        </view>
+        <view class="col-action">
+          <text class="action-btn edit" catchtap="goToEditFund" data-id="{{item.id}}">编辑</text>
+          <text class="action-btn delete" catchtap="deleteFund" data-id="{{item.id}}" data-name="{{item.fund_name}}">删除</text>
+        </view>
       </view>
     </view>
   </view>

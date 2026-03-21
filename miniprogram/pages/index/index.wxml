@@ -23,12 +23,12 @@
       <view class="summary-content">
         <view class="revenue-amount {{summary.today_revenue >= 0 ? 'up' : 'down'}}">
           <text>{{summary.today_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : summary.today_revenue_formatted}}</text>
-          <view class="eye-icon" bindtap="toggleHideAmount">
-            <view class="eye-shape">
-              <view class="eye-pupil"></view>
-            </view>
-            <view class="eye-slash" wx:if="{{hideAmount}}"></view>
-          </view>
+          <image
+            class="eye-icon"
+            src="{{hideAmount ? '/icons/eyes_hidden.svg' : '/icons/eyes_display.svg'}}"
+            mode="aspectFit"
+            bindtap="toggleHideAmount"
+          ></image>
         </view>
       </view>
       <view class="summary-footer">
@@ -120,7 +120,7 @@
           </view>
           <view class="fund-row">
             <text class="fund-cost">{{hideAmount ? '￥****' : '￥' + item.cost_formatted}}</text>
-            <text class="fund-rate {{item.today_revenue >= 0 ? 'up' : 'down'}}">{{item.change_rate}}</text>
+            <text class="fund-rate {{item.change_rate_class}}">{{item.change_rate}}</text>
             <text class="fund-rate {{item.profit_loss_ratio >= 0 ? 'up' : 'down'}}">{{item.profit_loss_ratio_formatted}}</text>
           </view>
         </view>

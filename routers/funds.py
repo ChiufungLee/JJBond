@@ -65,6 +65,26 @@ async def calculate_portfolio(
     return await calculator.calculate_portfolio(funds_data)
 
 
+@router.get("/calculate-simple", response_model=schemas.PortfolioSummary)
+async def calculate_portfolio_simple(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """轻量级计算接口，仅获取行情数据，不获取历史净值，加载更快"""
+    funds = user_crud.get_user_funds(db=db, user_id=current_user.id)
+    funds_data = [
+        {
+            'fund_code': fund.fund_code,
+            'fund_name': fund.fund_name or fund.fund_code,
+            'cost_price': fund.cost_price,
+            'shares': fund.shares,
+        }
+        for fund in funds
+    ]
+    calculator = FundCalculator()
+    return await calculator.calculate_portfolio_simple(funds_data)
+
+
 @router.get("/search", response_model=List[dict])
 async def search_fund(
     q: str,

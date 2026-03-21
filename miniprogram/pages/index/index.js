@@ -40,7 +40,8 @@ Page({
     showLoading('加载中...')
 
     try {
-      const summary = await get('/funds/calculate')
+      // 使用轻量级接口，加载更快
+      const summary = await get('/funds/calculate-simple')
       this.setData({
         summary: this.formatSummary(summary)
       })
@@ -75,9 +76,12 @@ Page({
         ...item,
         cost_formatted: formatMoney(item.cost),
         amount_formatted: formatMoney(item.amount),
-        today_revenue_formatted: formatMoney(item.today_revenue),
-        total_revenue_formatted: formatMoney(item.total_revenue),
-        profit_loss_ratio_formatted: formatPercent(item.profit_loss_ratio)
+        today_revenue_formatted: item.today_revenue !== null ? formatMoney(item.today_revenue) : '--',
+        total_revenue_formatted: item.total_revenue !== null ? formatMoney(item.total_revenue) : '--',
+        profit_loss_ratio_formatted: item.profit_loss_ratio !== null ? formatPercent(item.profit_loss_ratio) : '--',
+        change_rate: item.change_rate || '--',
+        // 涨幅颜色：负数或0或无数据显示绿色，正数显示红色
+        change_rate_class: (item.change_rate && item.change_rate[0] === '-') || item.change_rate === '0' || item.change_rate === '0.00%' || item.change_rate === '--' ? 'down' : 'up'
       }))
     }
 
