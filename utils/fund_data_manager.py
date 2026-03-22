@@ -1,12 +1,18 @@
 # utils/fund_data_manager.py
+import json
 import logging
+import os
 from typing import List, Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from models.user import FundLib
+from models.fund import FundLib
 
 logger = logging.getLogger(__name__)
+
+# Redis key 常量
+_CACHE_KEY = "fund_lib:all"           # 全量基金列表（JSON 字符串）
+_CACHE_TTL = 86400                     # 缓存 24 小时（基金库基本不变）
 
 # 初始基金数据，用于首次建库时写入
 INITIAL_FUNDS = [
@@ -33,6 +39,8 @@ INITIAL_FUNDS = [
 ]
 
 
+# ---------- 初始化 ----------
+
 def init_fund_lib(db: Session) -> None:
     """
     启动时初始化基金库：
@@ -42,54 +50,129 @@ def init_fund_lib(db: Session) -> None:
     """
     if db.query(FundLib).count() > 100:
         logger.info("基金库已初始化，跳过")
+        _warm_up_search_cache(db)  # 数据库已有数据，预热搜索缓存
         return
 
-    # 优先读取 funds.json
     funds_to_insert = _load_funds_json()
     if not funds_to_insert:
         logger.warning("funds.json 未找到或为空，使用内置兜底数据")
         funds_to_insert = INITIAL_FUNDS
 
-    # 清空旧的不完整数据，重新写入
     db.query(FundLib).delete()
     db.bulk_insert_mappings(FundLib, funds_to_insert)
     db.commit()
     logger.info(f"初始化基金库完成，写入 {len(funds_to_insert)} 条记录")
 
+    _warm_up_search_cache(db)
 
-def _load_funds_json() -> List[Dict]:
-    """从 data/funds.json 加载基金数据，过滤掉 FundLib 不认识的字段"""
-    import os, json
-    # 相对于项目根目录寻找
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    json_path = os.path.join(base_dir, 'data', 'funds.json')
-    if not os.path.exists(json_path):
-        return []
+
+def _warm_up_search_cache(db: Session) -> None:
+    """
+    将全量基金库写入 Redis，后续搜索直接走缓存，不再扫描数据库。
+    Redis 不可用时静默跳过，搜索自动降级到数据库 LIKE 查询。
+    """
     try:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            raw = json.load(f)
-        # 只保留 FundLib 需要的字段
-        allowed = {'fund_code', 'fund_name', 'fund_type'}
-        return [{k: v for k, v in item.items() if k in allowed} for item in raw]
-    except Exception as e:
-        logger.error(f"读取 funds.json 失败: {e}")
-        return []
+        from core.database import redis_client
+        if redis_client is None:
+            return
 
+        rows = db.query(FundLib).all()
+        fund_list = [_to_dict(r) for r in rows]
+        redis_client.setex(_CACHE_KEY, _CACHE_TTL, json.dumps(fund_list, ensure_ascii=False))
+        logger.info(f"基金搜索缓存预热完成，共 {len(fund_list)} 条写入 Redis")
+    except Exception as e:
+        logger.warning(f"搜索缓存预热失败，将使用数据库查询: {e}")
+
+
+# ---------- 搜索 ----------
 
 def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
     """
-    搜索基金：优先精确匹配代码，其次模糊匹配名称和类型。
-    数据库有索引，性能远优于原来的全量列表遍历。
+    搜索基金。
+
+    优先从 Redis 缓存中搜索（纯内存操作，无 SQL 全表扫描）；
+    Redis 不可用时降级为数据库 LIKE 查询，行为与原实现一致。
     """
+    # 优先走缓存
+    result = _search_from_cache(keyword, limit)
+    if result is not None:
+        return result
+
+    # 降级：数据库查询
+    logger.debug("搜索缓存未命中，降级到数据库查询")
+    return _search_from_db(db, keyword, limit)
+
+
+def _search_from_cache(keyword: str, limit: int) -> Optional[List[Dict]]:
+    """
+    从 Redis 缓存搜索基金。
+    返回 None 表示缓存不可用（调用方应降级到数据库）。
+    返回列表（可能为空）表示缓存命中。
+    """
+    try:
+        from core.database import redis_client
+        if redis_client is None:
+            return None
+
+        raw = redis_client.get(_CACHE_KEY)
+        if not raw:
+            return None
+
+        fund_list: List[Dict] = json.loads(raw)
+
+        if not keyword:
+            return fund_list[:limit]
+
+        kw = keyword.strip().lower()
+        results: List[Dict] = []
+
+        # 第一优先级：基金代码精确匹配
+        exact = [f for f in fund_list if f["fund_code"] == keyword]
+        results.extend(exact)
+
+        # 第二优先级：基金代码前缀匹配（用户输入 "000" 时）
+        if len(results) < limit:
+            seen = {f["fund_code"] for f in results}
+            prefix = [
+                f for f in fund_list
+                if f["fund_code"].startswith(keyword) and f["fund_code"] not in seen
+            ]
+            results.extend(prefix[:limit - len(results)])
+
+        # 第三优先级：基金名称包含关键词
+        if len(results) < limit:
+            seen = {f["fund_code"] for f in results}
+            name_match = [
+                f for f in fund_list
+                if kw in f["fund_name"].lower() and f["fund_code"] not in seen
+            ]
+            results.extend(name_match[:limit - len(results)])
+
+        # 第四优先级：基金类型包含关键词
+        if len(results) < limit:
+            seen = {f["fund_code"] for f in results}
+            type_match = [
+                f for f in fund_list
+                if kw in f.get("fund_type", "").lower() and f["fund_code"] not in seen
+            ]
+            results.extend(type_match[:limit - len(results)])
+
+        return results[:limit]
+
+    except Exception as e:
+        logger.warning(f"缓存搜索失败，降级到数据库: {e}")
+        return None
+
+
+def _search_from_db(db: Session, keyword: str, limit: int) -> List[Dict]:
+    """数据库 LIKE 查询（降级路径，行为与原实现一致）"""
     if not keyword:
         rows = db.query(FundLib).limit(limit).all()
         return _to_dict_list(rows)
 
-    # 精确匹配代码（走 index，O(1)）
     exact = db.query(FundLib).filter(FundLib.fund_code == keyword).first()
     results = [exact] if exact else []
 
-    # 模糊匹配名称 / 类型（补足剩余名额）
     remaining = limit - len(results)
     if remaining > 0:
         fuzzy = (
@@ -97,7 +180,7 @@ def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
             .filter(
                 FundLib.fund_name.contains(keyword) |
                 FundLib.fund_type.contains(keyword),
-                FundLib.fund_code != keyword  # 排除已精确命中的
+                FundLib.fund_code != keyword
             )
             .limit(remaining)
             .all()
@@ -107,6 +190,8 @@ def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
     return _to_dict_list(results)
 
 
+# ---------- 写操作 ----------
+
 def get_fund_by_code(db: Session, fund_code: str) -> Optional[Dict]:
     """根据基金代码精确查询"""
     row = db.query(FundLib).filter(FundLib.fund_code == fund_code).first()
@@ -114,7 +199,7 @@ def get_fund_by_code(db: Session, fund_code: str) -> Optional[Dict]:
 
 
 def upsert_fund(db: Session, fund_code: str, fund_name: str, fund_type: str = "其他") -> None:
-    """新增或更新基金库记录"""
+    """新增或更新基金库记录，同时使缓存失效（下次搜索时重建）"""
     row = db.query(FundLib).filter(FundLib.fund_code == fund_code).first()
     if row:
         row.fund_name = fund_name
@@ -123,8 +208,37 @@ def upsert_fund(db: Session, fund_code: str, fund_name: str, fund_type: str = "�
         db.add(FundLib(fund_code=fund_code, fund_name=fund_name, fund_type=fund_type))
     db.commit()
 
+    # 使缓存失效，下次搜索时触发重建
+    _invalidate_search_cache()
+
+
+def _invalidate_search_cache() -> None:
+    """删除 Redis 中的全量缓存，下次搜索时重新预热"""
+    try:
+        from core.database import redis_client
+        if redis_client:
+            redis_client.delete(_CACHE_KEY)
+    except Exception as e:
+        logger.warning(f"缓存失效操作失败: {e}")
+
 
 # ---------- 内部工具 ----------
+
+def _load_funds_json() -> List[Dict]:
+    """从 data/funds.json 加载基金数据，过滤掉 FundLib 不认识的字段"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    json_path = os.path.join(base_dir, 'data', 'funds.json')
+    if not os.path.exists(json_path):
+        return []
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+        allowed = {'fund_code', 'fund_name', 'fund_type'}
+        return [{k: v for k, v in item.items() if k in allowed} for item in raw]
+    except Exception as e:
+        logger.error(f"读取 funds.json 失败: {e}")
+        return []
+
 
 def _to_dict(row: FundLib) -> Dict:
     return {"fund_code": row.fund_code, "fund_name": row.fund_name, "fund_type": row.fund_type}

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import Optional
 from utils.fund_ranking import fund_ranking_manager, RankingType
 
-router = APIRouter(prefix="/api/ranking", tags=["排行榜"])
+router = APIRouter(prefix="/ranking", tags=["排行榜"])
 
 
 @router.get("/")

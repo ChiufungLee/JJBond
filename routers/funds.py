@@ -1,5 +1,6 @@
 import logging
 import aiohttp
+from core.http_client import get_http_session
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,7 +10,7 @@ import schemas
 from core.database import get_db
 from core.dependencies import get_current_user
 from crud import user as user_crud
-from utils.fund_calculator import FundCalculator
+from utils.fund_calculator import calculator
 from utils.fund_data_manager import search_funds, upsert_fund
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,6 @@ async def get_fund_info(
     fund_code: str,
     current_user: schemas.User = Depends(get_current_user)
 ):
-    calculator = FundCalculator()
     return await calculator.get_fund_info(fund_code)
 
 
@@ -61,7 +61,6 @@ async def calculate_portfolio(
         }
         for fund in funds
     ]
-    calculator = FundCalculator()
     return await calculator.calculate_portfolio(funds_data)
 
 
@@ -74,6 +73,7 @@ async def calculate_portfolio_simple(
     funds = user_crud.get_user_funds(db=db, user_id=current_user.id)
     funds_data = [
         {
+            'id': fund.id,
             'fund_code': fund.fund_code,
             'fund_name': fund.fund_name or fund.fund_code,
             'cost_price': fund.cost_price,
@@ -81,8 +81,24 @@ async def calculate_portfolio_simple(
         }
         for fund in funds
     ]
-    calculator = FundCalculator()
     return await calculator.calculate_portfolio_simple(funds_data)
+
+
+@router.get("/revenue-calendar", response_model=schemas.RevenueCalendar)
+async def get_revenue_calendar(
+    year: int = Query(..., description="年份"),
+    month: int = Query(..., ge=1, le=12, description="月份(1-12)"),
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    获取收益日历数据
+    返回指定月份每天的收益情况
+    """
+    # 获取用户所有交易记录
+    transactions = user_crud.get_user_transactions(db=db, user_id=current_user.id)
+
+    return await calculator.calculate_revenue_calendar(transactions, year, month)
 
 
 @router.get("/search", response_model=List[dict])
@@ -120,18 +136,18 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
     """从天天基金网搜索基金（第三方 API）"""
     url = f"http://fundgz.1234567.com.cn/js/{keyword}.js"
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                data = await resp.json()
-                funds = []
-                if data.get("Datas"):
-                    for item in data["Datas"]:
-                        funds.append({
-                            "fund_code": item.get("CODE", ""),
-                            "fund_name": item.get("NAME", ""),
-                            "fund_type": item.get("FTYPE", ""),
-                        })
-                return funds[:limit]
+        session = get_http_session()
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            data = await resp.json()
+            funds = []
+            if data.get("Datas"):
+                for item in data["Datas"]:
+                    funds.append({
+                        "fund_code": item.get("CODE", ""),
+                        "fund_name": item.get("NAME", ""),
+                        "fund_type": item.get("FTYPE", ""),
+                    })
+            return funds[:limit]
     except Exception as e:
         logger.error(f"第三方 API 搜索失败: {e}")
         return []

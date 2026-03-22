@@ -23,7 +23,7 @@ try:
         port=int(os.getenv("REDIS_PORT", 6379)),
         db=int(os.getenv("REDIS_DB", 0)),
         decode_responses=True,
-        socket_connect_timeout=2,  # 连接超时2秒，快速失败
+        socket_connect_timeout=20,  # 连接超时2秒，快速失败
     )
     redis_client.ping()  # 主动探测连接是否可用
     logger.info("Redis 连接成功")

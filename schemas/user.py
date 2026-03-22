@@ -88,6 +88,7 @@ class Fund(FundBase):
 
 # 基金计算结果
 class FundDetail(BaseModel):
+    id: Optional[int] = None  # 用户基金记录ID，用于编辑/删除操作
     fund_code: str
     fund_name: str
     cost: float
@@ -113,3 +114,58 @@ class PortfolioSummary(BaseModel):
     low_fund_list: List[str]
     high_fund_list: List[str]
     fund_details: List[FundDetail]
+
+
+# 交易记录相关
+class TransactionBase(BaseModel):
+    fund_code: str
+    fund_name: Optional[str] = None
+    transaction_type: str  # 'buy' or 'sell'
+    shares: float = Field(..., gt=0)
+    price: float = Field(..., gt=0)
+    transaction_date: datetime
+
+
+class Transaction(TransactionBase):
+    id: int
+    user_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# 收益日历相关
+class CalendarFundDetail(BaseModel):
+    """日历单日中单只基金的收益明细"""
+    fund_code: str
+    fund_name: str
+    shares: float           # 当日持仓份额
+    prev_nav: float         # 前一日净值
+    today_nav: float        # 当日净值
+    revenue: float          # 当日收益额
+
+
+class CalendarDay(BaseModel):
+    """日历单日数据"""
+    date: str  # "2026-03-01"
+    day: int  # 1-31
+    weekday: int  # 0=周一, 6=周日
+    is_trading_day: bool
+    revenue: Optional[float] = None       # 当日汇总收益
+    accumulated: Optional[float] = None   # 月累计收益
+    fund_details: List['CalendarFundDetail'] = []  # 各基金明细
+
+
+class RevenueCalendar(BaseModel):
+    """收益日历响应"""
+    year: int
+    month: int
+    total_revenue: float  # 月总收益
+    trading_days: int  # 交易日数
+    positive_days: int  # 盈利天数
+    negative_days: int  # 亏损天数
+    calendar: List[CalendarDay]
+
+class LogoutResponse(BaseModel):
+    message: str

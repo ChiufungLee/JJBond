@@ -51,16 +51,14 @@
         <!-- 特殊菜单项（使用微信官方功能） -->
         <button
           wx:else
-          class="menu-btn"
+          class="menu-item menu-btn"
           open-type="{{item.openType}}"
         >
-          <view class="menu-btn-inner">
-            <view class="menu-left">
-              <image class="menu-icon" src="/icons/{{item.icon}}.svg" mode="aspectFit"></image>
-              <text class="menu-title">{{item.title}}</text>
-            </view>
-            <text class="menu-arrow">›</text>
+          <view class="menu-left">
+            <image class="menu-icon" src="/icons/{{item.icon}}.svg" mode="aspectFit"></image>
+            <text class="menu-title">{{item.title}}</text>
           </view>
+          <text class="menu-arrow">›</text>
         </button>
       </block>
     </view>
@@ -68,6 +66,6 @@
 
   <!-- 版本信息 -->
   <view class="version">
-    <text>基金管理 v1.0.0</text>
+    <text>基基棒 v1.0.0</text>
   </view>
 </view>

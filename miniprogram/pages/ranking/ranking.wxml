@@ -23,9 +23,9 @@
   </view>
 
   <!-- 更新时间 -->
-  <view class="update-time" wx:if="{{lastUpdate}}">
+  <!-- <view class="update-time" wx:if="{{lastUpdate}}">
     <text>更新时间: {{lastUpdate}}</text>
-  </view>
+  </view> -->
 
   <!-- 排行榜列表 -->
   <view class="ranking-list">

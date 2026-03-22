@@ -1,30 +1,71 @@
 from sqlalchemy.orm import Session
-from models.user import User, UserFund, WatchlistFund
+from models.user import User
+from models.fund import UserFund
+from models.watchlist import WatchlistFund, FundTransaction
 from schemas.user import UserCreate, FundCreate, FundUpdate
 from utils.password import get_password_hash, verify_password
 from typing import Optional, List
+from datetime import datetime, timezone
 
+
+# ---------- 工具函数 ----------
+
+def _now() -> datetime:
+    """统一使用 aware UTC 时间（修复 Q2 datetime.utcnow 废弃问题）"""
+    return datetime.now(timezone.utc)
+
+
+def _add_transaction(
+    db: Session,
+    user_id: int,
+    fund_code: str,
+    fund_name: str,
+    transaction_type: str,
+    shares: float,
+    price: float,
+    transaction_date: datetime = None,
+) -> FundTransaction:
+    """
+    仅将交易记录加入 session，不自行 commit。
+    调用方负责在所有写操作完成后统一 commit，保证原子性。
+    """
+    transaction = FundTransaction(
+        user_id=user_id,
+        fund_code=fund_code,
+        fund_name=fund_name,
+        transaction_type=transaction_type,
+        shares=shares,
+        price=price,
+        transaction_date=transaction_date or _now(),
+    )
+    db.add(transaction)
+    return transaction
+
+
+# ---------- 用户 ----------
 
 def get_user_by_username(db: Session, username: str):
     """通过用户名获取用户"""
     return db.query(User).filter(User.username == username).first()
 
+
 def get_user_by_email(db: Session, email: str):
     """通过邮箱获取用户"""
     return db.query(User).filter(User.email == email).first()
 
+
 def create_user(db: Session, user: UserCreate):
     """创建新用户"""
-    hashed_password = get_password_hash(user.password)
     db_user = User(
         username=user.username,
         email=user.email,
-        hashed_password=hashed_password
+        hashed_password=get_password_hash(user.password),
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
+
 
 def authenticate_user(db: Session, username: str, password: str):
     """验证用户"""
@@ -36,49 +77,118 @@ def authenticate_user(db: Session, username: str, password: str):
     return user
 
 
-# 基金 CRUD
+# ---------- 基金持仓 ----------
+
 def get_user_funds(db: Session, user_id: int):
     return db.query(UserFund).filter(UserFund.user_id == user_id).all()
+
 
 def get_user_fund(db: Session, user_id: int, fund_id: int):
     return db.query(UserFund).filter(
         UserFund.user_id == user_id,
-        UserFund.id == fund_id
+        UserFund.id == fund_id,
     ).first()
 
+
 def create_user_fund(db: Session, fund: FundCreate, user_id: int):
+    """
+    新增持仓并记录买入交易。
+    两次写入在同一事务内，flush 获取持仓 id 后统一 commit。
+    """
     existing = db.query(UserFund).filter(
         UserFund.user_id == user_id,
-        UserFund.fund_code == fund.fund_code
+        UserFund.fund_code == fund.fund_code,
     ).first()
     if existing:
-        return None  # 由调用方决定如何处理重复
+        return None
+
     db_fund = UserFund(**fund.dict(), user_id=user_id)
     db.add(db_fund)
-    db.commit()
+    db.flush()  # 写入数据库但不提交，使 db_fund.id / created_at 可用
+
+    _add_transaction(
+        db=db,
+        user_id=user_id,
+        fund_code=fund.fund_code,
+        fund_name=fund.fund_name,
+        transaction_type='buy',
+        shares=fund.shares,
+        price=fund.cost_price,
+        transaction_date=db_fund.created_at,
+    )
+
+    db.commit()          # 持仓 + 交易记录原子提交
     db.refresh(db_fund)
     return db_fund
 
 
 def update_user_fund(db: Session, fund_id: int, fund_update: FundUpdate, user_id: int):
+    """
+    更新持仓并按份额变化记录交易。
+    持仓更新与交易记录在同一事务内原子提交。
+    """
     db_fund = get_user_fund(db, user_id, fund_id)
-    if db_fund:
-        for key, value in fund_update.dict().items():
-            setattr(db_fund, key, value)
-        db.commit()
-        db.refresh(db_fund)
+    if not db_fund:
+        return None
+
+    old_shares = db_fund.shares
+
+    for key, value in fund_update.dict().items():
+        setattr(db_fund, key, value)
+
+    shares_diff = fund_update.shares - old_shares
+    if shares_diff != 0:
+        _add_transaction(
+            db=db,
+            user_id=user_id,
+            fund_code=db_fund.fund_code,
+            fund_name=db_fund.fund_name,
+            transaction_type='buy' if shares_diff > 0 else 'sell',
+            shares=abs(shares_diff),
+            price=fund_update.cost_price,
+            transaction_date=_now(),
+        )
+
+    db.commit()          # 持仓更新 + 交易记录原子提交
+    db.refresh(db_fund)
     return db_fund
 
+
 def delete_user_fund(db: Session, fund_id: int, user_id: int):
+    """
+    删除持仓并记录全量卖出交易。
+    卖出记录与持仓删除在同一事务内原子提交。
+    """
     db_fund = get_user_fund(db, user_id, fund_id)
-    if db_fund:
-        db.delete(db_fund)
-        db.commit()
-        return True
-    return False
+    if not db_fund:
+        return False
+
+    _add_transaction(
+        db=db,
+        user_id=user_id,
+        fund_code=db_fund.fund_code,
+        fund_name=db_fund.fund_name,
+        transaction_type='sell',
+        shares=db_fund.shares,
+        price=db_fund.cost_price,
+        transaction_date=_now(),
+    )
+
+    db.delete(db_fund)
+    db.commit()          # 卖出记录 + 持仓删除原子提交
+    return True
 
 
-# 自选基金 CRUD
+def get_user_transactions(db: Session, user_id: int, fund_code: str = None) -> List[FundTransaction]:
+    """获取用户交易记录"""
+    query = db.query(FundTransaction).filter(FundTransaction.user_id == user_id)
+    if fund_code:
+        query = query.filter(FundTransaction.fund_code == fund_code)
+    return query.order_by(FundTransaction.transaction_date.desc()).all()
+
+
+# ---------- 自选基金 ----------
+
 def get_watchlist(db: Session, user_id: int) -> List[WatchlistFund]:
     """获取用户的自选基金列表"""
     return db.query(WatchlistFund).filter(WatchlistFund.user_id == user_id).all()
@@ -88,7 +198,7 @@ def get_watchlist_by_code(db: Session, user_id: int, fund_code: str) -> Optional
     """根据基金代码获取自选基金"""
     return db.query(WatchlistFund).filter(
         WatchlistFund.user_id == user_id,
-        WatchlistFund.fund_code == fund_code
+        WatchlistFund.fund_code == fund_code,
     ).first()
 
 
@@ -98,7 +208,7 @@ def add_to_watchlist(db: Session, user_id: int, fund_code: str, fund_name: str, 
         user_id=user_id,
         fund_code=fund_code,
         fund_name=fund_name,
-        cost_nav=cost_nav
+        cost_nav=cost_nav,
     )
     db.add(db_watchlist)
     db.commit()
@@ -110,7 +220,7 @@ def remove_from_watchlist(db: Session, user_id: int, watchlist_id: int) -> bool:
     """从自选中移除基金"""
     db_watchlist = db.query(WatchlistFund).filter(
         WatchlistFund.id == watchlist_id,
-        WatchlistFund.user_id == user_id
+        WatchlistFund.user_id == user_id,
     ).first()
     if db_watchlist:
         db.delete(db_watchlist)

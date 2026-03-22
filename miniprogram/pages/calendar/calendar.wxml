@@ -1,9 +1,65 @@
 <!--pages/calendar/calendar.wxml-->
 <view class="calendar-container">
-  <!-- 标题 -->
-  <view class="calendar-header">
-    <text class="header-title">收益日历</text>
-    <text class="header-subtitle">记录每日收益变化</text>
+
+  <!-- 头部：月份选择器 + 月度统计 -->
+  <view class="header-section">
+    <view class="month-selector">
+      <view class="selector-btn" bindtap="prevMonth"><text>‹</text></view>
+      <view class="selector-title" bindtap="goToToday">
+        <text class="year">{{year}}年</text>
+        <text class="month">{{month}}月</text>
+      </view>
+      <view class="selector-btn" bindtap="nextMonth"><text>›</text></view>
+    </view>
+
+    <view class="month-summary" wx:if="{{calendarData && !loading}}">
+      <view class="summary-item">
+        <text class="summary-value positive">{{calendarData.positive_days}}</text>
+        <text class="summary-label">盈利天</text>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-item">
+        <text class="summary-value negative">{{calendarData.negative_days}}</text>
+        <text class="summary-label">亏损天</text>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-item">
+        <text class="summary-value {{calendarData.total_revenue >= 0 ? 'positive' : 'negative'}}">{{calendarData.total_revenue >= 0 ? '+' : ''}}{{calendarData.total_revenue}}</text>
+        <text class="summary-label">月收益</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 日历主体 -->
+  <view class="calendar-body" wx:if="{{calendarData && !loading}}">
+    <view class="week-header">
+      <view class="week-item" wx:for="{{weekDays}}" wx:key="*this">{{item}}</view>
+    </view>
+
+    <view class="day-grid">
+      <block wx:for="{{calendarDays}}" wx:key="index">
+        <view wx:if="{{item.isEmpty}}" class="day-item empty"></view>
+        <view
+          wx:else
+          class="day-item
+            {{item.is_trading_day ? '' : 'weekend'}}
+            {{item.revenue > 0 ? 'positive' : item.revenue < 0 ? 'negative' : ''}}
+            {{item.isToday ? 'today' : ''}}
+            {{item.date === selectedDate ? 'selected' : ''}}"
+          bindtap="onDayTap"
+          data-date="{{item.date}}"
+        >
+          <text class="day-number">{{item.day}}</text>
+          <text class="day-revenue" wx:if="{{item.is_trading_day}}">
+            <text wx:if="{{item.revenue !== null && item.revenue !== undefined}}">
+              {{item.revenue >= 0 ? '+' : ''}}{{item.revenue}}
+            </text>
+            <text wx:else class="no-data">--</text>
+          </text>
+          <text class="day-weekend" wx:else>休</text>
+        </view>
+      </block>
+    </view>
   </view>
 
   <!-- 加载状态 -->
@@ -12,14 +68,76 @@
   </view>
 
   <!-- 空状态 -->
-  <view wx:elif="{{calendarData.length === 0}}" class="empty-state">
+  <view wx:if="{{!loading && (!calendarData || calendarData.calendar.length === 0)}}" class="empty-state">
     <text class="empty-icon">📅</text>
     <text class="empty-text">暂无收益记录</text>
     <text class="empty-hint">添加基金后开始记录收益</text>
   </view>
 
-  <!-- 日历内容 -->
-  <view wx:else class="calendar-content">
-    <!-- TODO: 日历组件 -->
+  <!-- 选中日期收益明细 -->
+  <view class="day-detail" wx:if="{{!loading && calendarData}}">
+
+    <!-- 标题栏：当日收益明细(日期) 收益: xxx -->
+    <view class="detail-header">
+      <view class="detail-date-row">
+        <text class="detail-title-text">当日收益明细<text class="detail-date">（{{selectedDate || '请选择日期'}}）</text>
+          <text wx:if="{{selectedDayInfo && !selectedDayInfo.is_trading_day}}" class="detail-tag">休市</text>
+        </text>
+        <text
+          class="detail-revenue-inline {{selectedDayInfo && selectedDayInfo.revenue > 0 ? 'up' : selectedDayInfo && selectedDayInfo.revenue < 0 ? 'down' : 'flat'}}"
+          wx:if="{{selectedDayInfo && selectedDayInfo.revenue !== null && selectedDayInfo.is_trading_day}}"
+        >收益：{{selectedDayInfo.revenue >= 0 ? '+' : ''}}{{selectedDayInfo.revenue}}</text>
+        <text class="detail-no-revenue"
+          wx:elif="{{selectedDayInfo && selectedDayInfo.is_trading_day && selectedDayInfo.revenue === null}}">
+          暂无数据
+        </text>
+      </view>
+    </view>
+
+    <!-- 收益树图 -->
+    <view class="revenue-chart-wrap" wx:if="{{revenueChart.length > 0}}">
+      <view class="revenue-chart">
+        <view
+          class="chart-block"
+          wx:for="{{revenueChart}}"
+          wx:key="index"
+          style="top:{{item.top}};left:{{item.left}};width:{{item.width}};height:{{item.height}};background-color:{{item.color}};"
+        >
+          <text class="chart-label" wx:if="{{item.label}}" style="font-size:{{item.labelSize}}rpx;color:{{item.textColor}};">{{item.label}}</text>
+          <text class="chart-revenue" wx:if="{{item.revenueStr}}" style="color:{{item.textColor}};">{{item.revenueStr}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 各基金明细（后端按当日实际持仓和净值计算） -->
+    <view wx:if="{{selectedFundDetails.length > 0}}">
+      <view class="detail-list">
+        <view
+          class="detail-item"
+          wx:for="{{selectedFundDetails}}"
+          wx:key="fund_code"
+          bindtap="goToFundDetail"
+          data-code="{{item.fund_code}}"
+        >
+          <text class="detail-fund-name">{{item.fund_name}}</text>
+          <view class="detail-right">
+            <text class="detail-value {{item.revenue >= 0 ? 'up' : 'down'}}">
+              {{item.revenue >= 0 ? '+' : ''}}{{item.revenue_formatted}}
+            </text>
+            <text class="detail-rate {{item.revenue >= 0 ? 'up' : 'down'}}">
+              {{item.revenue >= 0 ? '+' : ''}}{{item.change_rate}}
+            </text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 当日无明细（休市 / 无净值数据 / 未持仓） -->
+    <view class="detail-empty"
+      wx:elif="{{selectedDayInfo && (!selectedDayInfo.is_trading_day || selectedDayInfo.revenue === null)}}">
+      <text>{{selectedDayInfo.is_trading_day ? '当日暂无净值数据' : '非交易日'}}</text>
+    </view>
+
   </view>
+
 </view>

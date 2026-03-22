@@ -3,7 +3,7 @@
   min-height: 100vh;
   background-color: #f5f5f5;
   padding: 24rpx;
-  padding-bottom: 140rpx;
+  padding-bottom: 160rpx;
   box-sizing: border-box;
 }
 
@@ -63,7 +63,7 @@
 .table-header {
   display: flex;
   align-items: center;
-  padding: 24rpx 20rpx;
+  padding: 20rpx 24rpx;
   background-color: #fafafa;
   border-bottom: 1rpx solid #f0f0f0;
 }
@@ -76,14 +76,13 @@
 
 /* 表格内容 */
 .table-body {
-  max-height: 70vh;
-  overflow-y: auto;
+  /* 取消固定高度，列表自适应内容 */
 }
 
 .table-row {
   display: flex;
   align-items: center;
-  padding: 24rpx 20rpx;
+  padding: 24rpx;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
@@ -93,27 +92,45 @@
 
 /* 列宽度 */
 .col-info {
-  flex: 2.5;
+  flex: 2;
   min-width: 0;
 }
 
-.col-cost {
+.col-total {
   flex: 1.5;
-  text-align: right;
+  text-align: center;
 }
 
-.col-price {
-  flex: 1.2;
-  text-align: right;
+.col-sortable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
 }
 
-.col-shares {
-  flex: 1.5;
-  text-align: right;
+.sort-icons {
+  display: flex;
+  flex-direction: column;
+  margin-left: 8rpx;
+  line-height: 1;
+}
+
+.sort-icons .sort-icon {
+  font-size: 16rpx;
+  color: #999;
+  line-height: 1;
+}
+
+.sort-icon.sort-asc {
+  margin-bottom: 2rpx;
+}
+
+.sort-icon.active {
+  color: #722ed1;
 }
 
 .col-action {
-  width: 140rpx;
+  width: 120rpx;
   text-align: center;
   flex-shrink: 0;
 }
@@ -127,21 +144,58 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 4rpx;
+  margin-bottom: 8rpx;
 }
 
-.col-info .fund-code {
-  display: block;
+.fund-meta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.fund-cost {
   font-size: 22rpx;
   color: #999;
 }
 
-/* 数值显示 */
-.col-cost text,
-.col-price text,
-.col-shares text {
-  font-size: 26rpx;
-  color: #333;
+.fund-rate {
+  font-size: 22rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  background-color: #f5f5f5;
+}
+
+.fund-rate.up {
+  color: #ff4d4f;
+  background-color: #fff1f0;
+}
+
+.fund-rate.down {
+  color: #52c41a;
+  background-color: #f6ffed;
+}
+
+/* 持有收益 */
+.col-total text {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.profit-rate {
+  font-size: 22rpx !important;
+  font-weight: normal !important;
+  opacity: 0.8;
+  margin-top: 4rpx;
+}
+
+/* 涨跌颜色 */
+.up {
+  color: #ff4d4f;
+}
+
+.down {
+  color: #52c41a;
 }
 
 /* 操作按钮 */
@@ -156,34 +210,57 @@
   font-size: 24rpx;
   padding: 8rpx 16rpx;
   border-radius: 8rpx;
-}
-
-.action-btn.edit {
   color: #722ed1;
   background-color: #f9f0ff;
 }
 
-.action-btn.delete {
-  color: #ff4d4f;
-  background-color: #fff1f0;
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background-color: #ffffff;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+  gap: 20rpx;
 }
 
-/* 添加按钮 */
-.add-btn-wrapper {
-  position: fixed;
-  bottom: 40rpx;
-  left: 24rpx;
-  right: 24rpx;
+.hide-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  height: 80rpx;
+  padding: 0 24rpx;
+  background-color: #f5f5f5;
+  border-radius: 40rpx;
+}
+
+.hide-btn .eye-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.hide-btn text {
+  font-size: 26rpx;
+  color: #666;
 }
 
 .add-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
+  flex: 1;
+  height: 80rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #722ed1;
   color: #ffffff;
-  font-size: 32rpx;
-  border-radius: 44rpx;
+  font-size: 30rpx;
+  border-radius: 40rpx;
   border: none;
 }
 

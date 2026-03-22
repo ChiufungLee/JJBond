@@ -30,12 +30,12 @@
           <view class="revenue-label">今日收益</view>
           <view class="revenue-value {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">
             <text>{{fundInfo.today_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : fundInfo.today_revenue_formatted}}</text>
-            <view class="eye-icon" bindtap="toggleHideAmount">
-              <view class="eye-shape">
-                <view class="eye-pupil"></view>
-              </view>
-              <view class="eye-slash" wx:if="{{hideAmount}}"></view>
-            </view>
+            <image
+              class="eye-icon white"
+              src="{{hideAmount ? '/icons/eyes_hidden.svg' : '/icons/eyes_display.svg'}}"
+              mode="aspectFit"
+              bindtap="toggleHideAmount"
+            ></image>
           </view>
         </view>
       </view>

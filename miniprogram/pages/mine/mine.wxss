@@ -158,16 +158,16 @@ button::after {
 
 /* 使用 open-type 的菜单按钮 */
 .menu-btn {
-  width: 100%;
-}
-
-.menu-btn-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 32rpx 24rpx;
-  background-color: #fff;
-  border-bottom: 1rpx solid #f0f0f0;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 32rpx 24rpx !important;
+  background-color: #fff !important;
+  border-bottom: 1rpx solid #f0f0f0 !important;
+  border-radius: 0 !important;
+  box-sizing: border-box !important;
+  font-weight: normal !important;
 }
 
 /* 版本信息 */
