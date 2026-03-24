@@ -5,20 +5,42 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class UserBase(BaseModel):
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    email: Optional[EmailStr] = None
+
+class UserCreate(BaseModel):
+    """普通用户注册（需要 username, email, password）"""
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-
-class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
 
 class UserLogin(BaseModel):
     username: str
     password: str
 
+# 微信登录请求
+class WechatLoginRequest(BaseModel):
+    code: str = Field(..., description="wx.login 获取的 code")
+    nickname: Optional[str] = Field(None, description="用户昵称")
+    avatar_url: Optional[str] = Field(None, description="用户头像URL")
+
+# 微信登录响应（扩展 Token）
+class WechatLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    username: Optional[str] = None
+    nickname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    is_new_user: bool = Field(..., description="是否为新用户")
+    created_at: Optional[datetime] = None
+
 class User(UserBase):
     id: int
+    nickname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    login_type: str = "password"
     created_at: datetime
-    
+
     class Config:
         # orm_mode = True
         from_attributes = True

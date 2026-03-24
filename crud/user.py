@@ -77,6 +77,57 @@ def authenticate_user(db: Session, username: str, password: str):
     return user
 
 
+# ---------- 微信用户 ----------
+
+def get_user_by_openid(db: Session, openid: str) -> Optional[User]:
+    """通过 openid 获取用户"""
+    return db.query(User).filter(User.openid == openid).first()
+
+
+def create_wechat_user(
+    db: Session,
+    openid: str,
+    nickname: Optional[str] = None,
+    avatar_url: Optional[str] = None,
+    unionid: Optional[str] = None
+) -> User:
+    """创建微信用户"""
+    # 使用完整 openid 作为 username，避免与普通用户名冲突
+    # openid 通常是28位字符串，如 "oXXXX_XXXXXXXXXXXXXXXXX"
+    default_username = f"wechat_{openid}"
+
+    db_user = User(
+        username=default_username,
+        openid=openid,
+        unionid=unionid,
+        nickname=nickname,
+        avatar_url=avatar_url,
+        login_type='wechat',
+        email=None,
+        hashed_password=None,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def update_wechat_user_info(
+    db: Session,
+    user: User,
+    nickname: Optional[str] = None,
+    avatar_url: Optional[str] = None
+) -> User:
+    """更新微信用户信息"""
+    if nickname:
+        user.nickname = nickname
+    if avatar_url:
+        user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # ---------- 基金持仓 ----------
 
 def get_user_funds(db: Session, user_id: int):

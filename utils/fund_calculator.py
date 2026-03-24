@@ -56,10 +56,11 @@ class FundCalculator:
             return cached_info
 
         try:
-            if fund_code.startswith(('OF', 'F', 'SH', 'SZ')):
+            # 先尝试普通基金接口
+            fund_info = await self._get_common_fund_info(fund_code)
+            # 如果普通接口失败，尝试 LOF 接口
+            if not fund_info:
                 fund_info = await self._get_lof_fund_info(fund_code)
-            else:
-                fund_info = await self._get_common_fund_info(fund_code)
 
             if fund_info:
                 self._set_cached_fund_info(fund_code, fund_info)
@@ -88,6 +89,8 @@ class FundCalculator:
                 logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
                 if i < 2:
                     await asyncio.sleep(1)
+                # return None  # 常规接口失败，不再尝试备用接口
+
 
         # 常规接口失败，尝试备用接口（使用同一个 session）
         logger.info(f"常规接口获取失败，尝试备用接口: {fund_code}")
@@ -147,18 +150,19 @@ class FundCalculator:
             try:
                 async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     resp.raise_for_status()
+                    # resp.encoding = resp.apparent_encoding
                     body = await resp.read()
                     soup = BeautifulSoup(body, 'html.parser')
-
+                    print(f"LOF接口响应编码: {resp}, 解析后文本长度: {soup}")
                     name_element = soup.find('a', href=url, target="_self")
                     name = name_element.getText() if name_element else "未知基金"
 
                     value_element = soup.find_all('dd', {'class': 'dataNums'})[1].find('span')
                     value = value_element.getText() if value_element else "0.00"
 
-                    date_element = soup.find('dl', {'class': "dataItem02"}).find('p')
+                    date_element = soup.find('dl', {'class': "dataItem01"}).find('p')
                     date_str = date_element.getText() if date_element else "未知日期"
-
+                    print(f"LOF接口解析结果 - 名称: {name}, 净值: {value}, 日期: {date_str}")
                     return {'name': name, 'value': value, 'data': date_str}
             except Exception as e:
                 logger.warning(f"获取LOF基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
@@ -202,6 +206,93 @@ class FundCalculator:
         except Exception as e:
             logger.error(f"获取近期涨跌失败: {fund_code}, 错误: {str(e)}")
             return "获取失败"
+
+    async def get_fund_period_returns(self, fund_code: str) -> Optional[Dict[str, Any]]:
+        """
+        获取基金各阶段涨跌幅（近一周、近一月、近三月、近六月、近1年、近2年、近3年、今年来、成立来）
+        使用天天基金 /fundMNPeriodIncrease 接口
+        """
+        cache_key = f"fund_returns:{fund_code}"
+        cached_data = self._cache_get(cache_key)
+        if cached_data:
+            try:
+                return json.loads(cached_data)
+            except json.JSONDecodeError:
+                pass
+
+        # 各阶段代码映射
+        period_codes = ['Z', 'Y', '3Y', '6Y', '1N', '2N', '3N', '5N', 'JN', 'LN']
+        period_names = {
+            'Z': '近一周',
+            'Y': '近一月',
+            '3Y': '近三月',
+            '6Y': '近六月',
+            '1N': '近1年',
+            '2N': '近2年',
+            '3N': '近3年',
+            '5N': '近5年',
+            'JN': '今年来',
+            'LN': '成立来'
+        }
+
+        url = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNPeriodIncrease"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+
+        result = {
+            'fund_code': fund_code,
+            'periods': []
+        }
+
+        session = get_http_session()
+        try:
+            # 一次性请求所有阶段数据
+            data = {
+                'FCODE': fund_code,
+                'RANGE': ','.join(period_codes),
+                'deviceid': '1234567.py.service',
+                'version': '6.5.5',
+                'product': 'EFund',
+                'plat': 'Iphone',
+            }
+
+            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                resp.raise_for_status()
+                response = await resp.json()
+
+                if response.get('Datas'):
+                    for item in response['Datas']:
+                        period_code = item.get('title', '')
+                        if period_code in period_names:
+                            syl = item.get('syl')
+                            try:
+                                syl_value = float(syl) if syl else None
+                            except (ValueError, TypeError):
+                                syl_value = None
+
+                            result['periods'].append({
+                                'period_code': period_code,
+                                'period_name': period_names[period_code],
+                                'return_rate': syl_value,
+                                'return_rate_str': f"{syl_value}%" if syl_value is not None else '--',
+                                'avg': item.get('avg'),  # 同类平均
+                                'rank': item.get('rank'),  # 同类排名
+                                'sc': item.get('sc'),  # 同类数量
+                            })
+
+                    # 按预定义顺序排序
+                    order_map = {code: i for i, code in enumerate(period_codes)}
+                    result['periods'].sort(key=lambda x: order_map.get(x['period_code'], 999))
+
+            self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)  # 缓存15分钟
+            logger.info(f"获取基金阶段涨幅成功: {fund_code}")
+            return result
+
+        except Exception as e:
+            logger.error(f"获取基金阶段涨幅失败: {fund_code}, 错误: {str(e)}")
+            return result
 
     async def get_fund_nav_history_simple(self, fund_code: str, days: int = 30) -> List[Dict[str, Any]]:
         """获取基金历史净值数据（异步，仅提取日期、单位净值、增长率）"""

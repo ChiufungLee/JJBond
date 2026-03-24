@@ -12,6 +12,7 @@ from core.dependencies import get_current_user
 from crud import user as user_crud
 from utils.fund_calculator import calculator
 from utils.fund_data_manager import search_funds, upsert_fund
+from utils.fund_ranking import fund_ranking_manager
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,39 @@ async def get_fund_info(
     current_user: schemas.User = Depends(get_current_user)
 ):
     return await calculator.get_fund_info(fund_code)
+
+
+@router.get("/fund_nav_history/{fund_code}")
+async def get_fund_nav_history(
+    fund_code: str,
+    days: int = Query(default=30, ge=1, le=365, description="获取天数"),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """获取基金历史净值数据"""
+    return await calculator.get_fund_nav_history_simple(fund_code, days)
+
+
+@router.get("/fund_returns/{fund_code}")
+async def get_fund_returns(
+    fund_code: str,
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    获取基金各阶段涨跌幅
+    优先从排行榜缓存获取，缓存未命中时调用 API
+    返回：近一周、近一月、近三月、近六月、近1年、近2年、近3年、近5年、今年来、成立来
+    """
+    # 优先从排行榜缓存获取
+    ranking_info = fund_ranking_manager.get_fund_ranking_info(fund_code)
+    # 检查 returns 列表是否非空（空列表 [] 也是 truthy，需要检查长度）
+    if ranking_info and ranking_info.get("returns") and len(ranking_info["returns"]) > 0:
+        # 缓存命中，直接返回
+        return {
+            "fund_code": fund_code,
+            "periods": ranking_info["returns"]
+        }
+    # 缓存未命中，调用 API 获取
+    return await calculator.get_fund_period_returns(fund_code)
 
 
 @router.get("/calculate", response_model=schemas.PortfolioSummary)

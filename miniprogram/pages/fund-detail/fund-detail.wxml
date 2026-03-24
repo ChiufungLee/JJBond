@@ -18,7 +18,7 @@
         </view>
       </view>
 
-      <view class="fund-main">
+      <view class="fund-main" wx:if="{{isHeld}}">
         <view class="revenue-section">
           <view class="revenue-label">累计收益</view>
           <view class="revenue-value {{fundInfo.total_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.total_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : fundInfo.total_revenue_formatted}}</view>
@@ -39,10 +39,18 @@
           </view>
         </view>
       </view>
+
+      <!-- 未持有基金显示今日估值 -->
+      <view class="fund-main" wx:else>
+        <view class="revenue-section">
+          <view class="revenue-label">今日估值</view>
+          <view class="revenue-value">{{fundInfo.today_value}}</view>
+        </view>
+      </view>
     </view>
 
-    <!-- 持仓信息 -->
-    <view class="section">
+    <!-- 持仓信息（仅持有基金显示） -->
+    <view class="section" wx:if="{{isHeld}}">
       <view class="section-title">持仓信息</view>
       <view class="info-list">
         <view class="info-item">
@@ -76,7 +84,8 @@
     <view class="section">
       <view class="section-title">近期净值走势</view>
       <view class="chart-info">
-        <text class="cost-price-label">-- 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
+        <text class="cost-price-label" wx:if="{{isHeld && fundInfo.cost_price}}">-- 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
+        <text class="cost-price-label" wx:else>-- 成本价: --</text>
         <text class="{{tooltip.show ? 'info-highlight' : ''}}">— 净值: {{tooltip.value}} ({{tooltip.date}})</text>
       </view>
       <view class="chart-container">

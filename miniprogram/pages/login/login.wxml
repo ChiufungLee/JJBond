@@ -7,6 +7,23 @@
   </view>
 
   <view class="login-form">
+    <!-- 微信一键登录 -->
+    <button
+      class="btn-wechat-login"
+      bindtap="handleWechatLogin"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      <text class="wechat-icon">🔐</text>
+      <text>微信一键登录</text>
+    </button>
+
+    <view class="divider">
+      <view class="line"></view>
+      <text class="text">或使用账号登录</text>
+      <view class="line"></view>
+    </view>
+
     <view class="form-item">
       <view class="input-wrapper">
         <text class="input-icon">👤</text>

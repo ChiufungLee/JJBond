@@ -41,11 +41,7 @@
         <view wx:if="{{item.isEmpty}}" class="day-item empty"></view>
         <view
           wx:else
-          class="day-item
-            {{item.is_trading_day ? '' : 'weekend'}}
-            {{item.revenue > 0 ? 'positive' : item.revenue < 0 ? 'negative' : ''}}
-            {{item.isToday ? 'today' : ''}}
-            {{item.date === selectedDate ? 'selected' : ''}}"
+          class="day-item {{item.is_trading_day ? '' : 'weekend'}} {{item.revenue > 0 ? 'positive' : item.revenue < 0 ? 'negative' : ''}} {{item.isToday ? 'today' : ''}} {{item.date === selectedDate ? 'selected' : ''}}"
           bindtap="onDayTap"
           data-date="{{item.date}}"
         >

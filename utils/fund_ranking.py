@@ -345,13 +345,13 @@ class FundRankingManager:
 
     def get_fund_ranking_info(self, fund_code: str) -> Optional[Dict]:
         """
-        获取单个基金在各排行榜中的排名
+        获取单个基金在各排行榜中的排名和涨跌幅
 
         Args:
             fund_code: 基金代码
 
         Returns:
-            基金排名信息
+            基金排名信息和各阶段涨跌幅
         """
         if not self._is_redis_available():
             return None
@@ -361,13 +361,34 @@ class FundRankingManager:
             if not detail:
                 return None
 
+            # 涨跌幅字段映射
+            return_field_map = [
+                ("daySyl", "日涨跌"),
+                ("weekSyl", "近一周"),
+                ("monthSyl", "近一月"),
+                ("yearSyl", "近1年"),
+                ("sySyl", "今年来"),
+                ("lnSyl", "成立来"),
+            ]
+
             result = {
                 "fundCode": fund_code,
                 "fundName": detail.get("fundName", ""),
                 "ftype": detail.get("ftype", ""),
                 "company": detail.get("company", ""),
+                "returns": [],
                 "rankings": {},
             }
+
+            # 构建涨跌幅列表
+            for field, label in return_field_map:
+                value = self._safe_float(detail.get(field))
+                result["returns"].append({
+                    "period": field,
+                    "label": label,
+                    "value": value,
+                    "value_str": f"{value}%" if value is not None else "--",
+                })
 
             # 获取各维度的排名
             for ranking_type, field in RANKING_FIELD_MAP.items():

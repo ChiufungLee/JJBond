@@ -159,11 +159,49 @@ const login = (username, password) => {
   })
 }
 
+// 微信登录请求
+const wechatLogin = (code, nickname = null, avatarUrl = null) => {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: app.globalData.baseUrl + '/auth/wechat-login',
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json'
+      },
+      data: {
+        code: code,
+        nickname: nickname,
+        avatar_url: avatarUrl
+      },
+      success(res) {
+        if (res.statusCode === 200) {
+          resolve(res.data)
+        } else {
+          const errorMsg = res.data?.detail || '微信登录失败'
+          wx.showToast({
+            title: errorMsg,
+            icon: 'none'
+          })
+          reject(res)
+        }
+      },
+      fail(err) {
+        wx.showToast({
+          title: '网络请求失败',
+          icon: 'none'
+        })
+        reject(err)
+      }
+    })
+  })
+}
+
 module.exports = {
   request,
   get,
   post,
   put,
   del,
-  login
+  login,
+  wechatLogin
 }

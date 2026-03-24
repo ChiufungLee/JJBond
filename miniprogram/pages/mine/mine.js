@@ -11,8 +11,8 @@ Page({
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
-      { icon: 'edit', title: '建议反馈', openType: 'feedback' },
-      { icon: 'mail', title: '联系我们', openType: 'contact' }
+      // { icon: 'edit', title: '建议反馈', openType: 'feedback' },
+      { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]
   },
 

@@ -9,6 +9,7 @@ Page({
     fundInfo: null,
     loading: true,
     hideAmount: false,
+    isHeld: false,  // 是否持有该基金
     tooltip: {
       show: false,
       date: '今日',
@@ -55,22 +56,36 @@ Page({
     showLoading('加载中...')
 
     try {
-      // 从 /funds/calculate 获取用户的持仓数据
+      // 先尝试从用户持仓中获取
       const summary = await get('/funds/calculate')
-
-      // 在 fund_details 中找到对应的基金
       const fundDetail = (summary?.fund_details || []).find(
         item => item.fund_code === fundCode
       )
 
-      if (!fundDetail) {
+      let formattedInfo = null
+      let isHeld = false
+
+      if (fundDetail) {
+        // 用户持有该基金
+        isHeld = true
+        formattedInfo = this.formatFundInfo(fundDetail)
+      } else {
+        // 用户未持有该基金，从 fund_info 接口获取基本信息
+        const fundInfo = await get(`/funds/fund_info/${fundCode}`)
+        if (fundInfo) {
+          isHeld = false
+          // 获取历史净值数据
+          const navHistory = await get(`/funds/fund_nav_history/${fundCode}?days=30`)
+          formattedInfo = this.formatFundInfoBasic(fundInfo, navHistory || [])
+        }
+      }
+
+      if (!formattedInfo) {
         hideLoading()
-        showToast('未找到该基金持仓')
+        showToast('未找到该基金信息')
         setTimeout(() => wx.navigateBack(), 1500)
         return
       }
-
-      const formattedInfo = this.formatFundInfo(fundDetail)
 
       // 获取今日净值（最新一条数据）
       const recentChanges = formattedInfo.recent_changes || []
@@ -78,6 +93,7 @@ Page({
 
       this.setData({
         fundInfo: formattedInfo,
+        isHeld,
         loading: false,
         'tooltip.date': todayData ? todayData.date : '今日',
         'tooltip.value': todayData ? parseFloat(todayData.unit_nav).toFixed(4) : ''
@@ -87,7 +103,7 @@ Page({
       // 延迟绘制图表，确保 DOM 已渲染
       if (formattedInfo && formattedInfo.recent_changes) {
         setTimeout(() => {
-          this.drawChart(formattedInfo.recent_changes, formattedInfo.cost_price)
+          this.drawChart(formattedInfo.recent_changes, isHeld ? formattedInfo.cost_price : null)
         }, 100)
       }
     } catch (error) {
@@ -97,7 +113,7 @@ Page({
     }
   },
 
-  // 格式化基金信息
+  // 格式化基金信息（持有基金，包含持仓数据）
   formatFundInfo(info) {
     if (!info) return null
 
@@ -112,6 +128,30 @@ Page({
     }
   },
 
+  // 格式化基金基本信息（未持有基金，只有基本数据）
+  formatFundInfoBasic(info, navHistory = []) {
+    if (!info) return null
+
+    return {
+      fund_code: info.fundcode || info.fund_code,
+      fund_name: info.name || info.fund_name,
+      change_rate: info.gszzl ? `${info.gszzl}%` : '--',
+      // 未持有基金没有以下数据
+      cost: null,
+      cost_formatted: '--',
+      shares: '--',
+      cost_price: null,
+      today_value: info.gsz || '--',
+      today_revenue: null,
+      today_revenue_formatted: '--',
+      total_revenue: null,
+      total_revenue_formatted: '--',
+      profit_loss_ratio: null,
+      profit_loss_ratio_formatted: '--',
+      recent_changes: navHistory
+    }
+  },
+
   // 绘制图表
   drawChart(data, costPrice) {
     if (!wxCharts || !data || data.length === 0) return
@@ -122,14 +162,6 @@ Page({
       const seriesData = data.map(item => parseFloat(item.unit_nav) || 0).reverse()
       const originalData = [...data].reverse()
 
-      // 成本价数据（每个点都是相同的成本价）
-      const costPriceData = new Array(categories.length).fill(costPrice)
-
-      // 计算 Y 轴范围，需要考虑成本价
-      const allValues = [...seriesData, costPrice]
-      const minY = Math.min(...allValues) * 0.995
-      const maxY = Math.max(...allValues) * 1.005
-
       // 存储图表数据用于点击检测
       this.chartData = {
         categories,
@@ -137,23 +169,42 @@ Page({
         originalData
       }
 
+      // 构建系列数据
+      const series = [{
+        name: '净值',
+        data: seriesData,
+        format: (val) => val.toFixed(4)
+      }]
+
+      // 计算 Y 轴范围
+      let allValues = [...seriesData]
+      let minY, maxY
+
+      // 如果有成本价，添加成本价线
+      if (costPrice) {
+        const costPriceData = new Array(categories.length).fill(costPrice)
+        series.push({
+          name: '成本价',
+          data: costPriceData,
+          format: (val) => val.toFixed(4),
+          dashed: true,
+          showPoints: false,
+          color: '#ff7a45'
+        })
+        allValues = [...allValues, costPrice]
+        minY = Math.min(...allValues) * 0.995
+        maxY = Math.max(...allValues) * 1.005
+      } else {
+        minY = Math.min(...seriesData) * 0.995
+        maxY = Math.max(...seriesData) * 1.005
+      }
+
       new wxCharts({
         canvasId: 'fundChart',
         context: this,
         type: 'line',
         categories: categories,
-        series: [{
-          name: '净值',
-          data: seriesData,
-          format: (val) => val.toFixed(4)
-        }, {
-          name: '成本价',
-          data: costPriceData,
-          format: (val) => val.toFixed(4),
-          dashed: true,      // 虚线
-          showPoints: false, // 不显示数据点
-          color: '#ff7a45'   // 橙色
-        }],
+        series: series,
         yAxis: {
           title: '净值',
           format: (val) => val.toFixed(2),

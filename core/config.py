@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # 第三方API配置
     FUND_API_BASE_URL: str = "https://fund.eastmoney.com"
 
+    # 微信小程序配置
+    WECHAT_APPID: str = ""  # 微信小程序 AppID
+    WECHAT_SECRET: str = ""  # 微信小程序 AppSecret
+
     class Config:
         env_file = ".env"
 

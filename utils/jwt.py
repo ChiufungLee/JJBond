@@ -51,10 +51,10 @@ def revoke_token(token: str) -> bool:
         return False
 
 
-def verify_token(token: str) -> str | None:
+def verify_token(token: str) -> dict | None:
     """
-    验证令牌，返回 username 或 None。
-    验证步骤：黑名单检查 → 签名 & 过期校验 → 提取 sub。
+    验证令牌，返回整个 payload 或 None。
+    验证步骤：黑名单检查 → 签名 & 过期校验 → 返回 payload。
     """
     # 1. 黑名单检查（Redis 不可用时跳过，降级为仅校验签名和过期时间）
     if redis_client is not None:
@@ -68,8 +68,7 @@ def verify_token(token: str) -> str | None:
     # 2. 签名 & 过期校验
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        return username if username else None
+        return payload
     except JWTError:
         return None
 
