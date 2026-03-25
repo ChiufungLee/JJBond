@@ -67,7 +67,7 @@
     <view wx:elif="{{watchlist.length === 0}}" class="empty-state">
       <text class="empty-icon">⭐</text>
       <text class="empty-text">暂无自选基金</text>
-      <text class="empty-hint">搜索上方添加自选</text>
+      <text class="empty-hint">搜索或从排行榜页面添加</text>
     </view>
 
     <!-- 自选列表 -->

@@ -128,6 +128,45 @@ def update_wechat_user_info(
     return user
 
 
+def update_username(db: Session, user: User, new_username: str) -> User:
+    """更新用户名"""
+    # 检查用户名是否已被其他用户使用
+    existing = db.query(User).filter(
+        User.username == new_username,
+        User.id != user.id
+    ).first()
+    if existing:
+        return None  # 用户名已存在
+
+    user.username = new_username
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user_info(db: Session, user: User, username: str = None, nickname: str = None, avatar_url: str = None) -> User:
+    """更新用户信息"""
+    # 如果更新用户名，检查是否已被使用
+    if username:
+        existing = db.query(User).filter(
+            User.username == username,
+            User.id != user.id
+        ).first()
+        if existing:
+            return None  # 用户名已存在
+        user.username = username
+
+    if nickname is not None:
+        user.nickname = nickname
+
+    if avatar_url is not None:
+        user.avatar_url = avatar_url
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # ---------- 基金持仓 ----------
 
 def get_user_funds(db: Session, user_id: int):

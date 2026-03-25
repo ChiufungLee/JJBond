@@ -5,7 +5,6 @@
     "pages/ranking/ranking",
     "pages/mine/mine",
     "pages/login/login",
-    "pages/register/register",
     "pages/funds/funds",
     "pages/funds-add/funds-add",
     "pages/funds-edit/funds-edit",
@@ -13,7 +12,8 @@
     "pages/search/search",
     "pages/calendar/calendar",
     "pages/feedback/feedback",
-    "pages/contact/contact"
+    "pages/contact/contact",
+    "pages/profile-edit/profile-edit"
   ],
   "window": {
     "backgroundTextStyle": "light",

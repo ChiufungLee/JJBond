@@ -1,9 +1,14 @@
+# 设置时区为北京时间（必须在其他导入之前）
+import os
+os.environ['TZ'] = 'Asia/Shanghai'
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -114,6 +119,12 @@ app.include_router(user.router,      prefix="/api")
 app.include_router(funds.router,     prefix="/api")
 app.include_router(watchlist.router, prefix="/api")
 app.include_router(ranking.router,   prefix="/api")
+
+# 挂载静态文件目录（用户头像）
+import os
+avatars_dir = "uploads/avatars"
+os.makedirs(avatars_dir, exist_ok=True)
+app.mount("/static/avatars", StaticFiles(directory=avatars_dir), name="avatars")
 
 
 @app.get("/")

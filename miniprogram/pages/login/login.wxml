@@ -1,67 +1,27 @@
 <!--pages/login/login.wxml-->
 <view class="login-container">
   <view class="login-header">
-    <view class="logo">📊</view>
-    <text class="title">基金管理</text>
-    <text class="subtitle">您的投资组合管家</text>
+    <image class="logo" src="/icons/logo.png" mode="aspectFit"></image>
   </view>
 
-  <view class="login-form">
-    <!-- 微信一键登录 -->
+  <view class="login-content">
+    <view class="welcome-text">
+      <text class="welcome-title">欢迎使用基基棒</text>
+      <text class="welcome-desc">使用微信快捷登录，即可开始管理您的基金</text>
+    </view>
+
     <button
       class="btn-wechat-login"
       bindtap="handleWechatLogin"
       loading="{{loading}}"
       disabled="{{loading}}"
     >
-      <text class="wechat-icon">🔐</text>
-      <text>微信一键登录</text>
+      <image class="wechat-icon" src="/icons/login.svg" mode="aspectFit" wx:if="{{!loading}}"></image>
+      <text>{{loading ? '登录中...' : '微信登录'}}</text>
     </button>
 
-    <view class="divider">
-      <view class="line"></view>
-      <text class="text">或使用账号登录</text>
-      <view class="line"></view>
-    </view>
-
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">👤</text>
-        <input
-          class="input"
-          type="text"
-          placeholder="请输入用户名"
-          value="{{username}}"
-          bindinput="onUsernameInput"
-        />
-      </view>
-    </view>
-
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">🔒</text>
-        <input
-          class="input"
-          type="password"
-          placeholder="请输入密码"
-          value="{{password}}"
-          bindinput="onPasswordInput"
-        />
-      </view>
-    </view>
-
-    <button
-      class="btn-login"
-      bindtap="handleLogin"
-      loading="{{loading}}"
-      disabled="{{loading}}"
-    >
-      登录
-    </button>
-
-    <view class="register-link">
-      <text>还没有账号？</text>
-      <text class="link" bindtap="goToRegister">立即注册</text>
+    <view class="login-tips">
+      <text>首次登录将自动注册账号</text>
     </view>
   </view>
 </view>

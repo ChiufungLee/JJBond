@@ -9,7 +9,7 @@ Page({
     loading: true,
     refreshing: false,
     // 排序状态
-    sortBy: 'today_revenue',  // 当前排序字段: today_revenue | total_revenue
+    sortBy: 'change_rate',    // 当前排序字段: change_rate(涨幅) | total_revenue(持有收益)
     sortOrder: 'desc',        // 排序方向: desc降序 | asc升序
     // 隐藏金额
     hideAmount: false
@@ -98,12 +98,29 @@ Page({
 
     const { sortBy, sortOrder } = this.data
     const sorted = [...fundDetails].sort((a, b) => {
-      const aVal = a[sortBy] || 0
-      const bVal = b[sortBy] || 0
+      let aVal, bVal
+
+      if (sortBy === 'change_rate') {
+        // change_rate 是字符串如 "-1.23%" 或 "2.45%"，需要解析
+        aVal = this.parseChangeRate(a.change_rate)
+        bVal = this.parseChangeRate(b.change_rate)
+      } else {
+        aVal = a[sortBy] || 0
+        bVal = b[sortBy] || 0
+      }
+
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
     return sorted
+  },
+
+  // 解析涨幅字符串为数值
+  parseChangeRate(rateStr) {
+    if (!rateStr || rateStr === '--') return 0
+    // 移除百分号并转换为数值
+    const num = parseFloat(rateStr.replace('%', ''))
+    return isNaN(num) ? 0 : num
   },
 
   // 切换排序

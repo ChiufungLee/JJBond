@@ -1,5 +1,5 @@
 # models/watchlist.py
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from .base import Base
 
@@ -13,7 +13,7 @@ class WatchlistFund(Base):
     fund_code = Column(String(20), nullable=False)
     fund_name = Column(String(100))
     cost_nav = Column(Float, nullable=False)   # 添加自选时的净值
-    added_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    added_at = Column(DateTime, default=datetime.now)
 
 
 class FundTransaction(Base):
@@ -28,4 +28,4 @@ class FundTransaction(Base):
     shares = Column(Float, nullable=False)                   # 交易份额
     price = Column(Float, nullable=False)                    # 交易单价（净值）
     transaction_date = Column(DateTime, nullable=False)      # 交易日期
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.now)

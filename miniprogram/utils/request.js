@@ -196,6 +196,16 @@ const wechatLogin = (code, nickname = null, avatarUrl = null) => {
   })
 }
 
+// 修改用户名
+const updateUsername = (username) => {
+  return put('/users/me/username', { username })
+}
+
+// 更新用户信息（昵称、用户名）
+const updateUserInfo = (data) => {
+  return put('/users/me/info', data)
+}
+
 module.exports = {
   request,
   get,
@@ -203,5 +213,7 @@ module.exports = {
   put,
   del,
   login,
-  wechatLogin
+  wechatLogin,
+  updateUsername,
+  updateUserInfo
 }

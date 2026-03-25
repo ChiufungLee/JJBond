@@ -1,5 +1,5 @@
 # models/fund.py
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from .base import Base
 
@@ -14,7 +14,7 @@ class UserFund(Base):
     fund_name = Column(String(100))
     cost_price = Column(Float, nullable=False)   # 持仓成本价
     shares = Column(Float, nullable=False)        # 持仓份额
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class FundLib(Base):
@@ -25,6 +25,4 @@ class FundLib(Base):
     fund_code = Column(String(20), unique=True, index=True, nullable=False)
     fund_name = Column(String(200), nullable=False)
     fund_type = Column(String(50), default='其他')
-    updated_at = Column(DateTime,
-                        default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

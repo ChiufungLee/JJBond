@@ -3,15 +3,26 @@ const { isLoggedIn, logout, getUserInfo } = require('../../utils/auth')
 const { get } = require('../../utils/request')
 const { formatMoney, showLoading, hideLoading, showToast } = require('../../utils/util')
 
+const app = getApp()
+
+// 获取完整的头像 URL
+function getFullAvatarUrl(avatarUrl) {
+  if (!avatarUrl) return ''
+  if (avatarUrl.startsWith('http')) return avatarUrl
+  // baseUrl 是 http://127.0.0.1:8888/api，静态文件在 http://127.0.0.1:8888/static
+  const baseUrl = app.globalData.baseUrl.replace('/api', '')
+  return baseUrl + avatarUrl
+}
+
 Page({
   data: {
     userInfo: null,
+    avatarUrl: '',
     daysTogether: 0,
     stats: null,
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
-      // { icon: 'edit', title: '建议反馈', openType: 'feedback' },
       { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]
   },
@@ -43,7 +54,11 @@ Page({
         daysTogether = days
       }
     }
-    this.setData({ userInfo, daysTogether })
+    this.setData({
+      userInfo,
+      avatarUrl: getFullAvatarUrl(userInfo?.avatar_url),
+      daysTogether
+    })
   },
 
   // 加载统计数据
@@ -70,6 +85,11 @@ Page({
   goToMenu(e) {
     const { path } = e.currentTarget.dataset
     wx.navigateTo({ url: path })
+  },
+
+  // 编辑用户名
+  goToEditProfile() {
+    wx.navigateTo({ url: '/pages/profile-edit/profile-edit' })
   },
 
   // 退出登录

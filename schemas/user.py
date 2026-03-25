@@ -191,3 +191,15 @@ class RevenueCalendar(BaseModel):
 
 class LogoutResponse(BaseModel):
     message: str
+
+
+# 用户更新相关
+class UsernameUpdate(BaseModel):
+    """修改用户名"""
+    username: str = Field(..., min_length=2, max_length=20, description="新用户名")
+
+
+class UserInfoUpdate(BaseModel):
+    """更新用户信息"""
+    username: Optional[str] = Field(None, min_length=2, max_length=20, description="用户名")
+    nickname: Optional[str] = Field(None, max_length=50, description="昵称")

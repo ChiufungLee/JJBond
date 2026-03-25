@@ -3,11 +3,12 @@
   <!-- 用户信息卡片 -->
   <view class="user-card">
     <view class="user-header">
-      <view class="avatar">
-        <text class="avatar-text">👤</text>
-      </view>
+      <image class="avatar" src="{{avatarUrl || '/icons/logo.png'}}" mode="aspectFill"></image>
       <view class="user-info">
-        <text class="username">{{userInfo.username || '用户'}}</text>
+        <view class="username-row" bindtap="goToEditProfile">
+          <text class="username">{{userInfo.nickname || userInfo.username || '用户'}}</text>
+          <image class="edit-icon" src="/icons/edit.svg" mode="aspectFit"></image>
+        </view>
         <text class="user-days">已陪伴你 {{daysTogether}} 天</text>
       </view>
     </view>
@@ -61,6 +62,17 @@
           <text class="menu-arrow">›</text>
         </button>
       </block>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="menu-section">
+    <view class="menu-list">
+      <view class="menu-item logout-item" bindtap="handleLogout">
+        <view class="menu-left">
+          <text class="menu-title logout-text">退出登录</text>
+        </view>
+      </view>
     </view>
   </view>
 

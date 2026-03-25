@@ -5,5 +5,5 @@ from .user import (
     Fund, FundCreate, FundBase, FundUpdate, FundDetail, PortfolioSummary,
     WatchlistCreate, WatchlistItem,
     RevenueCalendar, CalendarDay, CalendarFundDetail,
-    Transaction, LogoutResponse
+    Transaction, LogoutResponse, UsernameUpdate, UserInfoUpdate
 )

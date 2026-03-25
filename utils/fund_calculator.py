@@ -122,14 +122,17 @@ class FundCalculator:
                 if result.get('success') and result.get('data'):
                     item = result['data'][0]
                     # 转换为统一格式
+                    gsz = item.get('DWJZ')  # 估算值使用单位净值
+                    lastday = gsz/ (1 + item.get('RZDF', 0) / 100) if item.get('RZDF', 0) != 0 else gsz  # 昨日净值
                     fund_info = {
                         'fundcode': item.get('FCODE', fund_code),
                         'name': item.get('SHORTNAME', ''),
-                        'dwjz': str(item.get('DWJZ', '0')),
+                        'jzrq': item.get('FSRQ', ''),  # 净值日期
+                        'dwjz': str(lastday),
                         'gsz': str(item.get('DWJZ', '0')),  # 使用单位净值作为估算值
                         'gszzl': str(item.get('RZDF', '0')),  # 日涨跌幅
-                        'jzrq': item.get('FSRQ', ''),  # 净值日期
-                        'ftype': item.get('FTYPE', ''),  # 基金类型
+                        'gztime': item.get('FSRQ', ''),
+                        # 'ftype': item.get('FTYPE', ''),  # 基金类型
                     }
                     logger.info(f"备用接口获取成功: {fund_code}")
                     return fund_info
@@ -422,7 +425,7 @@ class FundCalculator:
                     'recent_changes': [],
                 })
                 continue
-
+            logger.info(f"计算基金 {fund_code} - {fund_info}")
             if 'dwjz' in fund_info:
                 amount        = round(float(fund_info['dwjz']) * share, 2)
                 today_value   = float(fund_info.get('gsz', fund_info['dwjz']))
@@ -556,7 +559,7 @@ class FundCalculator:
                     'recent_changes': [],
                 })
                 continue
-
+            print(f"计算基金 {fund_code} - {fund_info}")
             # 金额计算
             if 'dwjz' in fund_info:  # 普通基金
                 amount        = round(float(fund_info['dwjz']) * share, 2)

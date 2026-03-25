@@ -77,11 +77,11 @@
 }
 
 .greeting.up {
-  color: #ff9999;
+  color: #ff4d4f;
 }
 
 .greeting.down {
-  color: #99ff99;
+  color: #52c41a;
 }
 
 .eye-icon {

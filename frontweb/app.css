@@ -1196,3 +1196,215 @@ body {
         min-width: 900px;
     }
 }
+
+/* =============================================
+   自选基金移动端卡片样式
+   ============================================= */
+.watchlist-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 0;
+}
+
+.watchlist-mobile-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.wmc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.wmc-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.wmc-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2d3748;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wmc-code {
+    font-size: 12px;
+    color: #a0aec0;
+    font-family: monospace;
+}
+
+.wmc-change {
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-left: 12px;
+    text-align: right;
+}
+
+.wmc-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 12px 16px;
+    gap: 8px;
+    background: #fafbfc;
+}
+
+.wmc-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.wmc-metric-label {
+    font-size: 11px;
+    color: #718096;
+}
+
+.wmc-metric-value {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.wmc-sub-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    padding: 10px 16px;
+    gap: 8px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.wmc-sub-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.wmc-sub-label {
+    font-size: 11px;
+    color: #a0aec0;
+}
+
+.wmc-sub-value {
+    font-size: 13px;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+.wmc-footer {
+    padding: 10px 16px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+
+.wmc-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.wmc-tag--holding {
+    background-color: #e6f7ff;
+    color: #1890ff;
+}
+
+.wmc-tag--not-holding {
+    background-color: #f5f5f5;
+    color: #999;
+}
+
+/* 趋势数据移动端表格优化 */
+@media (max-width: 768px) {
+    .trend-data-summary {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .trend-data-summary table {
+        min-width: 100%;
+    }
+
+    .trend-data-summary th,
+    .trend-data-summary td {
+        padding: 8px 6px;
+        font-size: 12px;
+    }
+
+    .trend-modal .modal-body {
+        padding: 10px;
+    }
+
+    .trend-modal h4 {
+        font-size: 14px;
+        margin-bottom: 10px;
+    }
+}
+
+/* 移动端趋势数据列表 */
+.trend-mobile-list {
+    background: #fafbfc;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.trend-mobile-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 10px 12px;
+    background: #f0f0f0;
+    font-size: 12px;
+    color: #718096;
+    text-align: center;
+}
+
+.trend-mobile-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    text-align: center;
+}
+
+.trend-mobile-row:last-child {
+    border-bottom: none;
+}
+
+.tmr-date {
+    color: #4a5568;
+}
+
+.tmr-nav {
+    color: #2d3748;
+    font-weight: 500;
+}
+
+.tmr-growth {
+    font-weight: 600;
+}
+
+.trend-mobile-more {
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: #a0aec0;
+    background: #f5f5f5;
+}

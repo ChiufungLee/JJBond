@@ -253,8 +253,7 @@
 
 /* 近期变化列表 */
 .change-list {
-  max-height: 600rpx;
-  overflow-y: auto;
+  /* 移除固定高度，让内容自然展开 */
 }
 
 .change-header {

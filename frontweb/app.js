@@ -308,11 +308,43 @@ class FundManagerApp {
             return;
         }
 
+        // 构建桌面端表格行
+        const tableRows = watchlist.map(item => {
+            const isHolding = item.is_holding;
+            const addedAt = new Date(item.added_at).toLocaleDateString();
+            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
+            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
+            const totalChangeDisplay = item.total_change_rate !== null ?
+                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
+            const safeName = (item.fund_name || '').replace(/'/g, "\\'");
+
+            return `
+                <tr>
+                    <td class="fund-code">${item.fund_code}</td>
+                    <td class="fund-name">${item.fund_name || '-'}</td>
+                    <td>${isHolding ? '<span class="holding-tag">已持有</span>' : '<span class="not-holding-tag">未持有</span>'}</td>
+                    <td>${addedAt}</td>
+                    <td>${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</td>
+                    <td>${item.current_nav ? item.current_nav.toFixed(4) : '-'}</td>
+                    <td class="${changeRateClass}">${item.change_rate || '--'}</td>
+                    <td class="${totalChangeClass}">${totalChangeDisplay}</td>
+                    <td class="action-cell">
+                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${safeName}')">买入</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${safeName}')">移除</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // 构建移动端卡片
+        const mobileCards = this._buildWatchlistCards(watchlist);
+
         container.innerHTML = `
             <div class="watchlist-summary">
                 <h3>我的自选 (共 ${watchlist.length} 只)</h3>
             </div>
-            <div class="watchlist-table-container">
+            <!-- 桌面端表格 -->
+            <div class="watchlist-table-container desktop-only">
                 <table class="funds-table">
                     <thead>
                         <tr>
@@ -327,36 +359,71 @@ class FundManagerApp {
                             <th>操作</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        ${watchlist.map(item => {
-                            const isHolding = item.is_holding;
-                            const addedAt = new Date(item.added_at).toLocaleDateString();
-                            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
-                            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
-                            const totalChangeDisplay = item.total_change_rate !== null ?
-                                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
-
-                            return `
-                                <tr>
-                                    <td class="fund-code">${item.fund_code}</td>
-                                    <td class="fund-name">${item.fund_name || '-'}</td>
-                                    <td>${isHolding ? '<span class="holding-tag">已持有</span>' : '<span class="not-holding-tag">未持有</span>'}</td>
-                                    <td>${addedAt}</td>
-                                    <td>${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</td>
-                                    <td>${item.current_nav ? item.current_nav.toFixed(4) : '-'}</td>
-                                    <td class="${changeRateClass}">${item.change_rate || '--'}</td>
-                                    <td class="${totalChangeClass}">${totalChangeDisplay}</td>
-                                    <td class="action-cell">
-                                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${(item.fund_name || '').replace(/'/g, "\\'")}')">买入</button>` : ''}
-                                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${(item.fund_name || '').replace(/'/g, "\\'")}')">移除</button>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
+                    <tbody>${tableRows}</tbody>
                 </table>
             </div>
+            <!-- 移动端卡片 -->
+            <div class="watchlist-cards-list mobile-only">
+                ${mobileCards}
+            </div>
         `;
+    }
+
+    // 构建自选基金移动端卡片
+    _buildWatchlistCards(watchlist) {
+        return watchlist.map(item => {
+            const isHolding = item.is_holding;
+            const addedAt = new Date(item.added_at).toLocaleDateString();
+            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
+            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
+            const totalChangeDisplay = item.total_change_rate !== null ?
+                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
+            const safeName = (item.fund_name || '').replace(/'/g, "\\'");
+
+            return `
+                <div class="watchlist-mobile-card">
+                    <div class="wmc-header">
+                        <div class="wmc-title">
+                            <span class="wmc-name">${item.fund_name || '-'}</span>
+                            <span class="wmc-code">${item.fund_code}</span>
+                        </div>
+                        <div class="wmc-change ${changeRateClass}">
+                            ${item.change_rate || '--'}
+                        </div>
+                    </div>
+                    <div class="wmc-metrics">
+                        <div class="wmc-metric">
+                            <span class="wmc-metric-label">自选涨幅</span>
+                            <span class="wmc-metric-value ${totalChangeClass}">${totalChangeDisplay}</span>
+                        </div>
+                        <div class="wmc-metric">
+                            <span class="wmc-metric-label">加入时净值</span>
+                            <span class="wmc-metric-value">${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</span>
+                        </div>
+                        <div class="wmc-metric">
+                            <span class="wmc-metric-label">当前净值</span>
+                            <span class="wmc-metric-value">${item.current_nav ? item.current_nav.toFixed(4) : '-'}</span>
+                        </div>
+                    </div>
+                    <div class="wmc-sub-metrics">
+                        <div class="wmc-sub-item">
+                            <span class="wmc-sub-label">加入时间</span>
+                            <span class="wmc-sub-value">${addedAt}</span>
+                        </div>
+                        <div class="wmc-sub-item">
+                            <span class="wmc-sub-label">状态</span>
+                            <span class="wmc-sub-value">
+                                ${isHolding ? '<span class="wmc-tag wmc-tag--holding">已持有</span>' : '<span class="wmc-tag wmc-tag--not-holding">未持有</span>'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="wmc-footer">
+                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${safeName}')">买入</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${safeName}')">移除</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     // 显示添加自选模态框
@@ -1000,38 +1067,62 @@ class FundManagerApp {
     }
 
     showFundTrendModal(fundCode, fundName) {
-        
+
         // 从当前数据中查找基金
         if (!this.currentPortfolioSummary || !this.currentPortfolioSummary.fund_details) {
             this.showMessage('无法获取基金数据，请刷新页面后重试', 'error');
             return;
         }
-        
+
         const fund = this.currentPortfolioSummary.fund_details.find(f => f.fund_code === fundCode);
-        
-        
+
+
         if (!fund) {
             this.showMessage(`未找到基金 ${fundCode} 的数据`, 'error');
             return;
         }
-        
+
         if (!fund.recent_changes || fund.recent_changes.length === 0) {
             this.showMessage('该基金暂无趋势数据', 'info');
             return;
         }
 
         const recentChanges = fund.recent_changes;
-        
+
         // 准备图表数据 - 注意：数据已经按日期从新到旧排列，我们需要反转顺序
         const dates = recentChanges.map(item => item.date);
         const navValues = recentChanges.map(item => item.unit_nav);
         const growthValues = recentChanges.map(item => item.daily_growth_value);
-        
+
         // 反转数据，让日期从旧到新
         const reversedDates = [...dates].reverse();
         const reversedNavValues = [...navValues].reverse();
         const reversedGrowthValues = [...growthValues].reverse();
-        
+
+        // 构建数据表格行
+        const tableRows = recentChanges.map(item => {
+            const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
+            return `
+                <tr>
+                    <td>${item.date}</td>
+                    <td>${item.unit_nav.toFixed(4)}</td>
+                    <td class="${growthClass}">${item.daily_growth}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // 构建移动端卡片（只显示最近5条）
+        const mobileCards = recentChanges.slice(0, 5).map(item => {
+            const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
+            return `
+                <div class="trend-mobile-row">
+                    <span class="tmr-date">${item.date}</span>
+                    <span class="tmr-nav">${item.unit_nav.toFixed(4)}</span>
+                    <span class="tmr-growth ${growthClass}">${item.daily_growth}</span>
+                </div>
+            `;
+        }).join('');
+
         const modalHTML = `
             <div class="modal show trend-modal">
                 <div class="modal-content">
@@ -1045,27 +1136,29 @@ class FundManagerApp {
                         </div>
                         <div class="trend-data-summary" style="margin-top: 20px;">
                             <h4>最近 ${recentChanges.length} 日数据</h4>
-                            <table class="funds-table" style="font-size: 12px; width: 100%;">
-                                <thead>
-                                    <tr>
-                                        <th>日期</th>
-                                        <th>单位净值</th>
-                                        <th>日增长率</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${recentChanges.map(item => {
-                                        const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
-                                        return `
-                                            <tr>
-                                                <td>${item.date}</td>
-                                                <td>${item.unit_nav.toFixed(4)}</td>
-                                                <td class="${growthClass}">${item.daily_growth}</td>
-                                            </tr>
-                                        `;
-                                    }).join('')}
-                                </tbody>
-                            </table>
+                            <!-- 桌面端表格 -->
+                            <div class="desktop-only">
+                                <table class="funds-table" style="font-size: 12px; width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>日期</th>
+                                            <th>单位净值</th>
+                                            <th>日增长率</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${tableRows}</tbody>
+                                </table>
+                            </div>
+                            <!-- 移动端简化显示 -->
+                            <div class="mobile-only trend-mobile-list">
+                                <div class="trend-mobile-header">
+                                    <span>日期</span>
+                                    <span>净值</span>
+                                    <span>涨跌</span>
+                                </div>
+                                ${mobileCards}
+                                ${recentChanges.length > 5 ? `<div class="trend-mobile-more">还有 ${recentChanges.length - 5} 条数据</div>` : ''}
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer" style="padding: 15px; text-align: right;">
@@ -1076,7 +1169,7 @@ class FundManagerApp {
         `;
 
         this.showModal(modalHTML,'chart');
-        
+
         // 延迟执行，确保DOM已渲染
         setTimeout(() => {
             this.renderTrendChart(fundCode, fundName, reversedDates, reversedNavValues, reversedGrowthValues);

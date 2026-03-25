@@ -1,12 +1,10 @@
 // pages/login/login.js
-const { login, wechatLogin } = require('../../utils/request')
+const { wechatLogin } = require('../../utils/request')
 const { saveLoginInfo, isLoggedIn } = require('../../utils/auth')
 const { showLoading, hideLoading, showToast } = require('../../utils/util')
 
 Page({
   data: {
-    username: '',
-    password: '',
     loading: false
   },
 
@@ -19,22 +17,10 @@ Page({
     }
   },
 
-  // 输入用户名
-  onUsernameInput(e) {
-    this.setData({
-      username: e.detail.value
-    })
-  },
-
-  // 输入密码
-  onPasswordInput(e) {
-    this.setData({
-      password: e.detail.value
-    })
-  },
-
   // 微信一键登录
   async handleWechatLogin() {
+    if (this.data.loading) return
+
     this.setData({ loading: true })
     showLoading('登录中...')
 
@@ -54,14 +40,10 @@ Page({
         return
       }
 
-      // 2. 尝试获取用户信息（可选）
-      let nickname = null
-      let avatarUrl = null
+      // 2. 调用后端微信登录接口
+      const res = await wechatLogin(loginRes.code)
 
-      // 3. 调用后端微信登录接口
-      const res = await wechatLogin(loginRes.code, nickname, avatarUrl)
-
-      // 4. 保存token和用户信息
+      // 3. 保存token和用户信息
       saveLoginInfo(res.access_token, {
         username: res.username || res.nickname,
         nickname: res.nickname,
@@ -86,57 +68,9 @@ Page({
     } catch (error) {
       hideLoading()
       console.error('微信登录失败:', error)
+      showToast(error.message || '登录失败，请重试')
     } finally {
       this.setData({ loading: false })
     }
-  },
-
-  // 账号密码登录
-  async handleLogin() {
-    const { username, password } = this.data
-
-    // 表单验证
-    if (!username.trim()) {
-      showToast('请输入用户名')
-      return
-    }
-    if (!password) {
-      showToast('请输入密码')
-      return
-    }
-
-    this.setData({ loading: true })
-    showLoading('登录中...')
-
-    try {
-      const res = await login(username, password)
-      // 保存token和用户信息
-      saveLoginInfo(res.access_token, {
-        username: res.username,
-        created_at: res.created_at
-      })
-
-      hideLoading()
-      showToast('登录成功')
-
-      // 跳转到首页
-      setTimeout(() => {
-        wx.switchTab({
-          url: '/pages/index/index'
-        })
-      }, 1000)
-    } catch (error) {
-      hideLoading()
-      console.error('登录失败:', error)
-    } finally {
-      this.setData({ loading: false })
-    }
-  },
-
-  // 跳转注册页
-  goToRegister() {
-    wx.navigateTo({
-      url: '/pages/register/register'
-    })
   }
 })

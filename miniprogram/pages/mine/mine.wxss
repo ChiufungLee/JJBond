@@ -25,25 +25,33 @@
   height: 100rpx;
   background-color: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin-right: 24rpx;
-}
-
-.avatar-text {
-  font-size: 50rpx;
 }
 
 .user-info {
   flex: 1;
 }
 
+.username-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
 .username {
-  display: block;
   font-size: 36rpx;
   font-weight: 600;
-  margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400rpx;
+}
+
+.edit-icon {
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: 12rpx;
+  opacity: 0.8;
 }
 
 .user-days {
@@ -176,4 +184,14 @@ button::after {
   padding: 40rpx 0;
   color: #ccc;
   font-size: 24rpx;
+}
+
+/* 退出登录 */
+.logout-item {
+  justify-content: center;
+}
+
+.logout-text {
+  color: #ff4d4f;
+  text-align: center;
 }

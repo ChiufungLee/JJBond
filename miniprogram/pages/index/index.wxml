@@ -83,14 +83,14 @@
         <view class="list-header">
           <text class="header-col">基金信息</text>
           <view
-            class="header-col sortable {{sortBy === 'today_revenue' ? 'active' : ''}}"
+            class="header-col sortable {{sortBy === 'change_rate' ? 'active' : ''}}"
             bindtap="handleSort"
-            data-field="today_revenue"
+            data-field="change_rate"
           >
-            <text>当日收益</text>
+            <text>当日涨幅</text>
             <view class="sort-icons">
-              <text class="sort-icon sort-asc {{sortBy === 'today_revenue' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
-              <text class="sort-icon sort-desc {{sortBy === 'today_revenue' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+              <text class="sort-icon sort-asc {{sortBy === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+              <text class="sort-icon sort-desc {{sortBy === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>
             </view>
           </view>
           <view
