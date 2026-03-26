@@ -73,7 +73,7 @@
       <view class="section-header">
         <view class="section-title-row">
           <text class="section-title">持仓信息 ({{summary.fund_count}})</text>
-          <text class="section-time">统计于 {{summary.update_time || '2026-03-18 22:51:00'}}</text>
+          <text class="section-time">统计于 {{updateTime}}</text>
         </view>
         <text class="section-more" bindtap="goToAddFund">+ 添加</text>
       </view>

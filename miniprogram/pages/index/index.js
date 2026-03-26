@@ -12,7 +12,9 @@ Page({
     sortBy: 'change_rate',    // 当前排序字段: change_rate(涨幅) | total_revenue(持有收益)
     sortOrder: 'desc',        // 排序方向: desc降序 | asc升序
     // 隐藏金额
-    hideAmount: false
+    hideAmount: false,
+    // 统计时间
+    updateTime: ''
   },
 
   onLoad() {
@@ -42,8 +44,12 @@ Page({
     try {
       // 使用轻量级接口，加载更快
       const summary = await get('/funds/calculate-simple')
+      // 获取当前时间作为统计时间
+      const now = new Date()
+      const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       this.setData({
-        summary: this.formatSummary(summary)
+        summary: this.formatSummary(summary),
+        updateTime
       })
     } catch (error) {
       console.error('加载数据失败:', error)
