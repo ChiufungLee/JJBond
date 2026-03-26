@@ -213,10 +213,13 @@ Page({
       const pxW = w * CONTAINER_W   // 色块估算宽度 rpx
       const pxH = h * CONTAINER_H   // 色块估算高度 rpx
 
-      // 宽度至少能放 4 个字（每字约 26rpx）+ padding，高度至少 50rpx
-      const canShowLabel   = pxW >= 120 && pxH >= 50
-      // 同时显示名称+收益需要更多高度
-      const canShowRevenue = pxW >= 120 && pxH >= 88
+      // 文字分级（基于面积占比 wgt）：
+      //   - 面积 ≥ 12%：名称 + 收益额
+      //   - 面积 ≥ 5%：仅名称
+      //   - 面积 < 5%：不显示文字
+      const areaPct = wgt * 100  // 转为百分比
+      const canShowLabel   = areaPct >= 5
+      const canShowRevenue = areaPct >= 12
 
       // 名称字号随色块大小自适应，最小 18rpx，最大 24rpx
       const labelSize = pxH < 70 ? 18 : pxH < 100 ? 20 : 24

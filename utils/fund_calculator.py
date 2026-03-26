@@ -370,8 +370,11 @@ class FundCalculator:
 
     async def calculate_portfolio_simple(self, funds_data: List[Dict]) -> Dict:
         """
-        计算投资组合（轻量版，仅获取行情，不获取历史净值）。
+        计算投资组合（轻量版）。
         用于首页和"我的"页面快速加载。
+
+        统一使用历史净值接口作为净值数据源，与收益日历保持一致。
+        行情API仅用于获取基金名称和涨跌幅。
         """
         if not funds_data:
             return {
@@ -383,8 +386,11 @@ class FundCalculator:
 
         fund_codes = [f['fund_code'] for f in funds_data]
 
-        # 只并发抓取行情数据
-        fund_infos = await asyncio.gather(*[self.get_fund_info(code) for code in fund_codes])
+        # 并发抓取：行情数据（获取名称和涨跌幅） + 历史净值（用于计算收益）
+        fund_infos, nav_histories = await asyncio.gather(
+            asyncio.gather(*[self.get_fund_info(code) for code in fund_codes]),
+            asyncio.gather(*[self.get_fund_nav_history_simple(code, days=3) for code in fund_codes]),
+        )
 
         low_fund_list = []
         high_fund_list = []
@@ -396,7 +402,7 @@ class FundCalculator:
         yesterday_holding_amount = 0
         full_today_holding_amount = 0
 
-        for fund_data, fund_info in zip(funds_data, fund_infos):
+        for fund_data, fund_info, nav_history in zip(funds_data, fund_infos, nav_histories):
             fund_id    = fund_data.get('id')
             fund_code  = fund_data['fund_code']
             fund_name  = fund_data.get('fund_name', fund_code)
@@ -404,58 +410,73 @@ class FundCalculator:
             share      = fund_data['shares']
             count      = round(cost_price * share, 2)
 
-            if not fund_info:
-                logger.warning(f"基金 {fund_code} 行情获取失败，返回降级记录")
-                fund_details.append({
-                    'id': fund_id,
-                    'fund_code': fund_code,
-                    'fund_name': fund_name,
-                    'cost': count,
-                    'cost_price': cost_price,
-                    'shares': share,
-                    'data_unavailable': True,
-                    'amount': None,
-                    'shangrijingzhi': None,
-                    'today_value': None,
-                    'change_rate': None,
-                    'change_rate_value': -999,
-                    'today_revenue': None,
-                    'total_revenue': None,
-                    'profit_loss_ratio': None,
-                    'recent_changes': [],
-                })
-                continue
-            logger.info(f"计算基金 {fund_code} - {fund_info}")
-            if 'dwjz' in fund_info:
-                amount        = round(float(fund_info['dwjz']) * share, 2)
-                today_value   = float(fund_info.get('gsz', fund_info['dwjz']))
-                fund_name     = fund_info['name']
-                shangrijingzhi = float(fund_info['dwjz'])
-            else:
-                amount        = round(float(fund_info['value']) * share, 2)
-                today_value   = float(fund_info['value'])
-                fund_name     = fund_info['name']
-                shangrijingzhi = today_value
+            # 从历史净值获取最近两个交易日净值
+            # nav_history 按日期降序排列，第一个是最新净值，第二个是前一日净值
+            today_nav = None
+            prev_nav = None
+            daily_growth_value = None
+            if nav_history and len(nav_history) >= 1:
+                today_nav = nav_history[0].get('unit_nav')
+                daily_growth_value = nav_history[0].get('daily_growth_value')
+            if nav_history and len(nav_history) >= 2:
+                prev_nav = nav_history[1].get('unit_nav')
 
-            if 'dwjz' in fund_info:
-                today_revenue = round((today_value - float(fund_info['dwjz'])) * share, 2)
+            # 检查是否有足够的净值数据
+            if not today_nav or not prev_nav:
+                logger.warning(f"基金 {fund_code} 历史净值数据不足，返回降级记录")
+                # 尝试从行情 API 获取降级数据
+                if fund_info and 'dwjz' in fund_info:
+                    shangrijingzhi = float(fund_info['dwjz'])
+                    amount = round(shangrijingzhi * share, 2)
+                    today_value = shangrijingzhi
+                    fund_name = fund_info.get('name', fund_name)
+                    today_revenue = 0
+                else:
+                    fund_details.append({
+                        'id': fund_id,
+                        'fund_code': fund_code,
+                        'fund_name': fund_name,
+                        'cost': count,
+                        'cost_price': cost_price,
+                        'shares': share,
+                        'data_unavailable': True,
+                        'amount': None,
+                        'shangrijingzhi': None,
+                        'today_value': None,
+                        'change_rate': None,
+                        'change_rate_value': -999,
+                        'today_revenue': None,
+                        'total_revenue': None,
+                        'profit_loss_ratio': None,
+                        'recent_changes': [],
+                    })
+                    continue
             else:
-                today_revenue = 0
+                # 使用历史净值计算（与收益日历一致）
+                shangrijingzhi = prev_nav  # 前一日净值
+                amount = round(prev_nav * share, 2)  # 持仓金额 = 前一日净值 × 份额
+                today_value = today_nav  # 今日价值 = 今日净值
+                today_revenue = round((today_nav - prev_nav) * share, 2)  # 今日收益
+                fund_name = fund_info.get('name', fund_name) if fund_info else fund_name
 
             total_revenue = round((today_value - cost_price) * share, 2)
             profit_and_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
 
-            if 'gszzl' in fund_info:
-                gszzl       = float(fund_info['gszzl'])
+            # 涨跌幅优先从历史净值获取，其次从行情 API 获取
+            if daily_growth_value is not None:
+                gszzl = daily_growth_value
+                change_rate = f"{gszzl}%"
+            elif fund_info and 'gszzl' in fund_info:
+                gszzl = float(fund_info['gszzl'])
                 change_rate = f"{gszzl}%"
             else:
-                gszzl       = 0
+                gszzl = 0
                 change_rate = "--"
 
             full_cost += count
             yesterday_holding_amount += amount
             yesterday_holding_income += total_revenue - today_revenue
-            full_today_revenue        = round(full_today_revenue + today_revenue, 2)
+            full_today_revenue = round(full_today_revenue + today_revenue, 2)
             full_today_holding_amount = yesterday_holding_amount + full_today_revenue
 
             if gszzl <= -3:
@@ -501,8 +522,8 @@ class FundCalculator:
     async def calculate_portfolio(self, funds_data: List[Dict]) -> Dict:
         """
         计算投资组合（异步并发版）。
-        用 asyncio.gather 同时抓取所有基金的行情和历史净值，
-        耗时从 N×单次延迟 降为约 1×单次延迟。
+        统一使用历史净值接口作为净值数据源，与收益日历保持一致。
+        行情API仅用于获取基金名称和涨跌幅。
         """
         if not funds_data:
             return {
@@ -514,10 +535,10 @@ class FundCalculator:
 
         fund_codes = [f['fund_code'] for f in funds_data]
 
-        # 并发抓取：行情数据 + 历史净值同时发起
+        # 并发抓取：行情数据（获取名称和涨跌幅） + 历史净值（用于计算收益）
         fund_infos, nav_histories = await asyncio.gather(
             asyncio.gather(*[self.get_fund_info(code) for code in fund_codes]),
-            asyncio.gather(*[self.get_fund_nav_history_simple(code) for code in fund_codes]),
+            asyncio.gather(*[self.get_fund_nav_history_simple(code, days=30) for code in fund_codes]),
         )
 
         low_fund_list = []
@@ -531,70 +552,81 @@ class FundCalculator:
         yesterday_holding_amount = 0
         full_today_holding_amount = 0
 
-        for fund_data, fund_info, rise_fall in zip(funds_data, fund_infos, nav_histories):
+        for fund_data, fund_info, nav_history in zip(funds_data, fund_infos, nav_histories):
             fund_code  = fund_data['fund_code']
             fund_name  = fund_data.get('fund_name', fund_code)
             cost_price = fund_data['cost_price']
             share      = fund_data['shares']
             count      = round(cost_price * share, 2)  # 持仓成本
 
-            # 行情获取失败：返回降级记录，行情字段置 None，不参与汇总计算
-            if not fund_info:
-                logger.warning(f"基金 {fund_code} 行情获取失败，返回降级记录")
-                fund_details.append({
-                    'fund_code': fund_code,
-                    'fund_name': fund_name,
-                    'cost': count,
-                    'cost_price': cost_price,
-                    'shares': share,
-                    'data_unavailable': True,
-                    'amount': None,
-                    'shangrijingzhi': None,
-                    'today_value': None,
-                    'change_rate': None,
-                    'change_rate_value': -999,  # 排序时置于末尾
-                    'today_revenue': None,
-                    'total_revenue': None,
-                    'profit_loss_ratio': None,
-                    'recent_changes': [],
-                })
-                continue
-            print(f"计算基金 {fund_code} - {fund_info}")
-            # 金额计算
-            if 'dwjz' in fund_info:  # 普通基金
-                amount        = round(float(fund_info['dwjz']) * share, 2)
-                today_value   = float(fund_info.get('gsz', fund_info['dwjz']))
-                fund_name     = fund_info['name']
-                shangrijingzhi = float(fund_info['dwjz'])
-            else:  # LOF基金
-                amount        = round(float(fund_info['value']) * share, 2)
-                today_value   = float(fund_info['value'])
-                fund_name     = fund_info['name']
-                shangrijingzhi = today_value  # LOF基金无昨日净值字段，用当前净值代替
+            # 从历史净值获取最近两个交易日净值
+            # nav_history 按日期降序排列，第一个是最新净值，第二个是前一日净值
+            today_nav = None
+            prev_nav = None
+            daily_growth_value = None
+            if nav_history and len(nav_history) >= 1:
+                today_nav = nav_history[0].get('unit_nav')
+                daily_growth_value = nav_history[0].get('daily_growth_value')
+            if nav_history and len(nav_history) >= 2:
+                prev_nav = nav_history[1].get('unit_nav')
 
-            # 今日收益
-            if 'dwjz' in fund_info:
-                today_revenue = round((today_value - float(fund_info['dwjz'])) * share, 2)
+            # 检查是否有足够的净值数据
+            if not today_nav or not prev_nav:
+                logger.warning(f"基金 {fund_code} 历史净值数据不足，返回降级记录")
+                # 尝试从行情 API 获取降级数据
+                if fund_info and 'dwjz' in fund_info:
+                    shangrijingzhi = float(fund_info['dwjz'])
+                    amount = round(shangrijingzhi * share, 2)
+                    today_value = shangrijingzhi
+                    fund_name = fund_info.get('name', fund_name)
+                    today_revenue = 0
+                else:
+                    fund_details.append({
+                        'fund_code': fund_code,
+                        'fund_name': fund_name,
+                        'cost': count,
+                        'cost_price': cost_price,
+                        'shares': share,
+                        'data_unavailable': True,
+                        'amount': None,
+                        'shangrijingzhi': None,
+                        'today_value': None,
+                        'change_rate': None,
+                        'change_rate_value': -999,
+                        'today_revenue': None,
+                        'total_revenue': None,
+                        'profit_loss_ratio': None,
+                        'recent_changes': [],
+                    })
+                    continue
             else:
-                today_revenue = 0
+                # 使用历史净值计算（与收益日历一致）
+                shangrijingzhi = prev_nav  # 前一日净值
+                amount = round(prev_nav * share, 2)  # 持仓金额 = 前一日净值 × 份额
+                today_value = today_nav  # 今日价值 = 今日净值
+                today_revenue = round((today_nav - prev_nav) * share, 2)  # 今日收益
+                fund_name = fund_info.get('name', fund_name) if fund_info else fund_name
 
             # 总收益与盈亏率
-            total_revenue        = round((today_value - cost_price) * share, 2)
+            total_revenue = round((today_value - cost_price) * share, 2)
             profit_and_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
 
-            # 涨跌幅度
-            if 'gszzl' in fund_info:
-                gszzl       = float(fund_info['gszzl'])
+            # 涨跌幅优先从历史净值获取，其次从行情 API 获取
+            if daily_growth_value is not None:
+                gszzl = daily_growth_value
+                change_rate = f"{gszzl}%"
+            elif fund_info and 'gszzl' in fund_info:
+                gszzl = float(fund_info['gszzl'])
                 change_rate = f"{gszzl}%"
             else:
-                gszzl       = 0
+                gszzl = 0
                 change_rate = "--"
 
             # 更新汇总数据（仅行情正常的基金才计入）
             full_cost += count
             yesterday_holding_amount += amount
             yesterday_holding_income += total_revenue - today_revenue
-            full_today_revenue        = round(full_today_revenue + today_revenue, 2)
+            full_today_revenue = round(full_today_revenue + today_revenue, 2)
             full_today_holding_amount = yesterday_holding_amount + full_today_revenue
 
             # 添加到高低基金列表
@@ -618,7 +650,7 @@ class FundCalculator:
                 'today_revenue': today_revenue,
                 'total_revenue': total_revenue,
                 'profit_loss_ratio': profit_and_loss_ratio,
-                'recent_changes': rise_fall,
+                'recent_changes': nav_history if nav_history else [],
             })
 
         # 按涨跌幅由大到小排序，排序后删除临时字段
