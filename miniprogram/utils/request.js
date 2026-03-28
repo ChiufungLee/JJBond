@@ -1,6 +1,39 @@
 // utils/request.js - API请求封装
 const app = getApp()
 
+const isSuccessStatus = (statusCode) => {
+  return statusCode >= 200 && statusCode < 300
+}
+
+const extractErrorMessage = (data, fallback = '请求失败') => {
+  const detail = data?.detail
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail[0]?.msg || detail[0]?.message || fallback
+  }
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message
+  }
+
+  if (typeof data === 'string' && data.trim()) {
+    return data
+  }
+
+  return fallback
+}
+
+const createRequestError = (res, fallback) => {
+  const error = new Error(extractErrorMessage(res.data, fallback))
+  error.response = res
+  error.statusCode = res.statusCode
+  return error
+}
+
 /**
  * 封装请求方法
  * @param {string} url - 请求路径（不含baseUrl）
@@ -8,10 +41,17 @@ const app = getApp()
  * @returns {Promise} - 返回Promise
  */
 const request = (url, options = {}) => {
-  return new Promise((resolve, reject) => {
-    const token = app.globalData.token || wx.getStorageSync('token')
+  const {
+    skipAuth = false,
+    skipUnauthorizedHandler = false,
+    skipErrorToast = false,
+    fallbackErrorMessage = '请求失败',
+    ...requestOptions
+  } = options
 
-    // 默认配置
+  return new Promise((resolve, reject) => {
+    const token = app.getToken()
+
     const defaultOptions = {
       url: app.globalData.baseUrl + url,
       method: 'GET',
@@ -22,73 +62,57 @@ const request = (url, options = {}) => {
       timeout: 30000
     }
 
-    // 合并配置
     const finalOptions = {
       ...defaultOptions,
-      ...options,
+      ...requestOptions,
       header: {
         ...defaultOptions.header,
-        ...options.header
+        ...requestOptions.header
       }
     }
 
-    // 添加认证token
-    if (token) {
+    if (!skipAuth && token) {
       finalOptions.header['Authorization'] = `Bearer ${token}`
     }
 
-    // 发起请求
     wx.request({
       ...finalOptions,
       success(res) {
-        if (res.statusCode === 200) {
+        if (isSuccessStatus(res.statusCode)) {
           resolve(res.data)
-        } else if (res.statusCode === 401) {
-          // token过期，清除登录状态
-          app.clearLoginInfo()
-          wx.showToast({
-            title: '登录已过期，请重新登录',
-            icon: 'none'
-          })
-          // 跳转到登录页
-          setTimeout(() => {
-            wx.redirectTo({
-              url: '/pages/login/login'
-            })
-          }, 1500)
-          reject(res)
-        } else if (res.statusCode === 422) {
-          // 验证错误
-          const detail = res.data?.detail
-          if (Array.isArray(detail)) {
-            wx.showToast({
-              title: detail[0]?.msg || '请求参数错误',
-              icon: 'none'
-            })
-          } else {
-            wx.showToast({
-              title: detail || '请求参数错误',
-              icon: 'none'
-            })
-          }
-          reject(res)
-        } else {
-          // 其他错误
-          const errorMsg = res.data?.detail || res.data?.message || '请求失败'
-          wx.showToast({
-            title: errorMsg,
-            icon: 'none'
-          })
-          reject(res)
+          return
         }
+
+        const error = createRequestError(res, fallbackErrorMessage)
+
+        if (res.statusCode === 401 && !skipUnauthorizedHandler) {
+          app.handleUnauthorized(error.message || '登录已过期，请重新登录')
+          reject(error)
+          return
+        }
+
+        if (!skipErrorToast) {
+          wx.showToast({
+            title: error.message,
+            icon: 'none'
+          })
+        }
+
+        reject(error)
       },
       fail(err) {
         console.error('请求失败:', err)
-        wx.showToast({
-          title: '网络请求失败',
-          icon: 'none'
-        })
-        reject(err)
+        const error = new Error('网络请求失败')
+        error.cause = err
+
+        if (!skipErrorToast) {
+          wx.showToast({
+            title: error.message,
+            icon: 'none'
+          })
+        }
+
+        reject(error)
       }
     })
   })
@@ -128,71 +152,33 @@ const del = (url, data = {}) => {
 
 // 登录请求（特殊处理，使用form-data格式）
 const login = (username, password) => {
-  return new Promise((resolve, reject) => {
-    wx.request({
-      url: app.globalData.baseUrl + '/auth/login',
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      data: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
-      success(res) {
-        if (res.statusCode === 200) {
-          resolve(res.data)
-        } else {
-          const errorMsg = res.data?.detail || '登录失败'
-          wx.showToast({
-            title: errorMsg,
-            icon: 'none'
-          })
-          reject(res)
-        }
-      },
-      fail(err) {
-        wx.showToast({
-          title: '网络请求失败',
-          icon: 'none'
-        })
-        reject(err)
-      }
-    })
+  return request('/auth/login', {
+    method: 'POST',
+    skipAuth: true,
+    skipUnauthorizedHandler: true,
+    fallbackErrorMessage: '登录失败',
+    header: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    data: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
   })
 }
 
 // 微信登录请求
 const wechatLogin = (code, nickname = null, avatarUrl = null) => {
-  return new Promise((resolve, reject) => {
-    wx.request({
-      url: app.globalData.baseUrl + '/auth/wechat-login',
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json'
-      },
-      data: {
-        code: code,
-        nickname: nickname,
-        avatar_url: avatarUrl
-      },
-      success(res) {
-        if (res.statusCode === 200) {
-          resolve(res.data)
-        } else {
-          const errorMsg = res.data?.detail || '微信登录失败'
-          wx.showToast({
-            title: errorMsg,
-            icon: 'none'
-          })
-          reject(res)
-        }
-      },
-      fail(err) {
-        wx.showToast({
-          title: '网络请求失败',
-          icon: 'none'
-        })
-        reject(err)
-      }
-    })
+  return request('/auth/wechat-login', {
+    method: 'POST',
+    skipAuth: true,
+    skipUnauthorizedHandler: true,
+    fallbackErrorMessage: '微信登录失败',
+    header: {
+      'Content-Type': 'application/json'
+    },
+    data: {
+      code,
+      nickname,
+      avatar_url: avatarUrl
+    }
   })
 }
 

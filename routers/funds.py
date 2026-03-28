@@ -51,7 +51,7 @@ async def get_fund_info(
 @router.get("/fund_nav_history/{fund_code}")
 async def get_fund_nav_history(
     fund_code: str,
-    days: int = Query(default=30, ge=1, le=365, description="获取天数"),
+    days: int = Query(default=30, ge=1, le=366, description="获取天数"),
     current_user: schemas.User = Depends(get_current_user)
 ):
     """获取基金历史净值数据"""
@@ -79,6 +79,15 @@ async def get_fund_returns(
         }
     # 缓存未命中，调用 API 获取
     return await calculator.get_fund_period_returns(fund_code)
+
+
+@router.get("/{fund_code}/transactions", response_model=List[schemas.Transaction])
+def get_fund_transactions(
+    fund_code: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    return user_crud.get_user_transactions(db=db, user_id=current_user.id, fund_code=fund_code)
 
 
 @router.get("/calculate", response_model=schemas.PortfolioSummary)
@@ -224,7 +233,19 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
         return []
 
 
-@router.put("/{fund_id}", response_model=schemas.Fund)
+@router.get("/{fund_id:int}", response_model=schemas.Fund)
+def get_fund(
+    fund_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    fund = user_crud.get_user_fund(db=db, user_id=current_user.id, fund_id=fund_id)
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fund not found")
+    return fund
+
+
+@router.put("/{fund_id:int}", response_model=schemas.Fund)
 def update_fund(
     fund_id: int,
     fund_update: schemas.FundUpdate,
@@ -237,7 +258,7 @@ def update_fund(
     return fund
 
 
-@router.delete("/{fund_id}")
+@router.delete("/{fund_id:int}")
 def delete_fund(
     fund_id: int,
     db: Session = Depends(get_db),

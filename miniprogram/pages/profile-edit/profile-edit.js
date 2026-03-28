@@ -1,6 +1,6 @@
 // pages/profile-edit/profile-edit.js
 const { updateUserInfo } = require('../../utils/request')
-const { getUserInfo, getToken, saveLoginInfo } = require('../../utils/auth')
+const { checkLogin, getUserInfo, getToken, saveLoginInfo } = require('../../utils/auth')
 const { showToast } = require('../../utils/util')
 
 Page({
@@ -11,6 +11,10 @@ Page({
   },
 
   onLoad() {
+    if (!checkLogin()) {
+      return
+    }
+
     const userInfo = getUserInfo()
     const nickname = userInfo?.nickname || ''
     this.setData({
@@ -60,6 +64,7 @@ Page({
       }, 1000)
     } catch (error) {
       console.error('修改用户信息失败:', error)
+      showToast(error.message || '修改失败，请稍后重试')
     } finally {
       this.setData({ loading: false })
     }

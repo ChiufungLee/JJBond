@@ -1,7 +1,7 @@
 // pages/mine/mine.js
-const { isLoggedIn, logout, getUserInfo } = require('../../utils/auth')
+const { checkLogin, logout, getUserInfo } = require('../../utils/auth')
 const { get } = require('../../utils/request')
-const { formatMoney, showLoading, hideLoading, showToast } = require('../../utils/util')
+const { formatMoney } = require('../../utils/util')
 
 const app = getApp()
 
@@ -20,6 +20,9 @@ Page({
     avatarUrl: '',
     daysTogether: 0,
     stats: null,
+    statsLoading: false,
+    statsError: false,
+    statsErrorMessage: '',
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
@@ -28,15 +31,13 @@ Page({
   },
 
   onLoad() {
-    if (!isLoggedIn()) {
-      wx.redirectTo({
-        url: '/pages/login/login'
-      })
-      return
-    }
+    checkLogin()
   },
 
   onShow() {
+    if (!checkLogin()) {
+      return
+    }
     this.loadUserInfo()
     this.loadStats()
   },
@@ -63,6 +64,12 @@ Page({
 
   // 加载统计数据
   async loadStats() {
+    this.setData({
+      statsLoading: true,
+      statsError: false,
+      statsErrorMessage: ''
+    })
+
     try {
       // 使用轻量级接口，加载更快
       const summary = await get('/funds/calculate-simple')
@@ -74,10 +81,19 @@ Page({
           totalCost: formatMoney(summary?.total_cost || 0),
           totalRevenue: totalRevenue >= 0 ? `+${formattedRevenue}` : `-${formattedRevenue}`,
           totalRevenueIsUp: totalRevenue >= 0
-        }
+        },
+        statsLoading: false,
+        statsError: false,
+        statsErrorMessage: ''
       })
     } catch (error) {
       console.error('加载统计失败:', error)
+      this.setData({
+        stats: null,
+        statsLoading: false,
+        statsError: true,
+        statsErrorMessage: error.message || '加载统计失败，请稍后重试'
+      })
     }
   },
 

@@ -1,13 +1,15 @@
 // pages/index/index.js
 const { get } = require('../../utils/request')
-const { isLoggedIn } = require('../../utils/auth')
-const { formatMoney, formatPercent, showLoading, hideLoading } = require('../../utils/util')
+const { checkLogin, isLoggedIn } = require('../../utils/auth')
+const { formatPortfolioSummary } = require('../../utils/portfolio-summary')
 
 Page({
   data: {
     summary: null,
     loading: true,
     refreshing: false,
+    error: false,
+    errorMessage: '',
     // 排序状态
     sortBy: 'change_rate',    // 当前排序字段: change_rate(涨幅) | total_revenue(持有收益)
     sortOrder: 'desc',        // 排序方向: desc降序 | asc升序
@@ -18,80 +20,56 @@ Page({
   },
 
   onLoad() {
-    // 检查登录状态
-    if (!isLoggedIn()) {
-      wx.redirectTo({
-        url: '/pages/login/login'
-      })
+    if (!checkLogin()) {
       return
     }
-    // 读取隐藏金额状态
     const hideAmount = wx.getStorageSync('hideAmount') || false
     this.setData({ hideAmount })
   },
 
   onShow() {
-    if (isLoggedIn()) {
-      this.loadData()
+    if (!checkLogin() || !isLoggedIn()) {
+      return
     }
+    this.loadData()
   },
 
   // 加载数据
   async loadData() {
-    this.setData({ loading: true })
-    showLoading('加载中...')
-
+    this.setData({
+      loading: true,
+      error: false,
+      errorMessage: ''
+    })
     try {
-      // 使用轻量级接口，加载更快
       const summary = await get('/funds/calculate-simple')
-      // 获取当前时间作为统计时间
       const now = new Date()
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       this.setData({
         summary: this.formatSummary(summary),
-        updateTime
+        updateTime,
+        error: false,
+        errorMessage: ''
       })
     } catch (error) {
       console.error('加载数据失败:', error)
+      this.setData({
+        summary: null,
+        error: true,
+        errorMessage: error.message || '加载持仓概览失败，请稍后重试'
+      })
     } finally {
-      hideLoading()
       this.setData({ loading: false, refreshing: false })
     }
   },
 
   // 格式化汇总数据
   formatSummary(summary) {
-    if (!summary) return null
-
-    const formatted = {
-      ...summary,
-      total_cost_formatted: formatMoney(summary.total_cost),
-      yesterday_holding_amount_formatted: formatMoney(summary.yesterday_holding_amount),
-      yesterday_holding_income_formatted: formatMoney(summary.yesterday_holding_income),
-      today_revenue_formatted: formatMoney(summary.today_revenue),
-      today_holding_amount_formatted: formatMoney(summary.today_holding_amount),
-      today_revenue_percent: summary.yesterday_holding_amount > 0
-        ? ((summary.today_revenue / summary.yesterday_holding_amount) * 100).toFixed(2)
-        : '0.00',
-      total_revenue_percent: summary.total_cost > 0
-        ? (((summary.today_holding_amount - summary.total_cost) / summary.total_cost) * 100).toFixed(2)
-        : '0.00',
-      total_revenue: summary.today_holding_amount - summary.total_cost,
-      total_revenue_formatted: formatMoney(summary.today_holding_amount - summary.total_cost),
-      fund_details: (summary.fund_details || []).map(item => ({
-        ...item,
-        cost_formatted: formatMoney(item.cost),
-        amount_formatted: formatMoney(item.amount),
-        today_revenue_formatted: item.today_revenue !== null ? formatMoney(item.today_revenue) : '--',
-        total_revenue_formatted: item.total_revenue !== null ? formatMoney(item.total_revenue) : '--',
-        profit_loss_ratio_formatted: item.profit_loss_ratio !== null ? formatPercent(item.profit_loss_ratio) : '--',
-        change_rate: item.change_rate || '--',
-        // 涨幅颜色：负数或0或无数据显示绿色，正数显示红色
-        change_rate_class: (item.change_rate && item.change_rate[0] === '-') || item.change_rate === '0' || item.change_rate === '0.00%' || item.change_rate === '--' ? 'down' : 'up'
-      }))
+    const formatted = formatPortfolioSummary(summary)
+    if (!formatted) {
+      return null
     }
 
-    // 应用排序
     return {
       ...formatted,
       fund_details: this.sortFunds(formatted.fund_details)

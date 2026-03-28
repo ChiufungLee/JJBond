@@ -1,6 +1,7 @@
 // pages/funds-add/funds-add.js
-const { get, post } = require('../../utils/request')
-const { showLoading, hideLoading, showToast, debounce } = require('../../utils/util')
+const { post } = require('../../utils/request')
+const { showLoading, hideLoading, showToast } = require('../../utils/util')
+const { createFundSearchManager } = require('../../utils/fund-search')
 
 Page({
   data: {
@@ -13,50 +14,54 @@ Page({
     submitting: false
   },
 
-  // 搜索输入
-  onSearchInput: debounce(function(e) {
-    const keyword = e.detail.value.trim()
-    this.setData({ searchKeyword: keyword })
+  onLoad() {
+    this.searchManager = createFundSearchManager({
+      page: this,
+      limit: 10,
+      onError(error) {
+        console.error('搜索失败:', error)
+      }
+    })
+  },
 
-    if (keyword.length >= 2) {
-      this.searchFunds(keyword)
-    } else {
-      this.setData({ searchResults: [] })
-    }
-  }, 500),
+  onUnload() {
+    this.searchManager?.invalidate()
+  },
+
+  // 搜索输入
+  onSearchInput(e) {
+    this.searchManager?.onInput(e)
+  },
 
   // 搜索基金
   async searchFunds(keyword) {
-    this.setData({ searching: true })
-
-    try {
-      const results = await get('/funds/search', { q: keyword, limit: 10 })
-      this.setData({
-        searchResults: results || [],
-        searching: false
-      })
-    } catch (error) {
-      console.error('搜索失败:', error)
-      this.setData({ searching: false })
+    if (!this.searchManager) {
+      return []
     }
+
+    return this.searchManager.search(keyword)
   },
 
   // 选择基金
   selectFund(e) {
     const { code, name } = e.currentTarget.dataset
+    this.searchManager?.invalidate()
+    this.searchManager?.clearResults()
+
     this.setData({
       selectedFund: { fund_code: code, fund_name: name },
-      searchKeyword: '',
-      searchResults: []
+      searchKeyword: ''
     })
   },
 
   // 清除选中
   clearSelected() {
+    this.searchManager?.invalidate()
+    this.searchManager?.clearResults()
+
     this.setData({
       selectedFund: null,
       searchKeyword: '',
-      searchResults: [],
       cost_price: '',
       shares: ''
     })
@@ -76,7 +81,6 @@ Page({
   async handleSubmit() {
     const { selectedFund, cost_price, shares } = this.data
 
-    // 验证
     if (!selectedFund) {
       showToast('请先搜索并选择基金')
       return
@@ -104,7 +108,6 @@ Page({
       hideLoading()
       showToast('添加成功')
 
-      // 返回上一页
       setTimeout(() => {
         wx.navigateBack()
       }, 1500)

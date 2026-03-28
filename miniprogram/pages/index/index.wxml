@@ -1,16 +1,24 @@
 <!--pages/index/index.wxml-->
 <view class="index-container">
-  <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="loading-state">
-    <text class="loading-text">加载中...</text>
-  </view>
+  <loading wx:if="{{loading}}" text="加载中..."></loading>
 
-  <!-- 空状态 -->
-  <view wx:elif="{{!summary || summary.fund_count === 0}}" class="empty-state">
-    <text class="empty-icon">📊</text>
-    <text class="empty-text">暂无持仓基金</text>
-    <button class="btn-add" bindtap="goToAddFund">添加基金</button>
-  </view>
+  <empty
+    wx:elif="{{error}}"
+    icon="⚠️"
+    text="{{errorMessage || '加载持仓概览失败，请稍后重试'}}"
+    showButton="{{true}}"
+    buttonText="重新加载"
+    bind:buttonTap="loadData"
+  ></empty>
+
+  <empty
+    wx:elif="{{!summary || summary.fund_count === 0}}"
+    icon="📊"
+    text="暂无持仓基金"
+    showButton="{{true}}"
+    buttonText="添加基金"
+    bind:buttonTap="goToAddFund"
+  ></empty>
 
   <!-- 数据展示 -->
   <block wx:else>

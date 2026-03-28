@@ -1,6 +1,5 @@
 // pages/ranking/ranking.js
 const { get } = require('../../utils/request')
-const { showLoading, hideLoading } = require('../../utils/util')
 
 // 排行榜类型配置
 const RANKING_TYPES = [
@@ -21,6 +20,8 @@ Page({
     pageSize: 20,
     total: 0,
     loading: false,
+    error: false,
+    errorMessage: '',
     hasMore: true,
     lastUpdate: ''
   },
@@ -43,7 +44,9 @@ Page({
       rankingList: [],
       page: 1,
       hasMore: true,
-      loading: false
+      loading: false,
+      error: false,
+      errorMessage: ''
     })
     this.loadRanking()
   },
@@ -56,7 +59,9 @@ Page({
       rankingList: [],
       page: 1,
       hasMore: true,
-      loading: false
+      loading: false,
+      error: false,
+      errorMessage: ''
     })
     this.loadRanking()
   },
@@ -72,7 +77,11 @@ Page({
     const loadPage = this.data.page
     const loadOrder = this.data.sortOrder
 
-    this.setData({ loading: true })
+    this.setData({
+      loading: true,
+      error: false,
+      errorMessage: ''
+    })
 
     try {
       const result = await get('/ranking/', {
@@ -100,12 +109,18 @@ Page({
         lastUpdate: result.lastUpdate || '',
         hasMore: loadPage * this.data.pageSize < (result.total || 0),
         page: loadPage + 1,
-        loading: false
+        loading: false,
+        error: false,
+        errorMessage: ''
       })
 
     } catch (error) {
       console.error('加载排行榜失败:', error)
-      this.setData({ loading: false })
+      this.setData({
+        loading: false,
+        error: true,
+        errorMessage: error.message || '加载排行榜失败，请稍后重试'
+      })
     }
   },
 
@@ -147,12 +162,13 @@ Page({
 
   // 下拉刷新
   async onPullDownRefresh() {
-    const currentType = this.data.currentType
     this.setData({
       page: 1,
       hasMore: true,
       rankingList: [],
-      loading: false
+      loading: false,
+      error: false,
+      errorMessage: ''
     })
     await this.loadRanking()
     wx.stopPullDownRefresh()

@@ -1,9 +1,15 @@
 <!--pages/fund-detail/fund-detail.wxml-->
 <view class="detail-container">
-  <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="loading-state">
-    <text class="loading-text">加载中...</text>
-  </view>
+  <loading wx:if="{{loading}}" text="加载中..."></loading>
+
+  <empty
+    wx:elif="{{error}}"
+    icon="⚠️"
+    text="{{errorMessage || '加载基金详情失败，请稍后重试'}}"
+    showButton="{{true}}"
+    buttonText="{{errorType === 'invalid' ? '返回上一页' : '重新加载'}}"
+    bind:buttonTap="handleErrorAction"
+  ></empty>
 
   <block wx:elif="{{fundInfo}}">
     <!-- 基金基本信息 -->
@@ -83,30 +89,68 @@
     <!-- 净值走势图 -->
     <view class="section">
       <view class="section-title">近期净值走势</view>
+      <view class="range-tabs">
+        <view
+          wx:for="{{navRanges}}"
+          wx:key="key"
+          class="range-tab {{currentNavRange === item.key ? 'active' : ''}}"
+          data-range="{{item.key}}"
+          bindtap="handleRangeChange"
+        >
+          {{item.label}}
+        </view>
+      </view>
       <view class="chart-info">
         <text class="cost-price-label" wx:if="{{isHeld && fundInfo.cost_price}}">-- 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
         <text class="cost-price-label" wx:else>-- 成本价: --</text>
         <text class="{{tooltip.show ? 'info-highlight' : ''}}">— 净值: {{tooltip.value}} ({{tooltip.date}})</text>
       </view>
-      <view class="chart-container">
-        <view class="chart-wrapper">
-          <canvas type="2d" id="fundChart" class="fund-chart"></canvas>
-          <!-- 触摸层 -->
-          <view class="chart-overlay" catchtouchstart="handleChartTouchStart" catchtouchmove="handleChartTouchMove" catchtouchend="handleChartTouchEnd"></view>
+      <loading wx:if="{{navLoading}}" text="加载走势图中..."></loading>
+      <empty
+        wx:elif="{{navError}}"
+        icon="⚠️"
+        text="{{navErrorMessage || '加载净值历史失败，请稍后重试'}}"
+        showButton="{{true}}"
+        buttonText="重新加载"
+        bind:buttonTap="reloadNavHistory"
+      ></empty>
+      <empty
+        wx:elif="{{navHistoryAll.length === 0}}"
+        icon="📉"
+        text="当前范围暂无净值数据"
+        showButton="{{false}}"
+      ></empty>
+      <block wx:else>
+        <view class="chart-container">
+          <view class="chart-wrapper">
+            <canvas type="2d" id="fundChart" class="fund-chart"></canvas>
+            <!-- 触摸层 -->
+            <view class="chart-overlay" catchtouchstart="handleChartTouchStart" catchtouchmove="handleChartTouchMove" catchtouchend="handleChartTouchEnd"></view>
+          </view>
+          <view class="transaction-marker-layer" wx:if="{{transactionMarkers.length > 0}}">
+            <view
+              wx:for="{{transactionMarkers}}"
+              wx:key="key"
+              class="transaction-marker transaction-marker-{{item.type}}"
+              style="left: {{item.x}}px; top: {{item.y}}px;"
+            >
+              <text wx:if="{{item.count > 1}}" class="transaction-marker-count">{{item.count}}</text>
+            </view>
+          </view>
+          <!-- 十字光标 -->
+          <view class="crosshair-layer" wx:if="{{tooltip.show}}">
+            <view class="crosshair-x" style="left: {{tooltip.x}}px;"></view>
+            <view class="crosshair-y" style="top: {{tooltip.y}}px;"></view>
+            <view class="crosshair-dot" style="left: {{tooltip.x}}px; top: {{tooltip.y}}px;"></view>
+          </view>
         </view>
-        <!-- 十字光标 -->
-        <view class="crosshair-layer" wx:if="{{tooltip.show}}">
-          <view class="crosshair-x" style="left: {{tooltip.x}}px;"></view>
-          <view class="crosshair-y" style="top: {{tooltip.y}}px;"></view>
-          <view class="crosshair-dot" style="left: {{tooltip.x}}px; top: {{tooltip.y}}px;"></view>
-        </view>
-      </view>
+      </block>
     </view>
 
     <!-- 近期变化 -->
-    <view class="section" wx:if="{{fundInfo.recent_changes && fundInfo.recent_changes.length > 0}}">
+    <view class="section">
       <view class="section-title">近期净值</view>
-      <view class="change-list">
+      <view class="change-list" wx:if="{{navList.length > 0}}">
         <!-- 表头 -->
         <view class="change-header">
           <text class="change-header-item">日期</text>
@@ -114,18 +158,31 @@
           <text class="change-header-item">涨幅</text>
         </view>
         <!-- 数据行 -->
-        <view class="change-item" wx:for="{{fundInfo.recent_changes}}" wx:key="date">
+        <view class="change-item" wx:for="{{navList}}" wx:key="date">
           <text class="change-date">{{item.date}}</text>
           <text class="change-value">{{item.unit_nav}}</text>
           <text class="change-rate {{item.daily_growth_value >= 0 ? 'up' : 'down'}}">{{item.daily_growth}}</text>
         </view>
       </view>
+      <empty
+        wx:elif="{{navError}}"
+        icon="⚠️"
+        text="{{navErrorMessage || '加载净值历史失败，请稍后重试'}}"
+        showButton="{{true}}"
+        buttonText="重新加载"
+        bind:buttonTap="reloadNavHistory"
+      ></empty>
+      <empty
+        wx:elif="{{!navLoading}}"
+        icon="📉"
+        text="当前范围暂无净值数据"
+        showButton="{{false}}"
+      ></empty>
+      <loading wx:if="{{navLoadingMore}}" text="加载更多中..."></loading>
+      <view class="list-footer" wx:if="{{!navLoading && !navLoadingMore && navList.length > 0 && !navHasMore}}">
+        <text>没有更多了</text>
+      </view>
     </view>
   </block>
 
-  <!-- 空状态 -->
-  <view wx:else class="empty-state">
-    <text class="empty-icon">📊</text>
-    <text class="empty-text">暂无数据</text>
-  </view>
 </view>

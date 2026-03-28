@@ -1,7 +1,8 @@
 // pages/watchlist/watchlist.js
 const { get, post, del } = require('../../utils/request')
-const { isLoggedIn } = require('../../utils/auth')
-const { formatMoney, formatPercent, showLoading, hideLoading, showToast, showConfirm, debounce } = require('../../utils/util')
+const { checkLogin } = require('../../utils/auth')
+const { formatPercent, showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
+const { createFundSearchManager } = require('../../utils/fund-search')
 
 Page({
   data: {
@@ -13,16 +14,27 @@ Page({
   },
 
   onLoad() {
-    if (!isLoggedIn()) {
-      wx.redirectTo({
-        url: '/pages/login/login'
-      })
-      return
-    }
+    this.searchManager = createFundSearchManager({
+      page: this,
+      limit: 10,
+      onError(error) {
+        console.error('搜索失败:', error)
+      }
+    })
+
+    checkLogin()
   },
 
   onShow() {
+    if (!checkLogin()) {
+      return
+    }
+
     this.loadWatchlist()
+  },
+
+  onUnload() {
+    this.searchManager?.invalidate()
   },
 
   // 加载自选列表
@@ -56,31 +68,17 @@ Page({
   },
 
   // 搜索输入
-  onSearchInput: debounce(function(e) {
-    const keyword = e.detail.value.trim()
-    this.setData({ searchKeyword: keyword })
-
-    if (keyword.length >= 2) {
-      this.searchFunds(keyword)
-    } else {
-      this.setData({ searchResults: [] })
-    }
-  }, 500),
+  onSearchInput(e) {
+    this.searchManager?.onInput(e)
+  },
 
   // 搜索基金
   async searchFunds(keyword) {
-    this.setData({ searching: true })
-
-    try {
-      const results = await get('/funds/search', { q: keyword, limit: 10 })
-      this.setData({
-        searchResults: results || [],
-        searching: false
-      })
-    } catch (error) {
-      console.error('搜索失败:', error)
-      this.setData({ searching: false })
+    if (!this.searchManager) {
+      return []
     }
+
+    return this.searchManager.search(keyword)
   },
 
   // 跳转到基金详情
@@ -105,8 +103,9 @@ Page({
       hideLoading()
       showToast('已添加到自选')
 
-      // 清空搜索，刷新列表
-      this.setData({ searchKeyword: '', searchResults: [] })
+      this.searchManager?.invalidate()
+      this.searchManager?.clearResults()
+      this.setData({ searchKeyword: '' })
       this.loadWatchlist()
     } catch (error) {
       hideLoading()
@@ -128,7 +127,6 @@ Page({
       hideLoading()
       showToast('已从自选移除')
 
-      // 刷新列表
       this.loadWatchlist()
     } catch (error) {
       hideLoading()

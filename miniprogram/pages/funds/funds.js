@@ -1,55 +1,59 @@
 // pages/funds/funds.js
 const { get, del } = require('../../utils/request')
-const { isLoggedIn } = require('../../utils/auth')
-const { formatMoney, formatPercent, showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
+const { checkLogin } = require('../../utils/auth')
+const { showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
+const { formatPortfolioSummary } = require('../../utils/portfolio-summary')
 
 Page({
   data: {
     funds: [],
     loading: true,
+    error: false,
+    errorMessage: '',
     hideAmount: false,
     sortOrder: 'desc',  // 持有收益率排序：desc=从高到低，asc=从低到高
   },
 
   onLoad() {
-    if (!isLoggedIn()) {
-      wx.redirectTo({
-        url: '/pages/login/login'
-      })
+    if (!checkLogin()) {
       return
     }
-    // 读取隐藏金额状态
     const hideAmount = wx.getStorageSync('hideAmount') || false
     this.setData({ hideAmount })
   },
 
   onShow() {
+    if (!checkLogin()) {
+      return
+    }
     this.loadFunds()
   },
 
   // 加载基金列表（使用计算接口获取实时数据）
   async loadFunds() {
-    this.setData({ loading: true })
-    showLoading('加载中...')
+    this.setData({
+      loading: true,
+      error: false,
+      errorMessage: ''
+    })
 
     try {
-      const summary = await get('/funds/calculate-simple')
-      const funds = (summary?.fund_details || []).map(item => ({
-        ...item,
-        cost_formatted: formatMoney(item.cost),
-        today_revenue_formatted: item.today_revenue !== null ? formatMoney(item.today_revenue) : '--',
-        total_revenue_formatted: item.total_revenue !== null ? formatMoney(item.total_revenue) : '--',
-        profit_loss_ratio_formatted: item.profit_loss_ratio !== null ? formatPercent(item.profit_loss_ratio) : '--',
-        change_rate: item.change_rate || '--',
-        // 涨幅颜色：负数或0或无数据显示绿色，正数显示红色
-        change_rate_class: (item.change_rate && item.change_rate[0] === '-') || item.change_rate === '0' || item.change_rate === '0.00%' || item.change_rate === '--' ? 'down' : 'up'
-      }))
+      const summary = formatPortfolioSummary(await get('/funds/calculate-simple'))
+      const funds = summary?.fund_details || []
       const sorted = this._sortFunds(funds, this.data.sortOrder)
-      this.setData({ funds: sorted })
+      this.setData({
+        funds: sorted,
+        error: false,
+        errorMessage: ''
+      })
     } catch (error) {
       console.error('加载基金列表失败:', error)
+      this.setData({
+        funds: [],
+        error: true,
+        errorMessage: error.message || '加载持仓列表失败，请稍后重试'
+      })
     } finally {
-      hideLoading()
       this.setData({ loading: false })
     }
   },

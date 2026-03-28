@@ -1,5 +1,9 @@
 {
   "navigationBarTitleText": "排行榜",
   "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "empty": "/components/empty/empty",
+    "loading": "/components/loading/loading"
+  }
 }

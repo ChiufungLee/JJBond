@@ -1,6 +1,5 @@
 // pages/search/search.js
-const { get } = require('../../utils/request')
-const { debounce } = require('../../utils/util')
+const { createFundSearchManager } = require('../../utils/fund-search')
 
 Page({
   data: {
@@ -12,8 +11,23 @@ Page({
   },
 
   onLoad() {
-    // 加载搜索历史
+    this.searchManager = createFundSearchManager({
+      page: this,
+      limit: 20,
+      searchedKey: 'searched',
+      onSuccess: (_, keyword) => {
+        this.saveSearchHistory(keyword)
+      },
+      onError(error) {
+        console.error('搜索失败:', error)
+      }
+    })
+
     this.loadSearchHistory()
+  },
+
+  onUnload() {
+    this.searchManager?.invalidate()
   },
 
   // 加载搜索历史
@@ -46,40 +60,23 @@ Page({
   },
 
   // 搜索输入
-  onSearchInput: debounce(function(e) {
-    const keyword = e.detail.value.trim()
-    this.setData({ searchKeyword: keyword })
-
-    if (keyword.length >= 2) {
-      this.searchFunds(keyword)
-    } else {
-      this.setData({ searchResults: [], searched: false })
-    }
-  }, 500),
+  onSearchInput(e) {
+    this.searchManager?.onInput(e)
+  },
 
   // 点击历史搜索
   onHistoryTap(e) {
     const { keyword } = e.currentTarget.dataset
-    this.setData({ searchKeyword: keyword })
-    this.searchFunds(keyword)
+    this.searchManager?.search(keyword).catch(() => {})
   },
 
   // 搜索基金
   async searchFunds(keyword) {
-    this.setData({ searching: true, searched: false })
-
-    try {
-      const results = await get('/funds/search', { q: keyword, limit: 20 })
-      this.setData({
-        searchResults: results || [],
-        searching: false,
-        searched: true
-      })
-      this.saveSearchHistory(keyword)
-    } catch (error) {
-      console.error('搜索失败:', error)
-      this.setData({ searching: false, searched: true })
+    if (!this.searchManager) {
+      return []
     }
+
+    return this.searchManager.search(keyword)
   },
 
   // 查看基金详情

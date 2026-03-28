@@ -13,14 +13,14 @@ const isLoggedIn = () => {
  * 获取存储的token
  */
 const getToken = () => {
-  return app.globalData.token || wx.getStorageSync('token')
+  return app.getToken()
 }
 
 /**
  * 获取用户信息
  */
 const getUserInfo = () => {
-  return app.globalData.userInfo || wx.getStorageSync('userInfo')
+  return app.getUserInfo()
 }
 
 /**
@@ -44,13 +44,12 @@ const clearLoginInfo = () => {
  * @param {function} callback - 已登录时的回调
  */
 const checkLogin = (callback) => {
-  if (isLoggedIn()) {
-    callback && callback()
-  } else {
-    wx.redirectTo({
-      url: '/pages/login/login'
-    })
+  if (!app.requireLogin()) {
+    return false
   }
+
+  callback && callback()
+  return true
 }
 
 /**
@@ -58,9 +57,7 @@ const checkLogin = (callback) => {
  */
 const logout = () => {
   clearLoginInfo()
-  wx.redirectTo({
-    url: '/pages/login/login'
-  })
+  app.goToLogin()
 }
 
 module.exports = {

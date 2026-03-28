@@ -1,5 +1,6 @@
 // pages/funds-edit/funds-edit.js
 const { get, put } = require('../../utils/request')
+const { checkLogin } = require('../../utils/auth')
 const { showLoading, hideLoading, showToast } = require('../../utils/util')
 
 Page({
@@ -13,6 +14,10 @@ Page({
   },
 
   onLoad(options) {
+    if (!checkLogin()) {
+      return
+    }
+
     const { id } = options
     if (!id) {
       showToast('参数错误')
@@ -26,19 +31,11 @@ Page({
 
   // 加载基金信息
   async loadFundInfo(id) {
+    this.setData({ loading: true })
     showLoading('加载中...')
 
     try {
-      // 获取基金列表，找到对应的基金
-      const funds = await get('/funds/')
-      const fund = (funds || []).find(f => f.id === parseInt(id))
-
-      if (!fund) {
-        hideLoading()
-        showToast('基金不存在')
-        setTimeout(() => wx.navigateBack(), 1500)
-        return
-      }
+      const fund = await get(`/funds/${id}`)
 
       this.setData({
         fundInfo: fund,
@@ -50,7 +47,12 @@ Page({
     } catch (error) {
       hideLoading()
       console.error('加载基金信息失败:', error)
-      this.setData({ loading: false })
+      this.setData({
+        loading: false,
+        fundInfo: null
+      })
+      showToast(error.message || '基金不存在或已无权限访问')
+      setTimeout(() => wx.navigateBack(), 1500)
     }
   },
 
@@ -66,9 +68,8 @@ Page({
 
   // 提交更新
   async handleSubmit() {
-    const { fundId, fundInfo, cost_price, shares } = this.data
+    const { fundId, cost_price, shares } = this.data
 
-    // 验证
     if (!cost_price || isNaN(cost_price) || parseFloat(cost_price) <= 0) {
       showToast('请输入正确的成本价')
       return
@@ -90,13 +91,13 @@ Page({
       hideLoading()
       showToast('保存成功')
 
-      // 返回上一页
       setTimeout(() => {
         wx.navigateBack()
       }, 1500)
     } catch (error) {
       hideLoading()
       console.error('保存失败:', error)
+      showToast(error.message || '保存失败，请稍后重试')
     } finally {
       this.setData({ submitting: false })
     }

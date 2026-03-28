@@ -13,8 +13,19 @@
       </view>
     </view>
 
+    <loading wx:if="{{statsLoading}}" text="加载统计中..."></loading>
+
+    <empty
+      wx:elif="{{statsError}}"
+      icon="⚠️"
+      text="{{statsErrorMessage || '加载统计失败，请稍后重试'}}"
+      showButton="{{true}}"
+      buttonText="重新获取统计"
+      bind:buttonTap="loadStats"
+    ></empty>
+
     <!-- 统计数据 -->
-    <view class="stats-row" wx:if="{{stats}}">
+    <view class="stats-row" wx:elif="{{stats}}">
       <view class="stat-item">
         <text class="stat-value">{{stats.fundCount}}</text>
         <text class="stat-label">持有基金</text>

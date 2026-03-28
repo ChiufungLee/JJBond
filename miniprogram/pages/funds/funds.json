@@ -1,5 +1,9 @@
 {
   "navigationBarTitleText": "我的持仓",
   "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "empty": "/components/empty/empty",
+    "loading": "/components/loading/loading"
+  }
 }

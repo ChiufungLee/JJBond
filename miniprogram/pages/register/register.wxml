@@ -1,76 +1,7 @@
 <!--pages/register/register.wxml-->
 <view class="register-container">
   <view class="register-header">
-    <view class="logo">📊</view>
-    <text class="title">创建账号</text>
-    <text class="subtitle">注册开始管理您的投资组合</text>
-  </view>
-
-  <view class="register-form">
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">👤</text>
-        <input
-          class="input"
-          type="text"
-          placeholder="用户名（至少3个字符）"
-          value="{{username}}"
-          bindinput="onUsernameInput"
-        />
-      </view>
-    </view>
-
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">📧</text>
-        <input
-          class="input"
-          type="text"
-          placeholder="邮箱地址"
-          value="{{email}}"
-          bindinput="onEmailInput"
-        />
-      </view>
-    </view>
-
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">🔒</text>
-        <input
-          class="input"
-          type="password"
-          placeholder="密码（至少6个字符）"
-          value="{{password}}"
-          bindinput="onPasswordInput"
-        />
-      </view>
-    </view>
-
-    <view class="form-item">
-      <view class="input-wrapper">
-        <text class="input-icon">🔒</text>
-        <input
-          class="input"
-          type="password"
-          placeholder="确认密码"
-          value="{{confirmPassword}}"
-          bindinput="onConfirmPasswordInput"
-        />
-      </view>
-    </view>
-
-    <button
-      class="btn-register"
-      bindtap="handleRegister"
-      loading="{{loading}}"
-      disabled="{{loading}}"
-    >
-      注册
-    </button>
-
-    <view class="login-link">
-      <text>已有账号？</text>
-      <text class="link" bindtap="goToLogin">立即登录</text>
-    </view>
+    <text class="title">请使用微信登录</text>
+    <text class="subtitle">当前小程序仅支持微信快捷登录，正在为您跳转</text>
   </view>
 </view>
