@@ -6,6 +6,8 @@ from core.database import redis_client
 import logging
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+ACCESS_TOKEN_TYPE = "access"
+REFRESH_TOKEN_TYPE = "refresh"
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +15,29 @@ logger = logging.getLogger(__name__)
 _BLACKLIST_PREFIX = "token:blacklist:"
 
 
+def _create_token(data: dict, token_type: str, expires_delta: timedelta) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(SHANGHAI_TZ) + expires_delta
+    to_encode.update({"exp": expire, "type": token_type})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     """创建访问令牌"""
-    to_encode = data.copy()
-    expire = datetime.now(SHANGHAI_TZ) + (
-        expires_delta if expires_delta
-        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_token(
+        data=data,
+        token_type=ACCESS_TOKEN_TYPE,
+        expires_delta=expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def create_refresh_token(data: dict, expires_delta: timedelta = None) -> str:
+    """创建刷新令牌"""
+    return _create_token(
+        data=data,
+        token_type=REFRESH_TOKEN_TYPE,
+        expires_delta=expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    )
 
 
 def revoke_token(token: str) -> bool:
@@ -33,16 +49,16 @@ def revoke_token(token: str) -> bool:
         logger.warning("Redis 不可用，token 无法立即吊销，将在过期时间后自然失效")
         return False
     try:
-        # 解码取出过期时间，计算距现在的剩余秒数作为 TTL
         payload = jwt.decode(
-            token, settings.SECRET_KEY,
+            token,
+            settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
-            options={"verify_exp": False},  # 允许解码已过期的 token（用于计算 TTL）
+            options={"verify_exp": False},
         )
         exp = payload.get("exp")
         if exp:
             remaining = int(exp - datetime.now(SHANGHAI_TZ).timestamp())
-            ttl = max(remaining, 1)  # 至少保留 1 秒，避免 TTL=0 导致立即删除
+            ttl = max(remaining, 1)
         else:
             ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
@@ -54,12 +70,11 @@ def revoke_token(token: str) -> bool:
         return False
 
 
-def verify_token(token: str) -> dict | None:
+def verify_token(token: str, token_type: str | None = ACCESS_TOKEN_TYPE) -> dict | None:
     """
     验证令牌，返回整个 payload 或 None。
-    验证步骤：黑名单检查 → 签名 & 过期校验 → 返回 payload。
+    验证步骤：黑名单检查 → 签名 & 过期校验 → token 类型校验 → 返回 payload。
     """
-    # 1. 黑名单检查（Redis 不可用时跳过，降级为仅校验签名和过期时间）
     if redis_client is not None:
         try:
             if redis_client.exists(f"{_BLACKLIST_PREFIX}{token}"):
@@ -68,9 +83,11 @@ def verify_token(token: str) -> dict | None:
         except Exception as e:
             logger.warning(f"黑名单检查失败，跳过: {e}")
 
-    # 2. 签名 & 过期校验
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload_type = payload.get("type", ACCESS_TOKEN_TYPE)
+        if token_type is not None and payload_type != token_type:
+            return None
         return payload
     except JWTError:
         return None
@@ -78,5 +95,6 @@ def verify_token(token: str) -> dict | None:
 
 # 保持向后兼容的模块级常量（其他模块直接 import 这些值）
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
 ALGORITHM = settings.ALGORITHM
 SECRET_KEY = settings.SECRET_KEY

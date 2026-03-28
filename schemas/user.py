@@ -18,6 +18,11 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 # 微信登录请求
 class WechatLoginRequest(BaseModel):
     code: str = Field(..., description="wx.login 获取的 code")

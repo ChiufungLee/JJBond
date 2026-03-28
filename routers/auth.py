@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -9,7 +9,14 @@ import aiohttp
 
 import schemas
 from crud import user as user_crud
-from utils.jwt import create_access_token, revoke_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from utils.jwt import (
+    create_access_token,
+    create_refresh_token,
+    revoke_token,
+    verify_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_TYPE,
+)
 from core.database import get_db
 from core.limiter import limiter
 from core.dependencies import get_current_user_with_token
@@ -19,6 +26,41 @@ from models.user import User
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 logger = logging.getLogger(__name__)
+
+
+def _should_remember_login(request: Request) -> bool:
+    remember_me = request.headers.get("x-remember-me", "")
+    return remember_me.lower() in {"1", "true", "yes", "on"}
+
+
+def _build_token_payload(user: User, openid: str | None = None) -> dict:
+    token_sub = user.username or (f"wx_{openid}" if openid else "")
+    payload = {"sub": token_sub}
+    if openid:
+        payload["openid"] = openid
+    return payload
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        key=settings.REFRESH_TOKEN_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path=settings.REFRESH_TOKEN_COOKIE_PATH,
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.REFRESH_TOKEN_COOKIE_NAME,
+        path=settings.REFRESH_TOKEN_COOKIE_PATH,
+        samesite=settings.REFRESH_TOKEN_COOKIE_SAMESITE,
+        secure=settings.REFRESH_TOKEN_COOKIE_SECURE,
+    )
+
 
 @router.post("/register", response_model=schemas.User)
 @limiter.limit("3/minute")
@@ -38,7 +80,12 @@ def register(request: Request, user: schemas.UserCreate, db: Session = Depends(g
 
 @router.post("/login", response_model=schemas.Token)
 @limiter.limit("5/minute")
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     """
     用户登录，返回 JWT Token。
     限流：同一 IP 每分钟最多 5 次，防止暴力破解。
@@ -50,10 +97,17 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    token_payload = _build_token_payload(user)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data=token_payload, expires_delta=access_token_expires)
+
+    if _should_remember_login(request):
+        refresh_token = create_refresh_token(data=token_payload)
+        _set_refresh_cookie(response, refresh_token)
+    else:
+        _clear_refresh_cookie(response)
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -64,6 +118,8 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 
 @router.post("/logout", response_model=schemas.LogoutResponse)
 def logout(
+    request: Request,
+    response: Response,
     current_user_and_token: Tuple[User, str] = Depends(get_current_user_with_token),
 ):
     """
@@ -73,7 +129,51 @@ def logout(
     """
     _, token = current_user_and_token
     revoke_token(token)
+
+    refresh_token = request.cookies.get(settings.REFRESH_TOKEN_COOKIE_NAME)
+    if refresh_token:
+        revoke_token(refresh_token)
+
+    _clear_refresh_cookie(response)
     return {"message": "登出成功"}
+
+
+@router.post("/refresh", response_model=schemas.RefreshTokenResponse)
+def refresh_token(request: Request, response: Response):
+    refresh_token_value = request.cookies.get(settings.REFRESH_TOKEN_COOKIE_NAME)
+    if not refresh_token_value:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing",
+        )
+
+    payload = verify_token(refresh_token_value, token_type=REFRESH_TOKEN_TYPE)
+    if payload is None:
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token invalid",
+        )
+
+    if not payload.get("sub"):
+        _clear_refresh_cookie(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token invalid",
+        )
+
+    access_payload = {"sub": payload.get("sub")}
+    if payload.get("openid"):
+        access_payload["openid"] = payload.get("openid")
+
+    access_token = create_access_token(
+        data=access_payload,
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 
 async def _get_wechat_session_info(code: str) -> dict:
@@ -180,11 +280,10 @@ async def wechat_login(
             )
 
     # 3. 生成 JWT token
-    # 对于微信用户，使用 openid 作为 token 的 sub
-    token_sub = user.username or f"wx_{openid}"
+    token_payload = _build_token_payload(user, openid)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": token_sub, "openid": openid},
+        data=token_payload,
         expires_delta=access_token_expires
     )
 

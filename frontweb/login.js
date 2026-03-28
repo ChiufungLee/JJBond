@@ -14,37 +14,46 @@ class LoginManager {
     constructor() {
         this.baseURL = API_BASE_URL;
         this.messageTimer = null;
+        this.refreshPromise = null;
         this.initialize();
     }
     
-    initialize() {
-        // 检查是否已登录，如果已登录则跳转到主页面
-        this.checkAutoLogin();
-        // 加载保存的登录信息
+    async initialize() {
+        const autoLoggedIn = await this.checkAutoLogin();
+        if (autoLoggedIn) {
+            return;
+        }
+
         this.loadSavedCredentials();
-        // 绑定表单提交事件
         this.bindEvents();
     }
 
-    checkAutoLogin() {
-        const token     = localStorage.getItem('authToken');
-        const user      = localStorage.getItem('currentUser');
+    async checkAutoLogin() {
+        const token = localStorage.getItem('authToken');
+        const user = localStorage.getItem('currentUser');
         const expiresAt = localStorage.getItem('token_expires_at');
 
         const parsedUser = safeParseJSON(user, null);
         const expiresAtMs = Date.parse(expiresAt || '');
 
-        if (token && parsedUser && Number.isFinite(expiresAtMs)) {
-            if (Date.now() < expiresAtMs) {
-                // token 仍在有效期内，直接跳转主页
+        if (token && parsedUser && Number.isFinite(expiresAtMs) && Date.now() < expiresAtMs) {
+            window.location.href = 'index.html';
+            return true;
+        }
+
+        if (parsedUser) {
+            const refreshed = await this.refreshAccessToken(parsedUser, { silent: true });
+            if (refreshed) {
                 window.location.href = 'index.html';
-                return;
+                return true;
             }
         }
 
         if (token || user || expiresAt) {
             this.clearAuth();
         }
+
+        return false;
     }
     
     loadSavedCredentials() {
@@ -93,6 +102,51 @@ class LoginManager {
         }
     }
 
+    storeAuthSession(accessToken, user) {
+        localStorage.setItem('authToken', accessToken);
+        localStorage.setItem('currentUser', JSON.stringify(user));
+
+        const now = new Date();
+        localStorage.setItem('last_login', now.toISOString());
+        localStorage.setItem('token_expires_at', new Date(now.getTime() + 30 * 60 * 1000).toISOString());
+    }
+
+    async refreshAccessToken(user, { silent = false } = {}) {
+        if (this.refreshPromise) {
+            return this.refreshPromise;
+        }
+
+        this.refreshPromise = (async () => {
+            try {
+                const response = await fetch(`${this.baseURL}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    return false;
+                }
+
+                const data = await this.parseResponse(response);
+                if (!data?.access_token) {
+                    return false;
+                }
+
+                this.storeAuthSession(data.access_token, user);
+                return true;
+            } catch (error) {
+                if (!silent) {
+                    console.error('刷新登录状态失败:', error);
+                }
+                return false;
+            } finally {
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
+    }
+
     async handleLogin() {
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
@@ -122,7 +176,9 @@ class LoginManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Remember-Me': rememberMe ? 'true' : 'false'
                 },
+                credentials: 'same-origin',
                 body: formData
             });
 
@@ -140,12 +196,7 @@ class LoginManager {
                 return;
             }
 
-            localStorage.setItem('authToken', data.access_token);
-            localStorage.setItem('currentUser', JSON.stringify({ username }));
-
-            const now = new Date();
-            localStorage.setItem('last_login', now.toISOString());
-            localStorage.setItem('token_expires_at', new Date(now.getTime() + 30 * 60 * 1000).toISOString());
+            this.storeAuthSession(data.access_token, { username });
 
             if (rememberMe) {
                 localStorage.setItem('saved_credentials', JSON.stringify({ username }));
@@ -218,6 +269,7 @@ class LoginManager {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('last_login');
         localStorage.removeItem('token_expires_at');
+        this.refreshPromise = null;
     }
 }
 

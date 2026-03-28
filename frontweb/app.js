@@ -71,42 +71,93 @@ class FundManagerApp {
         this.currentPortfolioSummary = null; // 添加这个属性来存储当前的数据
         this.currentView = 'portfolio';
         this.messageTimer = null;
+        this.refreshPromise = null;
 
-        // 检查登录状态
-        this.checkAuthStatus();
         this.init();
     }
 
-    init() {
+    async init() {
+        await this.checkAuthStatus();
+
         if (!this.isAuthenticated) {
-            // 未登录，跳转到登录页面
             window.location.href = 'login.html';
-            // this.showUnauthenticatedUI();
             return;
         }
-        
+
         this.bindEvents();
         this.showAuthenticatedUI();
         this.calculatePortfolio();
     }
 
-    checkAuthStatus() {
+    storeAuthSession(accessToken, user = this.currentUser) {
+        this.token = accessToken;
+        this.currentUser = user;
+        this.isAuthenticated = Boolean(accessToken && user);
+
+        localStorage.setItem('authToken', accessToken);
+        localStorage.setItem('currentUser', JSON.stringify(user));
+
+        const now = new Date();
+        localStorage.setItem('last_login', now.toISOString());
+        localStorage.setItem('token_expires_at', new Date(now.getTime() + 30 * 60 * 1000).toISOString());
+    }
+
+    async refreshAccessToken() {
+        if (!this.currentUser) {
+            return false;
+        }
+
+        if (this.refreshPromise) {
+            return this.refreshPromise;
+        }
+
+        this.refreshPromise = (async () => {
+            try {
+                const response = await fetch(`${this.baseURL}/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    return false;
+                }
+
+                const data = await this.parseResponse(response);
+                if (!data?.access_token) {
+                    return false;
+                }
+
+                this.storeAuthSession(data.access_token, this.currentUser);
+                return true;
+            } catch (error) {
+                console.error('刷新登录状态失败:', error);
+                return false;
+            } finally {
+                this.refreshPromise = null;
+            }
+        })();
+
+        return this.refreshPromise;
+    }
+
+    async checkAuthStatus() {
         const token = localStorage.getItem('authToken');
         const parsedUser = safeParseJSON(localStorage.getItem('currentUser'), null);
         const expiresAt = localStorage.getItem('token_expires_at');
         const expiresAtMs = Date.parse(expiresAt || '');
 
-        if (token && parsedUser && Number.isFinite(expiresAtMs)) {
-            // 校验 token 是否在有效期内（与后端 ACCESS_TOKEN_EXPIRE_MINUTES=30 一致）
-            if (Date.now() < expiresAtMs) {
-                this.token = token;
-                this.currentUser = parsedUser;
-                this.isAuthenticated = true;
-                return;
-            }
+        if (token && parsedUser && Number.isFinite(expiresAtMs) && Date.now() < expiresAtMs) {
+            this.token = token;
+            this.currentUser = parsedUser;
+            this.isAuthenticated = true;
+            return;
         }
 
-        this.clearAuth();
+        this.currentUser = parsedUser;
+        const refreshed = await this.refreshAccessToken();
+        if (!refreshed) {
+            this.clearAuth();
+        }
     }
 
     bindEvents() {
@@ -690,7 +741,7 @@ class FundManagerApp {
         }
     }
 
-    async makeRequest(url, options = {}) {
+    async makeRequest(url, options = {}, retry = true) {
         const headers = {
             'Content-Type': 'application/json',
             ...options.headers
@@ -703,11 +754,16 @@ class FundManagerApp {
         try {
             const response = await fetch(`${this.baseURL}${url}`, {
                 ...options,
-                headers
+                headers,
+                credentials: 'same-origin'
             });
 
-            // 检查认证状态
-            if (response.status === 401) {
+            if (response.status === 401 && retry) {
+                const refreshed = await this.refreshAccessToken();
+                if (refreshed) {
+                    return this.makeRequest(url, options, false);
+                }
+
                 this.clearAuth();
                 this.showMessage('登录已过期，请重新登录', 'error');
                 setTimeout(() => {
@@ -1401,12 +1457,19 @@ class FundManagerApp {
         }
     }
 
-    logout() {
-        this.clearAuth();
-        // this.showMessage('已退出登录', 'info');
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 200);
+    async logout() {
+        try {
+            await this.makeRequest('/auth/logout', {
+                method: 'POST'
+            }, false);
+        } catch (error) {
+            console.error('退出登录请求失败:', error);
+        } finally {
+            this.clearAuth();
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 200);
+        }
     }
 
     clearAuth() {
@@ -1417,6 +1480,7 @@ class FundManagerApp {
         this.token = null;
         this.currentUser = null;
         this.isAuthenticated = false;
+        this.refreshPromise = null;
     }
 
     // 显示添加基金模态框

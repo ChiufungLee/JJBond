@@ -1,6 +1,6 @@
 from .user import (
     User, UserBase, UserCreate, UserLogin,
-    Token, TokenData,
+    Token, TokenData, RefreshTokenResponse,
     WechatLoginRequest, WechatLoginResponse,
     Fund, FundCreate, FundBase, FundUpdate, FundDetail, PortfolioSummary,
     WatchlistCreate, WatchlistItem,
