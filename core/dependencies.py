@@ -1,6 +1,7 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from core.config import settings
 from core.database import get_db
 from utils.jwt import verify_token
 from crud.user import get_user_by_username, get_user_by_openid
@@ -82,3 +83,13 @@ async def get_current_user_with_token(
         raise credentials_exception
 
     return user, token
+
+
+async def require_ranking_sync_token(
+    x_ranking_sync_token: str | None = Header(default=None),
+):
+    if not settings.RANKING_SYNC_TOKEN or x_ranking_sync_token != settings.RANKING_SYNC_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )

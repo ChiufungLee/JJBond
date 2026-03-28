@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     # 第三方API配置
     FUND_API_BASE_URL: str = "https://fund.eastmoney.com"
+    RANKING_SYNC_TOKEN: str = ""
+
+    # 文件存储配置
+    AVATAR_UPLOAD_DIR: str = "uploads/avatars"
 
     # 微信小程序配置
     WECHAT_APPID: str = ""  # 微信小程序 AppID

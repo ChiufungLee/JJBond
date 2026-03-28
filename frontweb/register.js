@@ -3,6 +3,7 @@ const API_BASE_URL = '/api';
 class RegisterManager {
     constructor() {
         this.baseURL = API_BASE_URL;
+        this.messageTimer = null;
         this.initialize();
     }
     
@@ -62,40 +63,56 @@ class RegisterManager {
         return true;
     }
     
+    async parseResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+            try {
+                return await response.json();
+            } catch {
+                return null;
+            }
+        }
+
+        try {
+            const text = await response.text();
+            return text ? { detail: text } : null;
+        } catch {
+            return null;
+        }
+    }
+
     async handleRegister() {
         const usernameInput = document.getElementById('username');
         const passwordInput = document.getElementById('password');
         const confirmPasswordInput = document.getElementById('confirmPassword');
         const emailInput = document.getElementById('email');
-        
+
         if (!usernameInput || !passwordInput || !confirmPasswordInput) return;
-        
+
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
         const confirmPassword = confirmPasswordInput.value;
         const email = emailInput ? emailInput.value.trim() : '';
-        
-        // 验证输入
+
         if (!username || !password || !confirmPassword) {
             this.showError('请填写所有必填字段');
             return;
         }
-        
+
         if (password !== confirmPassword) {
             this.showError('两次输入的密码不一致');
             return;
         }
-        
+
         if (password.length < 8) {
             this.showError('密码至少需要8位字符');
             return;
         }
-        
-        // 显示加载状态
+
         this.setLoading(true);
-        
+
         try {
-            // 调用注册API
             const userData = { username, password };
             if (email) {
                 userData.email = email;
@@ -109,18 +126,17 @@ class RegisterManager {
                 body: JSON.stringify(userData)
             });
 
+            const data = await this.parseResponse(response);
+
             if (response.ok) {
-                const data = await response.json();
                 this.showSuccess('注册成功，正在跳转到登录页面...');
-                
-                // 延迟跳转到登录页面
+
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 2000);
-                
+
             } else {
-                const errorData = await response.json();
-                this.showError(errorData.detail || '注册失败');
+                this.showError(data?.detail || '注册失败');
                 this.setLoading(false);
             }
         } catch (error) {
@@ -146,16 +162,19 @@ class RegisterManager {
     showError(message) {
         const errorDiv = document.getElementById('errorMessage');
         if (errorDiv) {
+            if (this.messageTimer) {
+                clearTimeout(this.messageTimer);
+            }
+
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
-            
-            // 隐藏成功消息
+
             const successDiv = document.getElementById('successMessage');
             if (successDiv) successDiv.style.display = 'none';
-            
-            // 5秒后自动隐藏错误消息
-            setTimeout(() => {
+
+            this.messageTimer = setTimeout(() => {
                 errorDiv.style.display = 'none';
+                this.messageTimer = null;
             }, 5000);
         }
     }

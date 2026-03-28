@@ -1,19 +1,25 @@
 # models/watchlist.py
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from zoneinfo import ZoneInfo
+from sqlalchemy import Column, Integer, String, Float, DateTime, UniqueConstraint
 from .base import Base
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class WatchlistFund(Base):
     """自选基金表"""
     __tablename__ = 'watchlist_funds'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'fund_code', name='uq_watchlist_funds_user_fund_code'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     fund_code = Column(String(20), nullable=False)
     fund_name = Column(String(100))
     cost_nav = Column(Float, nullable=False)   # 添加自选时的净值
-    added_at = Column(DateTime, default=datetime.now)
+    added_at = Column(DateTime, default=lambda: datetime.now(SHANGHAI_TZ))
 
 
 class FundTransaction(Base):
@@ -28,4 +34,4 @@ class FundTransaction(Base):
     shares = Column(Float, nullable=False)                   # 交易份额
     price = Column(Float, nullable=False)                    # 交易单价（净值）
     transaction_date = Column(DateTime, nullable=False)      # 交易日期
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(SHANGHAI_TZ))

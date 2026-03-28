@@ -60,7 +60,7 @@
                 </div>
                 
                 <!-- 基金列表页面 -->
-                <div id="fundsListPage" class="funds-list-page" style="display: none;">
+                <div id="fundsListPage" class="funds-list-page hidden">
                     <!-- <div class="page-subheader">
                         <h3>基金列表</h3>
 
@@ -71,7 +71,7 @@
                 </div>
 
                 <!-- 自选基金页面 -->
-                <div id="watchlistPage" class="watchlist-page" style="display: none;">
+                <div id="watchlistPage" class="watchlist-page hidden">
                     <div id="watchlistContainer">
                         <!-- 自选基金列表将在这里动态生成 -->
                     </div>
@@ -80,11 +80,11 @@
         </main>
 
         <!-- 消息提示 -->
-        <div id="message" class="message" style="display: none;"></div>
+        <div id="message" class="message hidden"></div>
     </div>
 
     <!-- 模态框容器 -->
-    <div id="modalContainer"></div>
+    <div id="modalContainer" class="hidden"></div>
     <div id="chartModalContainer" class="hidden"></div>
 
     <script src="app.js"></script>

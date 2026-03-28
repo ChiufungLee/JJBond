@@ -1,7 +1,10 @@
 # models/user.py
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from sqlalchemy import Column, Integer, String, DateTime
 from .base import Base
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class User(Base):
@@ -17,4 +20,4 @@ class User(Base):
     nickname = Column(String(100), nullable=True)       # 微信昵称
     avatar_url = Column(String(500), nullable=True)    # 微信头像
     login_type = Column(String(20), default='password')  # 登录方式: password/wechat
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=lambda: datetime.now(SHANGHAI_TZ))

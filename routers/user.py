@@ -1,14 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
+import imghdr
 import os
 import uuid
-from datetime import datetime, timezone
 
 from core.database import get_db
 from schemas.user import User, UsernameUpdate, UserInfoUpdate
 from crud.user import get_user_by_username, update_username, update_user_info
 from core.dependencies import get_current_user
 from core.config import settings
+
+MAX_AVATAR_SIZE = 2 * 1024 * 1024
+IMAGE_EXTENSIONS = {
+    "jpeg": ".jpg",
+    "png": ".png",
+    "gif": ".gif",
+    "bmp": ".bmp",
+    "webp": ".webp",
+}
 
 router = APIRouter(prefix="/users", tags=["用户"])
 
@@ -62,34 +71,45 @@ async def upload_avatar(
     current_user: User = Depends(get_current_user)
 ):
     """上传用户头像"""
-    # 验证文件类型
     if not avatar.content_type or not avatar.content_type.startswith('image/'):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="请上传图片文件"
         )
 
-    # 创建上传目录
-    upload_dir = "uploads/avatars"
-    os.makedirs(upload_dir, exist_ok=True)
+    content = await avatar.read(MAX_AVATAR_SIZE + 1)
+    if len(content) > MAX_AVATAR_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="头像文件不能超过2MB"
+        )
 
-    # 生成文件名
-    file_ext = os.path.splitext(avatar.filename or "image.jpg")[1] or ".jpg"
+    image_type = imghdr.what(None, h=content)
+    file_ext = IMAGE_EXTENSIONS.get(image_type)
+    if not file_ext:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持 JPG、PNG、GIF、BMP、WEBP 图片"
+        )
+
+    os.makedirs(settings.AVATAR_UPLOAD_DIR, exist_ok=True)
+
     filename = f"{current_user.id}_{uuid.uuid4().hex}{file_ext}"
-    file_path = os.path.join(upload_dir, filename)
+    file_path = os.path.join(settings.AVATAR_UPLOAD_DIR, filename)
 
-    # 保存文件
-    content = await avatar.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
 
-    # 生成访问URL
-    avatar_url = f"/static/avatars/{filename}"
-
-    # 更新用户头像
-    update_user_info(db, current_user, avatar_url=avatar_url)
-
-    return {"avatar_url": avatar_url}
+        avatar_url = f"/static/avatars/{filename}"
+        update_user_info(db, current_user, avatar_url=avatar_url)
+        return {"avatar_url": avatar_url}
+    except Exception:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
+    finally:
+        await avatar.close()
 
 
 @router.get("/{username}", response_model=User)

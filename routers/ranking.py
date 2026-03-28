@@ -1,8 +1,9 @@
 """
 基金涨跌幅排行榜 API
 """
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional
+from core.dependencies import require_ranking_sync_token
 from utils.fund_ranking import fund_ranking_manager, RankingType
 
 router = APIRouter(prefix="/ranking", tags=["排行榜"])
@@ -63,7 +64,9 @@ async def get_cache_status():
 
 
 @router.post("/sync")
-async def sync_ranking():
+async def sync_ranking(
+    _: None = Depends(require_ranking_sync_token),
+):
     """
     手动同步排行榜数据（从天天基金 API 获取最新数据）
 

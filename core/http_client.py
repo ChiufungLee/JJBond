@@ -42,9 +42,19 @@ async def close_http_session() -> None:
 def get_http_session() -> aiohttp.ClientSession:
     """
     获取全局 ClientSession。
-    若 session 未初始化（如单元测试环境），自动创建一个临时 session 并打印警告。
+    若 session 未初始化，直接报错，避免创建无人关闭的临时 session。
     """
-    if _session is None or _session.closed:
-        logger.warning("全局 HTTP session 未初始化，创建临时 session（仅用于测试）")
-        return aiohttp.ClientSession()
+    if _session is None:
+        message = (
+            "全局 HTTP session 未初始化。请确认应用通过 main.py/FastAPI lifespan 启动，"
+            "并已先调用 init_http_session()。"
+        )
+        logger.error(message)
+        raise RuntimeError(message)
+
+    if _session.closed:
+        message = "全局 HTTP session 已关闭。请检查应用生命周期是否已进入 shutdown。"
+        logger.error(message)
+        raise RuntimeError(message)
+
     return _session

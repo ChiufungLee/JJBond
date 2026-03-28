@@ -67,8 +67,8 @@ class FundCreate(FundBase):
 
 class FundUpdate(BaseModel):
     """基金更新模型 - 只更新可修改的字段"""
-    cost_price: float
-    shares: float
+    cost_price: float = Field(..., gt=0, description="持仓成本价，必须大于0")
+    shares: float = Field(..., gt=0, description="持仓份额，必须大于0")
 
 
 # 自选基金相关

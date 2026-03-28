@@ -3,15 +3,16 @@
 使用 APScheduler 实现定时同步排行榜数据
 """
 import logging
-from datetime import datetime
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from utils.fund_ranking import fund_ranking_manager
 
 logger = logging.getLogger(__name__)
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 # 全局调度器实例
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=SHANGHAI_TZ)
 
 
 async def sync_ranking_job():
@@ -38,7 +39,7 @@ def setup_scheduler():
     # 每个工作日（周一到周五）15:30 执行同步
     scheduler.add_job(
         sync_ranking_job,
-        trigger=CronTrigger(day_of_week="mon-fri", hour=15, minute=30),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=15, minute=30, timezone=SHANGHAI_TZ),
         id="sync_ranking_data",
         name="同步排行榜数据",
         replace_existing=True,

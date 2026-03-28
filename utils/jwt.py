@@ -1,8 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 from core.config import settings
 from core.database import redis_client
 import logging
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +16,7 @@ _BLACKLIST_PREFIX = "token:blacklist:"
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     """创建访问令牌"""
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(SHANGHAI_TZ) + (
         expires_delta if expires_delta
         else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
@@ -38,7 +41,7 @@ def revoke_token(token: str) -> bool:
         )
         exp = payload.get("exp")
         if exp:
-            remaining = int(exp - datetime.now(timezone.utc).timestamp())
+            remaining = int(exp - datetime.now(SHANGHAI_TZ).timestamp())
             ttl = max(remaining, 1)  # 至少保留 1 秒，避免 TTL=0 导致立即删除
         else:
             ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60

@@ -312,8 +312,6 @@ class FundCalculator:
             except json.JSONDecodeError:
                 pass
 
-        url = (f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
-               f"?type=lsjz&code={fund_code}&page=1&sdate={sdate}&edate={edate}&per=50")
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
@@ -322,41 +320,68 @@ class FundCalculator:
         result = []
         try:
             session = get_http_session()
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                text = await resp.text()
+            page = 1
+            seen_dates = set()
+            reached_start_date = False
 
-            match = re.search(r'content:"(.*?)",records:', text, re.DOTALL)
-            if not match:
-                logger.warning(f"未匹配到基金净值数据: {fund_code}")
-                return result
+            while True:
+                url = (
+                    f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
+                    f"?type=lsjz&code={fund_code}&page={page}&sdate={sdate}&edate={edate}&per=50"
+                )
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    resp.raise_for_status()
+                    text = await resp.text()
 
-            raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
-            html = etree.HTML(raw_html)
-            for row in html.xpath('//tr')[1:]:
-                cells = row.xpath('./td')
-                if len(cells) < 4:
-                    continue
-                try:
-                    nav_date = cells[0].xpath('string(.)').strip()
-                    unit_nav_str = cells[1].xpath('string(.)').strip()
-                    daily_growth = cells[3].xpath('string(.)').strip()
-                    unit_nav = float(unit_nav_str) if unit_nav_str and unit_nav_str != '-' else None
-                    daily_growth_value = None
-                    if daily_growth and daily_growth != '-':
-                        try:
-                            daily_growth_value = float(daily_growth.rstrip('%'))
-                        except ValueError:
-                            pass
-                    if unit_nav is not None:
-                        result.append({
-                            "date": nav_date,
-                            "unit_nav": unit_nav,
-                            "daily_growth": daily_growth,
-                            "daily_growth_value": daily_growth_value
-                        })
-                except Exception as e:
-                    logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
+                match = re.search(r'content:"(.*?)",records:(\d+),pages:(\d+)', text, re.DOTALL)
+                if not match:
+                    if page == 1:
+                        logger.warning(f"未匹配到基金净值数据: {fund_code}")
+                    break
+
+                raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
+                total_pages = int(match.group(3))
+                html = etree.HTML(raw_html)
+                page_rows = 0
+
+                for row in html.xpath('//tr')[1:]:
+                    cells = row.xpath('./td')
+                    if len(cells) < 4:
+                        continue
+                    try:
+                        nav_date = cells[0].xpath('string(.)').strip()
+                        if not nav_date or nav_date in seen_dates:
+                            continue
+
+                        nav_date_obj = datetime.strptime(nav_date, "%Y-%m-%d").date()
+                        if nav_date_obj < start_date:
+                            reached_start_date = True
+                            continue
+
+                        unit_nav_str = cells[1].xpath('string(.)').strip()
+                        daily_growth = cells[3].xpath('string(.)').strip()
+                        unit_nav = float(unit_nav_str) if unit_nav_str and unit_nav_str != '-' else None
+                        daily_growth_value = None
+                        if daily_growth and daily_growth != '-':
+                            try:
+                                daily_growth_value = float(daily_growth.rstrip('%'))
+                            except ValueError:
+                                pass
+                        if unit_nav is not None:
+                            seen_dates.add(nav_date)
+                            result.append({
+                                "date": nav_date,
+                                "unit_nav": unit_nav,
+                                "daily_growth": daily_growth,
+                                "daily_growth_value": daily_growth_value
+                            })
+                            page_rows += 1
+                    except Exception as e:
+                        logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
+
+                if page >= total_pages or page_rows == 0 or reached_start_date:
+                    break
+                page += 1
 
             result.sort(key=lambda x: x["date"], reverse=True)
             self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
@@ -670,9 +695,13 @@ class FundCalculator:
             'fund_details': fund_details,
         }
 
-    async def get_fund_nav_history_by_month(self, fund_code: str, year: int, month: int) -> List[Dict[str, Any]]:
+    async def get_fund_nav_history_by_month(
+        self, fund_code: str, year: int, month: int, include_prev_trading_day: bool = False
+    ) -> List[Dict[str, Any]]:
         """获取指定月份的基金历史净值数据"""
         start_date = date(year, month, 1)
+        if include_prev_trading_day:
+            start_date = start_date - timedelta(days=7)
         # 获取该月最后一天
         _, last_day = monthrange(year, month)
         end_date = date(year, month, last_day)
@@ -805,6 +834,10 @@ class FundCalculator:
             index: Dict[str, float] = {}
             last_known_nav = None  # 顺序扫描，记录上一个有净值的交易日净值
 
+            for nav_date in sorted(nav_dict.keys()):
+                if nav_date < f"{year:04d}-{month:02d}-01":
+                    last_known_nav = nav_dict[nav_date]
+
             for day in range(1, days_in_month + 1):
                 current_date = date(year, month, day)
                 date_str = current_date.strftime("%Y-%m-%d")
@@ -849,7 +882,10 @@ class FundCalculator:
         # 并发获取所有基金的历史净值
         nav_data = {}
         nav_results = await asyncio.gather(
-            *[self.get_fund_nav_history_by_month(code, year, month) for code in fund_codes]
+            *[
+                self.get_fund_nav_history_by_month(code, year, month, include_prev_trading_day=True)
+                for code in fund_codes
+            ]
         )
         for code, nav_list in zip(fund_codes, nav_results):
             nav_data[code] = {item['date']: item['unit_nav'] for item in nav_list}

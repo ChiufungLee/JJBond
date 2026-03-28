@@ -1,15 +1,77 @@
 const API_BASE_URL = '/api';
 
+function safeParseJSON(value, fallback = null) {
+    if (!value) return fallback;
+
+    try {
+        return JSON.parse(value);
+    } catch {
+        return fallback;
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+function parseNumber(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+}
+
+function formatFixed(value, digits = 2, fallback = '-') {
+    const num = parseNumber(value);
+    return num === null ? fallback : num.toFixed(digits);
+}
+
+function formatDate(value, fallback = '-') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? fallback : date.toLocaleDateString();
+}
+
+function hasNegativeSign(value) {
+    return String(value ?? '').trim().startsWith('-');
+}
+
+function formatCurrency(value, digits = 2, fallback = '-') {
+    const num = parseNumber(value);
+    return num === null ? fallback : `¥${num.toFixed(digits)}`;
+}
+
+function formatSignedCurrency(value, digits = 2, fallback = '-') {
+    const num = parseNumber(value);
+    return num === null ? fallback : `${num >= 0 ? '+' : ''}¥${num.toFixed(digits)}`;
+}
+
+function formatSignedPercent(value, digits = 2, fallback = '-') {
+    const num = parseNumber(value);
+    return num === null ? fallback : `${num >= 0 ? '+' : ''}${num.toFixed(digits)}%`;
+}
+
+function getProfitClass(value, defaultClass = 'profit-positive') {
+    const num = parseNumber(value);
+    if (num === null) return defaultClass;
+    return num < 0 ? 'profit-negative' : 'profit-positive';
+}
+
 class FundManagerApp {
     constructor() {
         this.baseURL = API_BASE_URL;
         this.token = localStorage.getItem('authToken');
-        this.currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        this.currentUser = safeParseJSON(localStorage.getItem('currentUser'), null);
         this.searchCache = {};
         this.selectedFund = null;
         this.chart = null; // 存储当前图表实例
         this.currentPortfolioSummary = null; // 添加这个属性来存储当前的数据
-        
+        this.currentView = 'portfolio';
+        this.messageTimer = null;
+
         // 检查登录状态
         this.checkAuthStatus();
         this.init();
@@ -29,24 +91,22 @@ class FundManagerApp {
     }
 
     checkAuthStatus() {
-        const token      = localStorage.getItem('authToken');
-        const user       = localStorage.getItem('currentUser');
-        const expiresAt  = localStorage.getItem('token_expires_at');
+        const token = localStorage.getItem('authToken');
+        const parsedUser = safeParseJSON(localStorage.getItem('currentUser'), null);
+        const expiresAt = localStorage.getItem('token_expires_at');
+        const expiresAtMs = Date.parse(expiresAt || '');
 
-        if (token && user && expiresAt) {
+        if (token && parsedUser && Number.isFinite(expiresAtMs)) {
             // 校验 token 是否在有效期内（与后端 ACCESS_TOKEN_EXPIRE_MINUTES=30 一致）
-            if (new Date() < new Date(expiresAt)) {
+            if (Date.now() < expiresAtMs) {
                 this.token = token;
-                this.currentUser = JSON.parse(user);
+                this.currentUser = parsedUser;
                 this.isAuthenticated = true;
                 return;
-            } else {
-                // token 已过期，清除本地存储
-                this.clearAuth();
             }
         }
 
-        this.isAuthenticated = false;
+        this.clearAuth();
     }
 
     bindEvents() {
@@ -59,6 +119,7 @@ class FundManagerApp {
         document.getElementById('viewWatchlistBtn').addEventListener('click', () => this.showWatchlistPage());
         document.getElementById('addToWatchlistBtn').addEventListener('click', () => this.showAddWatchlistModal());
         document.getElementById('backToPortfolioFromWatchlistBtn').addEventListener('click', () => this.showPortfolioView());
+        document.addEventListener('click', (e) => this.handleDocumentClick(e));
 
         // 如果有登录/注册重定向按钮（在未登录状态显示）
         const loginRedirectBtn = document.getElementById('loginRedirectBtn');
@@ -113,70 +174,17 @@ class FundManagerApp {
         }
     }
 
-        // 设置概览页面按钮状态
+    // 兼容旧调用，统一委托给 updateViewState
     setButtonVisibilityForPortfolio() {
-        const viewFundsBtn = document.getElementById('viewFundsBtn');
-        const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
-        const addFundBtn = document.getElementById('addFundBtn');
-        const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
-        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
-        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
-        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
-
-        // 显示：基金列表、刷新收益、添加基金、自选基金
-        if (viewFundsBtn) viewFundsBtn.style.display = 'inline-block';
-        if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'inline-block';
-        if (addFundBtn) addFundBtn.style.display = 'inline-block';
-        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'inline-block';
-
-        // 隐藏：返回概览、添加自选
-        if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'none';
-        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'none';
-        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'none';
+        this.updateViewState('portfolio');
     }
 
-    // 设置基金列表页面按钮状态
     setButtonVisibilityForFundsList() {
-        const viewFundsBtn = document.getElementById('viewFundsBtn');
-        const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
-        const addFundBtn = document.getElementById('addFundBtn');
-        const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
-        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
-        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
-        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
-
-        // 隐藏：基金列表、刷新收益、自选基金
-        if (viewFundsBtn) viewFundsBtn.style.display = 'none';
-        if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'none';
-        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'none';
-        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'none';
-        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'none';
-
-        // 显示：添加基金、返回概览
-        if (addFundBtn) addFundBtn.style.display = 'inline-block';
-        if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'inline-block';
+        this.updateViewState('funds');
     }
 
-    // 设置自选基金页面按钮状态
     setButtonVisibilityForWatchlist() {
-        const viewFundsBtn = document.getElementById('viewFundsBtn');
-        const refreshPortfolioBtn = document.getElementById('refreshPortfolioBtn');
-        const addFundBtn = document.getElementById('addFundBtn');
-        const backToPortfolioBtn = document.getElementById('backToPortfolioBtn');
-        const viewWatchlistBtn = document.getElementById('viewWatchlistBtn');
-        const addToWatchlistBtn = document.getElementById('addToWatchlistBtn');
-        const backToPortfolioFromWatchlistBtn = document.getElementById('backToPortfolioFromWatchlistBtn');
-
-        // 隐藏：基金列表、刷新收益、添加基金、自选基金、返回概览(持仓)
-        if (viewFundsBtn) viewFundsBtn.style.display = 'none';
-        if (refreshPortfolioBtn) refreshPortfolioBtn.style.display = 'none';
-        if (addFundBtn) addFundBtn.style.display = 'none';
-        if (viewWatchlistBtn) viewWatchlistBtn.style.display = 'none';
-        if (backToPortfolioBtn) backToPortfolioBtn.style.display = 'none';
-
-        // 显示：添加自选、返回概览(自选)
-        if (addToWatchlistBtn) addToWatchlistBtn.style.display = 'inline-block';
-        if (backToPortfolioFromWatchlistBtn) backToPortfolioFromWatchlistBtn.style.display = 'inline-block';
+        this.updateViewState('watchlist');
     }
 
     showAuthenticatedUI() {
@@ -203,7 +211,7 @@ class FundManagerApp {
         // 显示退出按钮
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) logoutBtn.classList.remove('hidden');
-        this.setButtonVisibilityForPortfolio();
+        this.updateViewState('portfolio');
     }
 
     showUnauthenticatedUI() {
@@ -230,30 +238,64 @@ class FundManagerApp {
 
     }
 
+    updateViewState(view) {
+        this.currentView = view;
+
+        const pages = {
+            portfolio: document.getElementById('portfolioPage'),
+            funds: document.getElementById('fundsListPage'),
+            watchlist: document.getElementById('watchlistPage')
+        };
+
+        Object.entries(pages).forEach(([key, element]) => {
+            if (!element) return;
+            element.classList.toggle('hidden', key !== view);
+        });
+
+        const buttonRules = {
+            viewFundsBtn: view === 'portfolio',
+            refreshPortfolioBtn: view === 'portfolio',
+            addFundBtn: view !== 'watchlist',
+            backToPortfolioBtn: view === 'funds',
+            viewWatchlistBtn: view === 'portfolio',
+            addToWatchlistBtn: view === 'watchlist',
+            backToPortfolioFromWatchlistBtn: view === 'watchlist'
+        };
+
+        Object.entries(buttonRules).forEach(([id, visible]) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('hidden', !visible);
+            }
+        });
+    }
+
+    handleDocumentClick(event) {
+        const searchPairs = [
+            ['searchResults', 'fundSearch'],
+            ['watchlistSearchResults', 'watchlistFundSearch']
+        ];
+
+        searchPairs.forEach(([resultsId, inputId]) => {
+            const searchResults = document.getElementById(resultsId);
+            const searchInput = document.getElementById(inputId);
+
+            if (!searchResults || !searchInput) return;
+            if (searchResults.contains(event.target) || event.target === searchInput) return;
+
+            searchResults.classList.remove('show');
+        });
+    }
+
     // 显示基金列表
     showFundsList() {
-        const portfolioPage = document.getElementById('portfolioPage');
-        const fundsListPage = document.getElementById('fundsListPage');
-        
-        if (portfolioPage) portfolioPage.style.display = 'none';
-        if (fundsListPage) fundsListPage.style.display = 'block';
-        
-        this.setButtonVisibilityForFundsList();
-
+        this.updateViewState('funds');
         this.loadFunds();
     }
 
     // 显示投资组合概览
     showPortfolioView() {
-        const portfolioPage = document.getElementById('portfolioPage');
-        const fundsListPage = document.getElementById('fundsListPage');
-        const watchlistPage = document.getElementById('watchlistPage');
-
-        if (fundsListPage) fundsListPage.style.display = 'none';
-        if (watchlistPage) watchlistPage.style.display = 'none';
-        if (portfolioPage) portfolioPage.style.display = 'block';
-
-        this.setButtonVisibilityForPortfolio();
+        this.updateViewState('portfolio');
 
         // 已有缓存数据则直接渲染，无需重新请求
         if (this.currentPortfolioSummary) {
@@ -265,15 +307,7 @@ class FundManagerApp {
 
     // 显示自选基金页面
     showWatchlistPage() {
-        const portfolioPage = document.getElementById('portfolioPage');
-        const fundsListPage = document.getElementById('fundsListPage');
-        const watchlistPage = document.getElementById('watchlistPage');
-
-        if (portfolioPage) portfolioPage.style.display = 'none';
-        if (fundsListPage) fundsListPage.style.display = 'none';
-        if (watchlistPage) watchlistPage.style.display = 'block';
-
-        this.setButtonVisibilityForWatchlist();
+        this.updateViewState('watchlist');
         this.loadWatchlist();
     }
 
@@ -282,7 +316,7 @@ class FundManagerApp {
         const container = document.getElementById('watchlistContainer');
         if (!container) return;
 
-        container.innerHTML = '<div class="loading-state"><text>加载中...</text></div>';
+        container.innerHTML = '<div class="loading-state">加载中...</div>';
 
         try {
             const watchlist = await this.makeRequest('/watchlist/');
@@ -308,42 +342,46 @@ class FundManagerApp {
             return;
         }
 
-        // 构建桌面端表格行
-        const tableRows = watchlist.map(item => {
-            const isHolding = item.is_holding;
-            const addedAt = new Date(item.added_at).toLocaleDateString();
-            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
-            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
-            const totalChangeDisplay = item.total_change_rate !== null ?
-                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
-            const safeName = (item.fund_name || '').replace(/'/g, "\\'");
+        const normalizedWatchlist = watchlist.map((item) => {
+            const totalChangeRate = parseNumber(item.total_change_rate);
+            return {
+                ...item,
+                safeFundCode: escapeHtml(item.fund_code || '-'),
+                safeFundName: escapeHtml(item.fund_name || '-'),
+                isHolding: Boolean(item.is_holding),
+                addedAt: formatDate(item.added_at),
+                currentNavText: formatFixed(item.current_nav, 4),
+                costNavText: formatFixed(item.cost_nav, 4),
+                changeRateText: item.change_rate || '--',
+                changeRateClass: hasNegativeSign(item.change_rate) ? 'profit-negative' : 'profit-positive',
+                totalChangeClass: (totalChangeRate ?? 0) >= 0 ? 'profit-positive' : 'profit-negative',
+                totalChangeDisplay: totalChangeRate === null ? '--' : `${totalChangeRate >= 0 ? '+' : ''}${totalChangeRate.toFixed(2)}%`
+            };
+        });
 
-            return `
+        const tableRows = normalizedWatchlist.map(item => `
                 <tr>
-                    <td class="fund-code">${item.fund_code}</td>
-                    <td class="fund-name">${item.fund_name || '-'}</td>
-                    <td>${isHolding ? '<span class="holding-tag">已持有</span>' : '<span class="not-holding-tag">未持有</span>'}</td>
-                    <td>${addedAt}</td>
-                    <td>${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</td>
-                    <td>${item.current_nav ? item.current_nav.toFixed(4) : '-'}</td>
-                    <td class="${changeRateClass}">${item.change_rate || '--'}</td>
-                    <td class="${totalChangeClass}">${totalChangeDisplay}</td>
+                    <td class="fund-code">${item.safeFundCode}</td>
+                    <td class="fund-name">${item.safeFundName}</td>
+                    <td>${item.isHolding ? '<span class="holding-tag">已持有</span>' : '<span class="not-holding-tag">未持有</span>'}</td>
+                    <td>${item.addedAt}</td>
+                    <td>${item.costNavText}</td>
+                    <td>${item.currentNavText}</td>
+                    <td class="${item.changeRateClass}">${escapeHtml(item.changeRateText)}</td>
+                    <td class="${item.totalChangeClass}">${item.totalChangeDisplay}</td>
                     <td class="action-cell">
-                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${safeName}')">买入</button>` : ''}
-                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${safeName}')">移除</button>
+                        ${!item.isHolding ? `<button class="btn btn-sm btn-primary" data-action="buy-watchlist" data-fund-code="${item.safeFundCode}" data-fund-name="${item.safeFundName}">买入</button>` : ''}
+                        <button class="btn btn-sm btn-danger" data-action="remove-watchlist" data-watchlist-id="${item.id}" data-fund-name="${item.safeFundName}">移除</button>
                     </td>
                 </tr>
-            `;
-        }).join('');
+            `).join('');
 
-        // 构建移动端卡片
-        const mobileCards = this._buildWatchlistCards(watchlist);
+        const mobileCards = this._buildWatchlistCards(normalizedWatchlist);
 
         container.innerHTML = `
             <div class="watchlist-summary">
-                <h3>我的自选 (共 ${watchlist.length} 只)</h3>
+                <h3>我的自选 (共 ${normalizedWatchlist.length} 只)</h3>
             </div>
-            <!-- 桌面端表格 -->
             <div class="watchlist-table-container desktop-only">
                 <table class="funds-table">
                     <thead>
@@ -362,68 +400,69 @@ class FundManagerApp {
                     <tbody>${tableRows}</tbody>
                 </table>
             </div>
-            <!-- 移动端卡片 -->
             <div class="watchlist-cards-list mobile-only">
                 ${mobileCards}
             </div>
         `;
+
+        container.querySelectorAll('[data-action="buy-watchlist"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.buyFundFromWatchlist(button.dataset.fundCode, button.dataset.fundName);
+            });
+        });
+
+        container.querySelectorAll('[data-action="remove-watchlist"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.removeFromWatchlist(Number(button.dataset.watchlistId), button.dataset.fundName);
+            });
+        });
     }
 
     // 构建自选基金移动端卡片
     _buildWatchlistCards(watchlist) {
-        return watchlist.map(item => {
-            const isHolding = item.is_holding;
-            const addedAt = new Date(item.added_at).toLocaleDateString();
-            const changeRateClass = item.change_rate && item.change_rate.includes('-') ? 'profit-negative' : 'profit-positive';
-            const totalChangeClass = (item.total_change_rate || 0) >= 0 ? 'profit-positive' : 'profit-negative';
-            const totalChangeDisplay = item.total_change_rate !== null ?
-                `${item.total_change_rate >= 0 ? '+' : ''}${item.total_change_rate.toFixed(2)}%` : '--';
-            const safeName = (item.fund_name || '').replace(/'/g, "\\'");
-
-            return `
+        return watchlist.map(item => `
                 <div class="watchlist-mobile-card">
                     <div class="wmc-header">
                         <div class="wmc-title">
-                            <span class="wmc-name">${item.fund_name || '-'}</span>
-                            <span class="wmc-code">${item.fund_code}</span>
+                            <span class="wmc-name">${item.safeFundName}</span>
+                            <span class="wmc-code">${item.safeFundCode}</span>
                         </div>
-                        <div class="wmc-change ${changeRateClass}">
-                            ${item.change_rate || '--'}
+                        <div class="wmc-change ${item.changeRateClass}">
+                            ${escapeHtml(item.changeRateText)}
                         </div>
                     </div>
                     <div class="wmc-metrics">
                         <div class="wmc-metric">
                             <span class="wmc-metric-label">自选涨幅</span>
-                            <span class="wmc-metric-value ${totalChangeClass}">${totalChangeDisplay}</span>
+                            <span class="wmc-metric-value ${item.totalChangeClass}">${item.totalChangeDisplay}</span>
                         </div>
                         <div class="wmc-metric">
                             <span class="wmc-metric-label">加入时净值</span>
-                            <span class="wmc-metric-value">${item.cost_nav ? item.cost_nav.toFixed(4) : '-'}</span>
+                            <span class="wmc-metric-value">${item.costNavText}</span>
                         </div>
                         <div class="wmc-metric">
                             <span class="wmc-metric-label">当前净值</span>
-                            <span class="wmc-metric-value">${item.current_nav ? item.current_nav.toFixed(4) : '-'}</span>
+                            <span class="wmc-metric-value">${item.currentNavText}</span>
                         </div>
                     </div>
                     <div class="wmc-sub-metrics">
                         <div class="wmc-sub-item">
                             <span class="wmc-sub-label">加入时间</span>
-                            <span class="wmc-sub-value">${addedAt}</span>
+                            <span class="wmc-sub-value">${item.addedAt}</span>
                         </div>
                         <div class="wmc-sub-item">
                             <span class="wmc-sub-label">状态</span>
                             <span class="wmc-sub-value">
-                                ${isHolding ? '<span class="wmc-tag wmc-tag--holding">已持有</span>' : '<span class="wmc-tag wmc-tag--not-holding">未持有</span>'}
+                                ${item.isHolding ? '<span class="wmc-tag wmc-tag--holding">已持有</span>' : '<span class="wmc-tag wmc-tag--not-holding">未持有</span>'}
                             </span>
                         </div>
                     </div>
                     <div class="wmc-footer">
-                        ${!isHolding ? `<button class="btn btn-sm btn-primary" onclick="app.buyFundFromWatchlist('${item.fund_code}', '${safeName}')">买入</button>` : ''}
-                        <button class="btn btn-sm btn-danger" onclick="app.removeFromWatchlist(${item.id}, '${safeName}')">移除</button>
+                        ${!item.isHolding ? `<button class="btn btn-sm btn-primary" data-action="buy-watchlist" data-fund-code="${item.safeFundCode}" data-fund-name="${item.safeFundName}">买入</button>` : ''}
+                        <button class="btn btn-sm btn-danger" data-action="remove-watchlist" data-watchlist-id="${item.id}" data-fund-name="${item.safeFundName}">移除</button>
                     </div>
                 </div>
-            `;
-        }).join('');
+            `).join('');
     }
 
     // 显示添加自选模态框
@@ -433,7 +472,7 @@ class FundManagerApp {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>添加自选基金</h3>
-                        <button class="close-btn" onclick="app.closeModal()">&times;</button>
+                        <button class="close-btn" data-action="close-modal">&times;</button>
                     </div>
                     <form id="addWatchlistForm">
                         <div class="form-group">
@@ -452,7 +491,7 @@ class FundManagerApp {
                             <small class="form-text">添加后将自动记录当前净值，方便后续跟踪涨跌幅</small>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-secondary" onclick="app.closeModal()">取消</button>
+                            <button type="button" class="btn btn-secondary" data-action="close-modal">取消</button>
                             <button type="submit" class="btn btn-primary">添加</button>
                         </div>
                     </form>
@@ -462,6 +501,13 @@ class FundManagerApp {
 
         this.showModal(modalHTML);
         this.initWatchlistFundSearch();
+
+        const modalContainer = document.getElementById('modalContainer');
+        if (modalContainer) {
+            modalContainer.querySelectorAll('[data-action="close-modal"]').forEach((button) => {
+                button.addEventListener('click', () => this.closeModal());
+            });
+        }
 
         const form = document.getElementById('addWatchlistForm');
         if (form) {
@@ -504,13 +550,6 @@ class FundManagerApp {
                 await this.searchFundsForWatchlist(keyword);
             }, 300);
         });
-
-        document.addEventListener('click', (e) => {
-            if (searchResults && searchInput &&
-                !searchResults.contains(e.target) && e.target !== searchInput) {
-                searchResults.classList.remove('show');
-            }
-        });
     }
 
     // 搜索自选基金
@@ -522,21 +561,10 @@ class FundManagerApp {
             searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
             searchResults.classList.add('show');
 
-            const url = `/api/funds/search?q=${encodeURIComponent(keyword)}&limit=10`;
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                }
+            const data = await this.makeRequest(`/funds/search?q=${encodeURIComponent(keyword)}&limit=10`, {
+                method: 'GET'
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.displayWatchlistSearchResults(data);
-            } else {
-                searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
-            }
+            this.displayWatchlistSearchResults(data);
         } catch (error) {
             console.error('搜索异常:', error);
             searchResults.innerHTML = '<div class="search-error">搜索失败</div>';
@@ -555,19 +583,19 @@ class FundManagerApp {
             return;
         }
 
-        let resultsHTML = '';
-        funds.forEach(fund => {
-            resultsHTML += `
+        searchResults.innerHTML = funds.map((fund) => {
+            const fundCode = escapeHtml(fund.fund_code || '');
+            const fundName = escapeHtml(fund.fund_name || '');
+            return `
                 <div class="search-item"
-                     data-code="${fund.fund_code}"
-                     data-name="${fund.fund_name}">
-                    <div class="fund-name">${fund.fund_name}</div>
-                    <div class="fund-code">${fund.fund_code}</div>
+                     data-code="${fundCode}"
+                     data-name="${fundName}">
+                    <div class="fund-name">${fundName}</div>
+                    <div class="fund-code">${fundCode}</div>
                 </div>
             `;
-        });
+        }).join('');
 
-        searchResults.innerHTML = resultsHTML;
         searchResults.classList.add('show');
 
         const items = searchResults.querySelectorAll('.search-item');
@@ -643,6 +671,25 @@ class FundManagerApp {
         }, 100);
     }
 
+    async parseResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+
+        if (contentType.includes('application/json')) {
+            try {
+                return await response.json();
+            } catch {
+                return null;
+            }
+        }
+
+        try {
+            const text = await response.text();
+            return text ? { detail: text } : null;
+        } catch {
+            return null;
+        }
+    }
+
     async makeRequest(url, options = {}) {
         const headers = {
             'Content-Type': 'application/json',
@@ -650,7 +697,7 @@ class FundManagerApp {
         };
 
         if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
+            headers.Authorization = `Bearer ${this.token}`;
         }
 
         try {
@@ -661,7 +708,6 @@ class FundManagerApp {
 
             // 检查认证状态
             if (response.status === 401) {
-                // 认证失败，跳转到登录页面
                 this.clearAuth();
                 this.showMessage('登录已过期，请重新登录', 'error');
                 setTimeout(() => {
@@ -670,16 +716,16 @@ class FundManagerApp {
                 throw new Error('认证失败，请重新登录');
             }
 
-            const data = await response.json();
+            const data = await this.parseResponse(response);
 
             if (!response.ok) {
-                throw new Error(data.detail || '请求失败');
+                throw new Error(data?.detail || '请求失败');
             }
 
             return data;
         } catch (error) {
             if (!error.message.includes('认证失败')) {
-                this.showMessage(error.message, 'error');
+                this.showMessage(error.message || '请求失败', 'error');
             }
             throw error;
         }
@@ -706,8 +752,7 @@ class FundManagerApp {
             this.closeModal();
             this.calculatePortfolio();
             // 如果当前在基金列表页面，也刷新列表
-            if (document.getElementById('fundsListPage') && 
-                document.getElementById('fundsListPage').style.display !== 'none') {
+            if (this.currentView === 'funds') {
                 this.loadFunds();
             }
             return data;
@@ -727,9 +772,7 @@ class FundManagerApp {
             this.closeModal();
             this.calculatePortfolio();
             // 自动刷新基金列表，避免手动刷新页面
-            // 检查是否在基金列表页面，如果是则刷新列表
-            const fundsListPage = document.getElementById('fundsListPage');
-            if (fundsListPage && fundsListPage.style.display !== 'none') {
+            if (this.currentView === 'funds') {
                 this.loadFunds();
             }
             return data;
@@ -751,8 +794,7 @@ class FundManagerApp {
             this.showMessage('基金删除成功！', 'success');
             this.calculatePortfolio();
             // 自动刷新基金列表
-            const fundsListPage = document.getElementById('fundsListPage');
-            if (fundsListPage && fundsListPage.style.display !== 'none') {
+            if (this.currentView === 'funds') {
                 this.loadFunds();
             }
 
@@ -788,7 +830,7 @@ class FundManagerApp {
 
     displayFunds(funds) {
         const fundsList = document.getElementById('fundsList');
-        
+
         if (!funds || funds.length === 0) {
             fundsList.innerHTML = `
                 <div class="no-funds">
@@ -799,112 +841,126 @@ class FundManagerApp {
             return;
         }
 
-        fundsList.innerHTML = funds.map(fund => {
-            // 创建一个包含基金名称和代码的显示字符串
-            const fundDisplayName = fund.fund_name ? 
-                `${fund.fund_name}(${fund.fund_code})` : 
-                `${fund.fund_code}`;
-            
-            return `
+        const normalizedFunds = funds.map((fund) => {
+            const costPrice = parseNumber(fund.cost_price) ?? 0;
+            const shares = parseNumber(fund.shares) ?? 0;
+            return {
+                ...fund,
+                safeFundCode: escapeHtml(fund.fund_code || '-'),
+                safeFundName: escapeHtml(fund.fund_name || fund.fund_code || '-'),
+                costPrice,
+                shares,
+                costPriceText: formatFixed(costPrice, 4),
+                sharesText: shares.toLocaleString(),
+                totalCostText: formatFixed(costPrice * shares, 2)
+            };
+        });
+
+        fundsList.innerHTML = normalizedFunds.map(fund => `
             <div class="fund-card" data-fund-id="${fund.id}">
                 <div class="fund-header">
                     <div class="fund-title">
-                        <h3 class="fund-display-name">${fund.fund_name}</h3>
-                        <p>(${fund.fund_code})</p>
+                        <h3 class="fund-display-name">${fund.safeFundName}</h3>
+                        <p>(${fund.safeFundCode})</p>
                     </div>
                     <div class="fund-actions">
-                        <button class="btn btn-outline btn-sm" onclick="app.showEditFundModal(${fund.id}, '${fund.fund_code}', ${fund.cost_price}, ${fund.shares}, '${fund.fund_name || ''}')">编辑</button>
-                        <button class="btn btn-danger btn-sm" onclick="app.deleteFund(${fund.id})">删除</button>
+                        <button class="btn btn-outline btn-sm" data-action="edit-fund" data-fund-id="${fund.id}">编辑</button>
+                        <button class="btn btn-danger btn-sm" data-action="delete-fund" data-fund-id="${fund.id}">删除</button>
                     </div>
                 </div>
                 <div class="fund-details">
                     <div class="fund-detail-row">
                         <span class="label">持仓成本:</span>
-                        <span class="value">¥${fund.cost_price.toFixed(4)}</span>
+                        <span class="value">¥${fund.costPriceText}</span>
                     </div>
                     <div class="fund-detail-row">
                         <span class="label">持有份额:</span>
-                        <span class="value">${fund.shares.toLocaleString()}</span>
+                        <span class="value">${fund.sharesText}</span>
                     </div>
                     <div class="fund-detail-row">
                         <span class="label">购买成本:</span>
-                        <span class="value">¥${(fund.cost_price * fund.shares).toFixed(2)}</span>
+                        <span class="value">¥${fund.totalCostText}</span>
                     </div>
-
                 </div>
             </div>
-        `}).join('');
+        `).join('');
+
+        fundsList.querySelectorAll('[data-action="edit-fund"]').forEach((button) => {
+            const fund = normalizedFunds.find((item) => String(item.id) === button.dataset.fundId);
+            if (!fund) return;
+            button.addEventListener('click', () => {
+                this.showEditFundModal(fund.id, fund.fund_code, fund.costPrice, fund.shares, fund.fund_name || '');
+            });
+        });
+
+        fundsList.querySelectorAll('[data-action="delete-fund"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.deleteFund(Number(button.dataset.fundId));
+            });
+        });
     }
 
     // 构建移动端基金卡片列表 HTML（独立方法，避免嵌套模板字符串）
-    _buildFundCards(fund_details) {
-        return fund_details.map(fund => {
-            const changeRate       = fund.change_rate || '--';
-            const todayValue       = fund.today_value;
-            const todayRevenue     = fund.today_revenue;
-            const totalRevenue     = fund.total_revenue;
-            const profitLossRatio  = fund.profit_loss_ratio;
-            const shangrijingzhi   = fund.shangrijingzhi;
-            const isUnavailable    = fund.data_unavailable;
-            const changeRateClass  = changeRate.includes('-') ? 'profit-negative' : 'profit-positive';
-            const hasTrendData     = fund.recent_changes && fund.recent_changes.length > 0;
-            const isUp             = todayValue != null && shangrijingzhi != null && todayValue > shangrijingzhi;
-            const safeName         = (fund.fund_name || '-').replace(/'/g, "\\'");
+    _buildFundCards(fundDetails) {
+        const normalizedFunds = this.normalizePortfolioFunds(fundDetails);
+
+        return normalizedFunds.map((fund) => {
+            const hasTrendData = fund.recentChanges.length > 0;
 
             let bodyHtml = '';
-            if (!isUnavailable) {
+            if (!fund.isUnavailable) {
                 bodyHtml = `
                 <div class="fmc-key-metrics">
                     <div class="fmc-metric">
                         <span class="fmc-metric-label">今日收益</span>
-                        <span class="fmc-metric-value ${todayRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
-                            ${todayRevenue >= 0 ? '+' : ''}¥${todayRevenue.toFixed(2)}
+                        <span class="fmc-metric-value ${getProfitClass(fund.todayRevenue)}">
+                            ${formatSignedCurrency(fund.todayRevenue)}
                         </span>
                     </div>
                     <div class="fmc-metric">
                         <span class="fmc-metric-label">总收益</span>
-                        <span class="fmc-metric-value ${totalRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">
-                            ${totalRevenue >= 0 ? '+' : ''}¥${totalRevenue.toFixed(2)}
+                        <span class="fmc-metric-value ${getProfitClass(fund.totalRevenue)}">
+                            ${formatSignedCurrency(fund.totalRevenue)}
                         </span>
                     </div>
                     <div class="fmc-metric">
                         <span class="fmc-metric-label">收益比例</span>
-                        <span class="fmc-metric-value ${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">
-                            ${profitLossRatio >= 0 ? '+' : ''}${profitLossRatio.toFixed(2)}%
+                        <span class="fmc-metric-value ${getProfitClass(fund.profitLossRatio)}">
+                            ${formatSignedPercent(fund.profitLossRatio)}
                         </span>
                     </div>
                 </div>
                 <div class="fmc-sub-metrics">
                     <div class="fmc-sub-item">
                         <span class="fmc-sub-label">昨日净值</span>
-                        <span class="fmc-sub-value">${shangrijingzhi != null ? shangrijingzhi.toFixed(4) : '-'}</span>
+                        <span class="fmc-sub-value">${formatFixed(fund.previousNav, 4)}</span>
                     </div>
                     <div class="fmc-sub-item">
                         <span class="fmc-sub-label">今日估值</span>
-                        <span class="fmc-sub-value ${isUp ? 'profit-positive' : 'profit-negative'}">
-                            ${todayValue != null ? todayValue.toFixed(4) : '-'} ${isUp ? '↑' : '↓'}
+                        <span class="fmc-sub-value ${fund.todayValueClass}">
+                            ${fund.todayValueText}${fund.todayValueArrow ? ` ${fund.todayValueArrow}` : ''}
                         </span>
                     </div>
                     <div class="fmc-sub-item">
                         <span class="fmc-sub-label">持仓成本</span>
-                        <span class="fmc-sub-value">¥${(fund.cost || 0).toFixed(2)}</span>
+                        <span class="fmc-sub-value">${formatCurrency(fund.cost)}</span>
                     </div>
                 </div>`;
             }
 
             const footerHtml = hasTrendData
-                ? `<button class="btn btn-sm trend-button fmc-trend-btn" onclick="app.showFundTrendModal('${fund.fund_code}', '${safeName}')">📈 查看趋势</button>`
+                ? `<button class="btn btn-sm trend-button fmc-trend-btn" data-action="show-trend" data-fund-code="${fund.safeFundCodeAttr}" data-fund-name="${fund.safeFundNameAttr}">查看趋势</button>`
                 : `<span class="fmc-no-trend">暂无趋势数据</span>`;
 
             return `
-            <div class="fund-mobile-card ${isUnavailable ? 'fund-mobile-card--unavailable' : ''}">
+            <div class="fund-mobile-card ${fund.isUnavailable ? 'fund-mobile-card--unavailable' : ''}">
                 <div class="fmc-header">
                     <div class="fmc-title">
-                        <span class="fmc-name">${fund.fund_name || '-'}</span>
-                        <span class="fmc-code">${fund.fund_code || '-'}</span>
+                        <span class="fmc-name">${fund.safeFundNameText}</span>
+                        <span class="fmc-code">${fund.safeFundCodeText}</span>
                     </div>
-                    <div class="fmc-change ${isUnavailable ? '' : changeRateClass}">
-                        ${isUnavailable ? '数据获取失败' : changeRate}
+                    <div class="fmc-change ${fund.isUnavailable ? '' : fund.changeRateClass}">
+                        ${fund.isUnavailable ? '数据获取失败' : fund.changeRateText}
                     </div>
                 </div>
                 ${bodyHtml}
@@ -913,43 +969,88 @@ class FundManagerApp {
         }).join('');
     }
 
+    normalizePortfolioFunds(fundDetails = []) {
+        return fundDetails.map((fund) => {
+            const previousNav = parseNumber(fund.shangrijingzhi);
+            const todayValue = parseNumber(fund.today_value);
+            const todayRevenue = parseNumber(fund.today_revenue);
+            const totalRevenue = parseNumber(fund.total_revenue);
+            const profitLossRatio = parseNumber(fund.profit_loss_ratio);
+            const cost = parseNumber(fund.cost);
+            const costPrice = parseNumber(fund.cost_price);
+            const changeRateText = fund.change_rate || '--';
+            const recentChanges = Array.isArray(fund.recent_changes) ? fund.recent_changes : [];
+            const safeFundCodeText = escapeHtml(fund.fund_code || '-');
+            const safeFundNameText = escapeHtml(fund.fund_name || '-');
+            const isUp = todayValue !== null && previousNav !== null && todayValue > previousNav;
+            const isDown = todayValue !== null && previousNav !== null && todayValue < previousNav;
+
+            return {
+                ...fund,
+                previousNav,
+                todayValue,
+                todayRevenue,
+                totalRevenue,
+                profitLossRatio,
+                cost,
+                costPrice,
+                recentChanges,
+                changeRateText,
+                changeRateClass: hasNegativeSign(changeRateText) ? 'profit-negative' : 'profit-positive',
+                safeFundCodeText,
+                safeFundNameText,
+                safeFundCodeAttr: escapeHtml(fund.fund_code || ''),
+                safeFundNameAttr: escapeHtml(fund.fund_name || '-'),
+                previousNavText: formatFixed(previousNav, 4),
+                todayValueText: formatFixed(todayValue, 4),
+                costText: formatCurrency(cost),
+                costPriceText: formatFixed(costPrice, 4),
+                todayRevenueText: formatSignedCurrency(todayRevenue),
+                totalRevenueText: formatSignedCurrency(totalRevenue),
+                profitLossRatioText: formatSignedPercent(profitLossRatio),
+                todayRevenueClass: getProfitClass(todayRevenue),
+                totalRevenueClass: getProfitClass(totalRevenue),
+                profitLossRatioClass: getProfitClass(profitLossRatio),
+                todayValueClass: isUp ? 'profit-positive' : isDown ? 'profit-negative' : '',
+                todayValueArrow: isUp ? '↑' : isDown ? '↓' : '',
+                isUnavailable: Boolean(fund.data_unavailable)
+            };
+        });
+    }
+
     displayPortfolioSummary(summary) {
         this.currentPortfolioSummary = summary;
 
         const portfolioContainer = document.getElementById('portfolioSummaryContainer');
         if (!portfolioContainer) return;
 
-        const fund_count    = summary.fund_count || 0;
-        const total_cost    = summary.total_cost || 0;
-        const today_revenue = summary.today_revenue || 0;
-        const total_revenue = summary.fund_details && summary.fund_details.length > 0
-            ? summary.fund_details.reduce((sum, f) => sum + (f.total_revenue || 0), 0) : 0;
+        const fundCount = parseNumber(summary.fund_count) ?? 0;
+        const fundDetails = Array.isArray(summary.fund_details) ? summary.fund_details : [];
+        const normalizedFunds = this.normalizePortfolioFunds(fundDetails);
+        const totalCost = parseNumber(summary.total_cost) ?? 0;
+        const todayRevenue = parseNumber(summary.today_revenue) ?? 0;
+        const totalRevenue = parseNumber(summary.total_revenue)
+            ?? normalizedFunds.reduce((sum, fund) => sum + (fund.totalRevenue ?? 0), 0);
+        const lowFundList = Array.isArray(summary.low_fund_list) ? summary.low_fund_list : [];
+        const highFundList = Array.isArray(summary.high_fund_list) ? summary.high_fund_list : [];
+        const textColorClass = getProfitClass(todayRevenue);
+        const totalColorClass = getProfitClass(totalRevenue);
+        const greetingText = todayRevenue >= 0 ? '恭喜发财！' : '请开心起来!';
 
-        const low_fund_list  = summary.low_fund_list  || [];
-        const high_fund_list = summary.high_fund_list || [];
-        const fund_details   = summary.fund_details   || [];
-
-        const isPositive      = today_revenue >= 0;
-        const textColorClass  = isPositive ? 'profit-positive' : 'profit-negative';
-        const greetingText    = isPositive ? '恭喜发财！' : '请开心起来!';
-        const isTotalPositive = total_revenue >= 0;
-        const total_ColorClass = isTotalPositive ? 'profit-positive' : 'profit-negative';
-
-        // 涨跌预警区块
         let valuationHtml = '';
-        if (low_fund_list.length > 0 || high_fund_list.length > 0) {
-            const lowHtml = low_fund_list.length > 0 ? `
+        if (lowFundList.length > 0 || highFundList.length > 0) {
+            const lowHtml = lowFundList.length > 0 ? `
                 <div class="valuation-item low-valuation">
                     <h5>跌幅大于3%的基金</h5>
                     <div class="fund-codes">
-                        ${low_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                        ${lowFundList.map((code) => `<span class="fund-code-tag">${escapeHtml(code)}</span>`).join('')}
                     </div>
                 </div>` : '';
-            const highHtml = high_fund_list.length > 0 ? `
+            const highHtml = highFundList.length > 0 ? `
                 <div class="valuation-item high-valuation">
                     <h5>涨幅大于3%的基金</h5>
                     <div class="fund-codes">
-                        ${high_fund_list.map(code => `<span class="fund-code-tag">${code}</span>`).join('')}
+                        ${highFundList.map((code) => `<span class="fund-code-tag">${escapeHtml(code)}</span>`).join('')}
                     </div>
                 </div>` : '';
             valuationHtml = `
@@ -958,44 +1059,34 @@ class FundManagerApp {
                 </div>`;
         }
 
-        // 基金明细区块（桌面表格 + 移动卡片）
         let detailHtml = '<div class="no-data">暂无基金明细数据</div>';
-        if (fund_details.length > 0) {
-            // 桌面端：表格
-            const tableRows = fund_details.map(fund => {
-                const changeRate      = fund.change_rate || '0.00%';
-                const todayValue      = fund.today_value || 0;
-                const todayRevenue    = fund.today_revenue || 0;
-                const totalRevenue    = fund.total_revenue || 0;
-                const profitLossRatio = fund.profit_loss_ratio || 0;
-                const shangrijingzhi  = fund.shangrijingzhi || 0;
-                const changeRateClass = changeRate.includes('-') ? 'profit-negative' : 'profit-positive';
-                const isUp            = todayValue > shangrijingzhi;
-                const arrowClass      = isUp ? 'profit-positive' : 'profit-negative';
-                const arrowIcon       = isUp ? '↑' : '↓';
-                const hasTrendData    = fund.recent_changes && fund.recent_changes.length > 0;
-                const safeName        = (fund.fund_name || '-').replace(/'/g, "\\'");
-                const trendBtn        = hasTrendData
-                    ? `<button class="btn trend-button" onclick="app.showFundTrendModal('${fund.fund_code}', '${safeName}')">查看趋势</button>`
+        if (normalizedFunds.length > 0) {
+            const tableRows = normalizedFunds.map((fund) => {
+                const trendBtn = fund.recentChanges.length > 0
+                    ? `<button class="btn trend-button" data-action="show-trend" data-fund-code="${fund.safeFundCodeAttr}" data-fund-name="${fund.safeFundNameAttr}">查看趋势</button>`
                     : `<span class="no-trend-data">暂无数据</span>`;
+                const navArrow = fund.todayValueArrow
+                    ? ` <span class="price-arrow ${fund.todayValueClass}">${fund.todayValueArrow}</span>`
+                    : '';
+
                 return `
                 <tr>
-                    <td class="fund-code">${fund.fund_code || '-'}</td>
-                    <td class="fund-name">${fund.fund_name || '-'}</td>
-                    <td>¥${(fund.cost || 0).toFixed(2)}</td>
-                    <td>${(fund.cost_price || 0).toFixed(4)}</td>
-                    <td>${shangrijingzhi.toFixed(4)}/${todayValue.toFixed(4)} <span class="price-arrow ${arrowClass}">${arrowIcon}</span></td>
-                    <td class="${changeRateClass}">${changeRate}</td>
-                    <td class="${todayRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">¥${todayRevenue.toFixed(2)}</td>
-                    <td class="${totalRevenue >= 0 ? 'profit-positive' : 'profit-negative'}">¥${totalRevenue.toFixed(2)}</td>
-                    <td class="${profitLossRatio >= 0 ? 'profit-positive' : 'profit-negative'}">${profitLossRatio.toFixed(2)}%</td>
+                    <td class="fund-code">${fund.safeFundCodeText}</td>
+                    <td class="fund-name">${fund.safeFundNameText}</td>
+                    <td>${fund.costText}</td>
+                    <td>${fund.costPriceText}</td>
+                    <td>${fund.previousNavText}/${fund.todayValueText}${navArrow}</td>
+                    <td class="${fund.changeRateClass}">${escapeHtml(fund.changeRateText)}</td>
+                    <td class="${fund.todayRevenueClass}">${fund.todayRevenueText}</td>
+                    <td class="${fund.totalRevenueClass}">${fund.totalRevenueText}</td>
+                    <td class="${fund.profitLossRatioClass}">${fund.profitLossRatioText}</td>
                     <td>${trendBtn}</td>
                 </tr>`;
             }).join('');
 
             detailHtml = `
                 <div class="funds-details-section">
-                    <h4>基金明细(共${fund_count}只基金)</h4>
+                    <h4>基金明细(共${fundCount}只基金)</h4>
                     <div class="funds-table-container desktop-only">
                         <table class="funds-table">
                             <thead>
@@ -1009,7 +1100,7 @@ class FundManagerApp {
                         </table>
                     </div>
                     <div class="fund-cards-list mobile-only">
-                        ${this._buildFundCards(fund_details)}
+                        ${this._buildFundCards(normalizedFunds)}
                     </div>
                 </div>`;
         }
@@ -1017,41 +1108,39 @@ class FundManagerApp {
         portfolioContainer.innerHTML = `
             <div class="portfolio-summary">
                 <div class="summary-section">
-                    <!-- 桌面端：4格独立卡片 -->
                     <div class="simplified-summary-grid desktop-only">
                         <div class="summary-item">
                             <label>总成本</label>
-                            <span class="value">¥${total_cost.toFixed(2)}</span>
+                            <span class="value">${formatCurrency(totalCost)}</span>
                         </div>
                         <div class="summary-item">
                             <label>累计收益</label>
-                            <span class="value ${total_ColorClass}">¥${total_revenue.toFixed(2)}</span>
+                            <span class="value ${totalColorClass}">${formatSignedCurrency(totalRevenue)}</span>
                         </div>
                         <div class="summary-item">
                             <label>今日收益</label>
-                            <span class="value ${textColorClass}">¥${today_revenue.toFixed(2)}</span>
+                            <span class="value ${textColorClass}">${formatSignedCurrency(todayRevenue)}</span>
                         </div>
                         <div class="summary-item greeting-item">
                             <span class="greeting-text ${textColorClass}">${greetingText}</span>
                         </div>
                     </div>
-                    <!-- 移动端：2张合并卡片 -->
                     <div class="summary-mobile-grid mobile-only">
                         <div class="summary-mobile-card">
                             <div class="smc-row">
                                 <span class="smc-label">总成本</span>
-                                <span class="smc-value">¥${total_cost.toFixed(2)}</span>
+                                <span class="smc-value">${formatCurrency(totalCost)}</span>
                             </div>
                             <div class="smc-divider"></div>
                             <div class="smc-row">
                                 <span class="smc-label">累计收益</span>
-                                <span class="smc-value ${total_ColorClass}">¥${total_revenue.toFixed(2)}</span>
+                                <span class="smc-value ${totalColorClass}">${formatSignedCurrency(totalRevenue)}</span>
                             </div>
                         </div>
                         <div class="summary-mobile-card">
                             <div class="smc-row">
                                 <span class="smc-label">今日收益</span>
-                                <span class="smc-value ${textColorClass}">${today_revenue >= 0 ? '+' : ''}¥${today_revenue.toFixed(2)}</span>
+                                <span class="smc-value ${textColorClass}">${formatSignedCurrency(todayRevenue)}</span>
                             </div>
                             <div class="smc-divider"></div>
                             <div class="smc-row smc-greeting">
@@ -1064,79 +1153,73 @@ class FundManagerApp {
                 ${detailHtml}
             </div>
         `;
+
+        portfolioContainer.querySelectorAll('[data-action="show-trend"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.showFundTrendModal(button.dataset.fundCode, button.dataset.fundName);
+            });
+        });
     }
 
     showFundTrendModal(fundCode, fundName) {
-
-        // 从当前数据中查找基金
         if (!this.currentPortfolioSummary || !this.currentPortfolioSummary.fund_details) {
             this.showMessage('无法获取基金数据，请刷新页面后重试', 'error');
             return;
         }
 
-        const fund = this.currentPortfolioSummary.fund_details.find(f => f.fund_code === fundCode);
-
-
+        const fund = this.currentPortfolioSummary.fund_details.find((item) => item.fund_code === fundCode);
         if (!fund) {
             this.showMessage(`未找到基金 ${fundCode} 的数据`, 'error');
             return;
         }
 
-        if (!fund.recent_changes || fund.recent_changes.length === 0) {
+        const recentChanges = Array.isArray(fund.recent_changes) ? fund.recent_changes : [];
+        if (recentChanges.length === 0) {
             this.showMessage('该基金暂无趋势数据', 'info');
             return;
         }
 
-        const recentChanges = fund.recent_changes;
+        const normalizedChanges = recentChanges.map((item) => ({
+            date: escapeHtml(item.date || '-'),
+            unitNav: parseNumber(item.unit_nav),
+            dailyGrowthValue: parseNumber(item.daily_growth_value),
+            dailyGrowthText: escapeHtml(item.daily_growth || '-')
+        }));
 
-        // 准备图表数据 - 注意：数据已经按日期从新到旧排列，我们需要反转顺序
-        const dates = recentChanges.map(item => item.date);
-        const navValues = recentChanges.map(item => item.unit_nav);
-        const growthValues = recentChanges.map(item => item.daily_growth_value);
+        const reversedChanges = [...normalizedChanges].reverse();
+        const reversedDates = reversedChanges.map((item) => item.date);
+        const reversedNavValues = reversedChanges.map((item) => item.unitNav);
+        const reversedGrowthValues = reversedChanges.map((item) => item.dailyGrowthValue);
 
-        // 反转数据，让日期从旧到新
-        const reversedDates = [...dates].reverse();
-        const reversedNavValues = [...navValues].reverse();
-        const reversedGrowthValues = [...growthValues].reverse();
-
-        // 构建数据表格行
-        const tableRows = recentChanges.map(item => {
-            const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
-            return `
+        const tableRows = normalizedChanges.map((item) => `
                 <tr>
                     <td>${item.date}</td>
-                    <td>${item.unit_nav.toFixed(4)}</td>
-                    <td class="${growthClass}">${item.daily_growth}</td>
+                    <td>${formatFixed(item.unitNav, 4)}</td>
+                    <td class="${getProfitClass(item.dailyGrowthValue)}">${item.dailyGrowthText}</td>
                 </tr>
-            `;
-        }).join('');
+            `).join('');
 
-        // 构建移动端卡片（只显示最近5条）
-        const mobileCards = recentChanges.slice(0, 5).map(item => {
-            const growthClass = item.daily_growth_value >= 0 ? 'profit-positive' : 'profit-negative';
-            return `
+        const mobileCards = normalizedChanges.slice(0, 5).map((item) => `
                 <div class="trend-mobile-row">
                     <span class="tmr-date">${item.date}</span>
-                    <span class="tmr-nav">${item.unit_nav.toFixed(4)}</span>
-                    <span class="tmr-growth ${growthClass}">${item.daily_growth}</span>
+                    <span class="tmr-nav">${formatFixed(item.unitNav, 4)}</span>
+                    <span class="tmr-growth ${getProfitClass(item.dailyGrowthValue)}">${item.dailyGrowthText}</span>
                 </div>
-            `;
-        }).join('');
+            `).join('');
 
         const modalHTML = `
             <div class="modal show trend-modal">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3>${fundName} (${fundCode}) - 最近涨跌趋势</h3>
-                        <button class="close-btn" onclick="app.closeModal('chart')">&times;</button>
+                        <h3>${escapeHtml(fundName)} (${escapeHtml(fundCode)}) - 最近涨跌趋势</h3>
+                        <button class="close-btn" data-action="close-chart-modal">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="trend-chart-container">
                             <canvas id="trendChart"></canvas>
                         </div>
                         <div class="trend-data-summary" style="margin-top: 20px;">
-                            <h4>最近 ${recentChanges.length} 日数据</h4>
-                            <!-- 桌面端表格 -->
+                            <h4>最近 ${normalizedChanges.length} 日数据</h4>
                             <div class="desktop-only">
                                 <table class="funds-table" style="font-size: 12px; width: 100%;">
                                     <thead>
@@ -1149,7 +1232,6 @@ class FundManagerApp {
                                     <tbody>${tableRows}</tbody>
                                 </table>
                             </div>
-                            <!-- 移动端简化显示 -->
                             <div class="mobile-only trend-mobile-list">
                                 <div class="trend-mobile-header">
                                     <span>日期</span>
@@ -1157,20 +1239,26 @@ class FundManagerApp {
                                     <span>涨跌</span>
                                 </div>
                                 ${mobileCards}
-                                ${recentChanges.length > 5 ? `<div class="trend-mobile-more">还有 ${recentChanges.length - 5} 条数据</div>` : ''}
+                                ${normalizedChanges.length > 5 ? `<div class="trend-mobile-more">还有 ${normalizedChanges.length - 5} 条数据</div>` : ''}
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer" style="padding: 15px; text-align: right;">
-                        <button class="btn btn-secondary" onclick="app.closeModal('chart')">关闭</button>
+                        <button class="btn btn-secondary" data-action="close-chart-modal">关闭</button>
                     </div>
                 </div>
             </div>
         `;
 
-        this.showModal(modalHTML,'chart');
+        this.showModal(modalHTML, 'chart');
 
-        // 延迟执行，确保DOM已渲染
+        const chartModalContainer = document.getElementById('chartModalContainer');
+        if (chartModalContainer) {
+            chartModalContainer.querySelectorAll('[data-action="close-chart-modal"]').forEach((button) => {
+                button.addEventListener('click', () => this.closeModal('chart'));
+            });
+        }
+
         setTimeout(() => {
             this.renderTrendChart(fundCode, fundName, reversedDates, reversedNavValues, reversedGrowthValues);
         }, 100);
@@ -1231,7 +1319,7 @@ class FundManagerApp {
                     },
                     plugins: {
                         title: {
-                            display: !isMobile,   // 移动端隐藏标题，节省空间
+                            display: !isMobile,
                             text: `${fundName} (${fundCode}) 净值走势`,
                             font: { size: 14 }
                         },
@@ -1245,13 +1333,13 @@ class FundManagerApp {
                         },
                         tooltip: {
                             callbacks: {
-                                label: function(context) {
+                                label(context) {
                                     let label = context.dataset.label || '';
                                     if (label) label += ': ';
                                     if (context.datasetIndex === 0) {
-                                        label += context.parsed.y.toFixed(4);
+                                        label += formatFixed(context.parsed.y, 4);
                                     } else {
-                                        label += context.parsed.y.toFixed(2) + '%';
+                                        label += formatSignedPercent(context.parsed.y, 2, '-').replace(/^\+/, '');
                                     }
                                     return label;
                                 }
@@ -1265,7 +1353,6 @@ class FundManagerApp {
                                 text: '日期'
                             },
                             ticks: {
-                                // 移动端自动跳过标签，避免重叠
                                 maxTicksLimit: isMobile ? 5 : 10,
                                 maxRotation: isMobile ? 45 : 30,
                                 font: { size: isMobile ? 10 : 12 },
@@ -1281,8 +1368,8 @@ class FundManagerApp {
                             },
                             ticks: {
                                 font: { size: isMobile ? 10 : 12 },
-                                callback: function(value) {
-                                    return value.toFixed(isMobile ? 3 : 4);
+                                callback(value) {
+                                    return formatFixed(value, isMobile ? 3 : 4);
                                 }
                             }
                         },
@@ -1297,8 +1384,8 @@ class FundManagerApp {
                             grid: { drawOnChartArea: false },
                             ticks: {
                                 font: { size: isMobile ? 10 : 12 },
-                                callback: function(value) {
-                                    return value.toFixed(2) + '%';
+                                callback(value) {
+                                    return formatSignedPercent(value, 2, '-').replace(/^\+/, '');
                                 }
                             }
                         }
@@ -1309,7 +1396,7 @@ class FundManagerApp {
             console.error('图表渲染失败:', error);
             const chartContainer = document.querySelector('.trend-chart-container');
             if (chartContainer) {
-                chartContainer.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">图表渲染失败: ${error.message}</div>`;
+                chartContainer.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">图表渲染失败: ${escapeHtml(error.message)}</div>`;
             }
         }
     }
@@ -1339,16 +1426,16 @@ class FundManagerApp {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>添加基金</h3>
-                        <button class="close-btn" onclick="app.closeModal()">&times;</button>
+                        <button class="close-btn" data-action="close-modal">&times;</button>
                     </div>
                     <form id="addFundForm">
                         <div class="form-group">
                             <label for="fundSearch">选择基金 <span class="red">*</span></label>
                             <div class="search-container">
-                                <input type="text" 
-                                       id="fundSearch" 
-                                       name="fund_search" 
-                                       required 
+                                <input type="text"
+                                       id="fundSearch"
+                                       name="fund_search"
+                                       required
                                        placeholder="输入基金名称或代码搜索..."
                                        autocomplete="off">
                                 <div id="searchResults" class="search-results"></div>
@@ -1359,18 +1446,18 @@ class FundManagerApp {
                         </div>
                         <div class="form-group">
                             <label for="fundCostPrice">持仓成本 <span class="red">*</span></label>
-                            <input type="number" id="fundCostPrice" name="cost_price" 
-                                   step="0.0001" min="0.0001" required 
+                            <input type="number" id="fundCostPrice" name="cost_price"
+                                   step="0.0001" min="0.0001" required
                                    placeholder="如：1.2345">
                         </div>
                         <div class="form-group">
                             <label for="fundShares">持有份额 <span class="red">*</span></label>
-                            <input type="number" id="fundShares" name="shares" 
-                                   step="0.01" min="0.01" required 
+                            <input type="number" id="fundShares" name="shares"
+                                   step="0.01" min="0.01" required
                                    placeholder="如：1000.00">
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-secondary" onclick="app.closeModal()">取消</button>
+                            <button type="button" class="btn btn-secondary" data-action="close-modal">取消</button>
                             <button type="submit" class="btn btn-primary">添加</button>
                         </div>
                     </form>
@@ -1380,17 +1467,24 @@ class FundManagerApp {
 
         this.showModal(modalHTML);
         this.initFundSearch();
-        
+
+        const modalContainer = document.getElementById('modalContainer');
+        if (modalContainer) {
+            modalContainer.querySelectorAll('[data-action="close-modal"]').forEach((button) => {
+                button.addEventListener('click', () => this.closeModal());
+            });
+        }
+
         const form = document.getElementById('addFundForm');
         if (form) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                
+
                 if (!this.selectedFund) {
                     this.showMessage('请先选择基金', 'error');
                     return;
                 }
-                
+
                 const formData = new FormData(e.target);
                 const fundData = {
                     fund_code: formData.get('fund_code'),
@@ -1411,56 +1505,36 @@ class FundManagerApp {
         if (!searchInput || !searchResults) return;
         
         let searchTimeout;
-        
+
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
             const keyword = e.target.value.trim();
-            
+
             if (keyword.length < 2) {
                 searchResults.innerHTML = '';
                 searchResults.classList.remove('show');
                 return;
             }
-            
+
             searchTimeout = setTimeout(async () => {
                 await this.searchFunds(keyword);
             }, 300);
-        });
-        
-        document.addEventListener('click', (e) => {
-            if (searchResults && searchInput && 
-                !searchResults.contains(e.target) && e.target !== searchInput) {
-                searchResults.classList.remove('show');
-            }
         });
     }
 
     async searchFunds(keyword) {
         const searchResults = document.getElementById('searchResults');
-        
+
         if (!searchResults) return;
-        
-        
+
         try {
             searchResults.innerHTML = '<div class="search-loading">搜索中...</div>';
             searchResults.classList.add('show');
 
-            const url = `${this.baseURL}/funds/search?q=${encodeURIComponent(keyword)}&limit=10`;
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                }
+            const data = await this.makeRequest(`/funds/search?q=${encodeURIComponent(keyword)}&limit=10`, {
+                method: 'GET'
             });
-            
-            if (response.ok) {
-                const data = await response.json();
-                this.displaySearchResults(data);
-            } else {
-                searchResults.innerHTML = '<div class="search-error">搜索失败，请稍后重试</div>';
-            }
+            this.displaySearchResults(data);
         } catch (error) {
             console.error('搜索异常:', error);
             this.displayLocalCacheResults(keyword);
@@ -1499,29 +1573,29 @@ class FundManagerApp {
     displaySearchResults(funds) {
         const searchResults = document.getElementById('searchResults');
         const searchInput = document.getElementById('fundSearch');
-        
+
         if (!searchResults || !searchInput) return;
-        
+
         if (!funds || funds.length === 0) {
             searchResults.innerHTML = '<div class="search-empty">未找到相关基金</div>';
             return;
         }
-        
-        let resultsHTML = '';
-        funds.forEach(fund => {
-            resultsHTML += `
-                <div class="search-item" 
-                     data-code="${fund.fund_code}" 
-                     data-name="${fund.fund_name}">
-                    <div class="fund-name">${fund.fund_name}</div>
-                    <div class="fund-code">${fund.fund_code}</div>
+
+        searchResults.innerHTML = funds.map((fund) => {
+            const fundCode = escapeHtml(fund.fund_code || '');
+            const fundName = escapeHtml(fund.fund_name || '');
+            return `
+                <div class="search-item"
+                     data-code="${fundCode}"
+                     data-name="${fundName}">
+                    <div class="fund-name">${fundName}</div>
+                    <div class="fund-code">${fundCode}</div>
                 </div>
             `;
-        });
-        
-        searchResults.innerHTML = resultsHTML;
+        }).join('');
+
         searchResults.classList.add('show');
-        
+
         const items = searchResults.querySelectorAll('.search-item');
         items.forEach(item => {
             item.addEventListener('click', () => {
@@ -1551,38 +1625,37 @@ class FundManagerApp {
     }
 
     showEditFundModal(fundId, fundCode, costPrice, shares, fundName = '') {
-        // 创建一个显示名称，格式为：基金名称(代码：012934)
-        const displayName = fundName ? 
-            `${fundName}(${fundCode})` : 
-            `${fundCode}`;
-            
+        const displayName = fundName
+            ? `${fundName}(${fundCode})`
+            : `${fundCode}`;
+
         const modalHTML = `
             <div class="modal show">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3>编辑基金</h3>
-                        <button class="close-btn" onclick="app.closeModal()">&times;</button>
+                        <button class="close-btn" data-action="close-modal">&times;</button>
                     </div>
                     <form id="editFundForm">
                         <div class="form-group">
                             <label>基金信息</label>
                             <div class="display-field" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                                ${displayName}
+                                ${escapeHtml(displayName)}
                             </div>
-                            <input type="hidden" id="editFundCode" name="fund_code" value="${fundCode}">
+                            <input type="hidden" id="editFundCode" name="fund_code" value="${escapeHtml(fundCode)}">
                         </div>
                         <div class="form-group">
                             <label for="editCostPrice">持仓成本 <span class="red">*</span></label>
-                            <input type="number" id="editCostPrice" name="cost_price" 
-                                   value="${costPrice}" step="0.0001" min="0.0001" required>
+                            <input type="number" id="editCostPrice" name="cost_price"
+                                   value="${parseNumber(costPrice) ?? ''}" step="0.0001" min="0.0001" required>
                         </div>
                         <div class="form-group">
                             <label for="editShares">持有份额 <span class="red">*</span></label>
-                            <input type="number" id="editShares" name="shares" 
-                                   value="${shares}" step="0.01" min="0.01" required>
+                            <input type="number" id="editShares" name="shares"
+                                   value="${parseNumber(shares) ?? ''}" step="0.01" min="0.01" required>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn btn-secondary" onclick="app.closeModal()">取消</button>
+                            <button type="button" class="btn btn-secondary" data-action="close-modal">取消</button>
                             <button type="submit" class="btn btn-primary">更新</button>
                         </div>
                     </form>
@@ -1591,7 +1664,14 @@ class FundManagerApp {
         `;
 
         this.showModal(modalHTML);
-        
+
+        const modalContainer = document.getElementById('modalContainer');
+        if (modalContainer) {
+            modalContainer.querySelectorAll('[data-action="close-modal"]').forEach((button) => {
+                button.addEventListener('click', () => this.closeModal());
+            });
+        }
+
         const form = document.getElementById('editFundForm');
         if (form) {
             form.addEventListener('submit', async (e) => {
@@ -1609,89 +1689,66 @@ class FundManagerApp {
     }
 
     showModal(html, modalType = 'normal') {
-        let modalContainer;
-        
-        if (modalType === 'chart') {
-            modalContainer = document.getElementById('chartModalContainer');
-            if (modalContainer) {
-                // 显示模态框容器
-                modalContainer.style.display = 'block';
-                modalContainer.classList.remove('hidden');
-                // 添加 show 类
-                modalContainer.classList.add('show');
-                modalContainer.innerHTML = html;
-                
-                // 添加点击遮罩关闭功能
-                setTimeout(() => {
-                    const modal = modalContainer.querySelector('.modal');
-                    if (modal) {
-                        modal.addEventListener('click', (e) => {
-                            if (e.target === modal) {
-                                this.closeModal('chart');
-                            }
-                        });
-                    }
-                }, 0);
-            }
-        } else {
-            modalContainer = document.getElementById('modalContainer');
-            if (modalContainer) {
-                modalContainer.innerHTML = html;
-                
-                // 普通模态框的遮罩关闭功能
-                setTimeout(() => {
-                    const modal = modalContainer.querySelector('.modal');
-                    if (modal) {
-                        modal.addEventListener('click', (e) => {
-                            if (e.target === modal) {
-                                this.closeModal();
-                            }
-                        });
-                    }
-                }, 0);
-            }
-        }
+        const modalContainer = modalType === 'chart'
+            ? document.getElementById('chartModalContainer')
+            : document.getElementById('modalContainer');
+
+        if (!modalContainer) return;
+
+        modalContainer.innerHTML = html;
+        modalContainer.classList.remove('hidden');
+        modalContainer.classList.add('show');
+
+        setTimeout(() => {
+            const modal = modalContainer.querySelector('.modal');
+            if (!modal) return;
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeModal(modalType);
+                }
+            });
+        }, 0);
     }
 
-    // 修改 closeModal 方法
     closeModal(modalType = 'normal') {
-        let modalContainer;
-        
-        if (modalType === 'chart') {
-            modalContainer = document.getElementById('chartModalContainer');
-            if (modalContainer) {
-                modalContainer.style.display = 'none';
-                modalContainer.classList.remove('show');
-                modalContainer.innerHTML = '';
-            }
-        } else {
-            modalContainer = document.getElementById('modalContainer');
-            if (modalContainer) {
-                modalContainer.innerHTML = '';
-            }
+        const modalContainer = modalType === 'chart'
+            ? document.getElementById('chartModalContainer')
+            : document.getElementById('modalContainer');
+
+        if (modalContainer) {
+            modalContainer.classList.add('hidden');
+            modalContainer.classList.remove('show');
+            modalContainer.innerHTML = '';
         }
-        
-        this.selectedFund = null;
-        
-        // 销毁图表实例
+
+        if (modalType !== 'chart') {
+            this.selectedFund = null;
+        }
+
         if (this.chart) {
             this.chart.destroy();
             this.chart = null;
         }
     }
 
-        showMessage(message, type = 'info') {
-            const messageEl = document.getElementById('message');
-            if (!messageEl) return;
-            
-            messageEl.textContent = message;
-            messageEl.className = `message ${type}`;
-            messageEl.style.display = 'block';
+    showMessage(message, type = 'info') {
+        const messageEl = document.getElementById('message');
+        if (!messageEl) return;
 
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 3000);
+        if (this.messageTimer) {
+            clearTimeout(this.messageTimer);
         }
+
+        messageEl.textContent = message;
+        messageEl.className = `message ${type}`;
+        messageEl.classList.remove('hidden');
+
+        this.messageTimer = setTimeout(() => {
+            messageEl.classList.add('hidden');
+            this.messageTimer = null;
+        }, 3000);
+    }
 }
 
 // 初始化应用

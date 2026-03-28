@@ -7,9 +7,12 @@ import json
 import logging
 from typing import List, Dict, Optional, Literal
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 import aiohttp
 from core.database import redis_client
 from core.http_client import get_http_session
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 logger = logging.getLogger(__name__)
 
@@ -244,20 +247,20 @@ class FundRankingManager:
                     "fundName": fund.get("fundName", ""),
                     "ftype": fund.get("ftype", ""),
                     "company": fund.get("company", ""),
-                    "daySyl": str(fund.get("daySyl") or ""),
-                    "weekSyl": str(fund.get("weekSyl") or ""),
-                    "monthSyl": str(fund.get("monthSyl") or ""),
-                    "yearSyl": str(fund.get("yearSyl") or ""),
-                    "sySyl": str(fund.get("sySyl") or ""),
-                    "lnSyl": str(fund.get("lnSyl") or ""),
-                    "perNav": str(fund.get("perNav") or ""),
-                    "fundSize": str(fund.get("fundSize") or ""),
-                    "riskLevel": str(fund.get("riskLevel") or ""),
+                    "daySyl": "" if fund.get("daySyl") is None else str(fund.get("daySyl")),
+                    "weekSyl": "" if fund.get("weekSyl") is None else str(fund.get("weekSyl")),
+                    "monthSyl": "" if fund.get("monthSyl") is None else str(fund.get("monthSyl")),
+                    "yearSyl": "" if fund.get("yearSyl") is None else str(fund.get("yearSyl")),
+                    "sySyl": "" if fund.get("sySyl") is None else str(fund.get("sySyl")),
+                    "lnSyl": "" if fund.get("lnSyl") is None else str(fund.get("lnSyl")),
+                    "perNav": "" if fund.get("perNav") is None else str(fund.get("perNav")),
+                    "fundSize": "" if fund.get("fundSize") is None else str(fund.get("fundSize")),
+                    "riskLevel": "" if fund.get("riskLevel") is None else str(fund.get("riskLevel")),
                 })
 
             # 更新元数据
             pipe.hset(META_KEY, mapping={
-                "lastUpdate": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "lastUpdate": datetime.now(SHANGHAI_TZ).strftime("%Y-%m-%d %H:%M:%S"),
                 "totalCount": str(len(all_fund_details)),
             })
 
@@ -322,7 +325,7 @@ class FundRankingManager:
                         "fundName": detail.get("fundName", ""),
                         "ftype": detail.get("ftype", ""),
                         "company": detail.get("company", ""),
-                        "change": round(float(score), 2) if score else 0,
+                        "change": round(float(score), 2) if score is not None else 0,
                         "perNav": self._safe_float(detail.get("perNav")),
                         "riskLevel": detail.get("riskLevel"),
                     })
@@ -399,7 +402,7 @@ class FundRankingManager:
                 total = self.redis.zcard(key)
 
                 result["rankings"][ranking_type] = {
-                    "change": round(float(score), 2) if score else None,
+                    "change": round(float(score), 2) if score is not None else None,
                     "rank": rank + 1 if rank is not None else None,
                     "total": total,
                 }

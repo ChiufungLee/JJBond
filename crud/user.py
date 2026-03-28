@@ -1,18 +1,22 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from models.user import User
 from models.fund import UserFund
 from models.watchlist import WatchlistFund, FundTransaction
 from schemas.user import UserCreate, FundCreate, FundUpdate
 from utils.password import get_password_hash, verify_password
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 
 # ---------- 工具函数 ----------
 
 def _now() -> datetime:
-    """统一使用 aware UTC 时间（修复 Q2 datetime.utcnow 废弃问题）"""
-    return datetime.now(timezone.utc)
+    """统一使用 Asia/Shanghai 时间。"""
+    return datetime.now(SHANGHAI_TZ)
 
 
 def _add_transaction(
@@ -194,20 +198,26 @@ def create_user_fund(db: Session, fund: FundCreate, user_id: int):
 
     db_fund = UserFund(**fund.dict(), user_id=user_id)
     db.add(db_fund)
-    db.flush()  # 写入数据库但不提交，使 db_fund.id / created_at 可用
 
-    _add_transaction(
-        db=db,
-        user_id=user_id,
-        fund_code=fund.fund_code,
-        fund_name=fund.fund_name,
-        transaction_type='buy',
-        shares=fund.shares,
-        price=fund.cost_price,
-        transaction_date=db_fund.created_at,
-    )
+    try:
+        db.flush()  # 写入数据库但不提交，使 db_fund.id / created_at 可用
 
-    db.commit()          # 持仓 + 交易记录原子提交
+        _add_transaction(
+            db=db,
+            user_id=user_id,
+            fund_code=fund.fund_code,
+            fund_name=fund.fund_name,
+            transaction_type='buy',
+            shares=fund.shares,
+            price=fund.cost_price,
+            transaction_date=db_fund.created_at,
+        )
+
+        db.commit()          # 持仓 + 交易记录原子提交
+    except IntegrityError:
+        db.rollback()
+        return None
+
     db.refresh(db_fund)
     return db_fund
 
@@ -292,7 +302,7 @@ def get_watchlist_by_code(db: Session, user_id: int, fund_code: str) -> Optional
     ).first()
 
 
-def add_to_watchlist(db: Session, user_id: int, fund_code: str, fund_name: str, cost_nav: float) -> WatchlistFund:
+def add_to_watchlist(db: Session, user_id: int, fund_code: str, fund_name: str, cost_nav: float) -> WatchlistFund | None:
     """添加基金到自选"""
     db_watchlist = WatchlistFund(
         user_id=user_id,
@@ -301,7 +311,11 @@ def add_to_watchlist(db: Session, user_id: int, fund_code: str, fund_name: str, 
         cost_nav=cost_nav,
     )
     db.add(db_watchlist)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return None
     db.refresh(db_watchlist)
     return db_watchlist
 

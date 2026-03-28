@@ -52,7 +52,7 @@ async def get_watchlist(
                 gszzl = None
 
             watchlist_item.current_nav = current_nav
-            watchlist_item.change_rate = f"{gszzl}%" if gszzl else "--"
+            watchlist_item.change_rate = f"{gszzl}%" if gszzl is not None else "--"
 
             if item.cost_nav and item.cost_nav > 0:
                 total_change = ((current_nav - item.cost_nav) / item.cost_nav) * 100
@@ -93,6 +93,8 @@ async def add_to_watchlist(
         fund_name=watchlist_data.fund_name,
         cost_nav=cost_nav
     )
+    if db_watchlist is None:
+        raise HTTPException(status_code=400, detail="该基金已在自选中")
 
     return schemas.WatchlistItem(
         id=db_watchlist.id,

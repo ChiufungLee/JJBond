@@ -1,7 +1,4 @@
-# 设置时区为北京时间（必须在其他导入之前）
 import os
-os.environ['TZ'] = 'Asia/Shanghai'
-
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -121,10 +118,8 @@ app.include_router(watchlist.router, prefix="/api")
 app.include_router(ranking.router,   prefix="/api")
 
 # 挂载静态文件目录（用户头像）
-import os
-avatars_dir = "uploads/avatars"
-os.makedirs(avatars_dir, exist_ok=True)
-app.mount("/static/avatars", StaticFiles(directory=avatars_dir), name="avatars")
+os.makedirs(settings.AVATAR_UPLOAD_DIR, exist_ok=True)
+app.mount("/static/avatars", StaticFiles(directory=settings.AVATAR_UPLOAD_DIR), name="avatars")
 
 
 @app.get("/")
@@ -139,4 +134,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8888, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8888)

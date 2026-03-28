@@ -1,3 +1,4 @@
+import json
 import logging
 import aiohttp
 from core.http_client import get_http_session
@@ -167,21 +168,57 @@ async def search_fund(
 
 
 async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
-    """从天天基金网搜索基金（第三方 API）"""
-    url = f"http://fundgz.1234567.com.cn/js/{keyword}.js"
+    """从东方财富基金列表接口搜索基金"""
+    if not keyword:
+        return []
+
+    url = "http://fund.eastmoney.com/js/fundcode_search.js"
     try:
         session = get_http_session()
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            data = await resp.json()
-            funds = []
-            if data.get("Datas"):
-                for item in data["Datas"]:
-                    funds.append({
-                        "fund_code": item.get("CODE", ""),
-                        "fund_name": item.get("NAME", ""),
-                        "fund_type": item.get("FTYPE", ""),
-                    })
-            return funds[:limit]
+            content = await resp.text(encoding="utf-8", errors="ignore")
+
+        start_marker = "var r = ["
+        start_idx = content.find(start_marker)
+        if start_idx == -1:
+            return []
+
+        start_idx += len(start_marker) - 1
+        end_idx = content.find("];", start_idx)
+        if end_idx == -1:
+            return []
+
+        raw_data = json.loads(content[start_idx:end_idx + 1])
+        keyword_lower = keyword.lower()
+        funds = []
+        seen_codes = set()
+
+        for item in raw_data:
+            if len(item) < 4:
+                continue
+
+            fund_code = str(item[0]).strip()
+            fund_name = str(item[2]).strip()
+            raw_type = str(item[3]).strip()
+            fund_type = raw_type.split("-", 1)[0] if "-" in raw_type else raw_type
+
+            if fund_code in seen_codes:
+                continue
+
+            if keyword_lower not in fund_code.lower() and keyword_lower not in fund_name.lower():
+                continue
+
+            seen_codes.add(fund_code)
+            funds.append({
+                "fund_code": fund_code,
+                "fund_name": fund_name,
+                "fund_type": fund_type,
+            })
+
+            if len(funds) >= limit:
+                break
+
+        return funds
     except Exception as e:
         logger.error(f"第三方 API 搜索失败: {e}")
         return []

@@ -147,6 +147,229 @@ body {
     justify-content: center;
 }
 
+/* 认证页面样式 */
+.login-container,
+.register-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.login-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.register-container {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+}
+
+.login-left,
+.register-left {
+    flex: 1;
+    display: none;
+}
+
+.login-right,
+.register-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    background: white;
+}
+
+.login-form-container,
+.register-form-container {
+    width: 100%;
+}
+
+.login-form-container {
+    max-width: 400px;
+}
+
+.register-form-container {
+    max-width: 450px;
+}
+
+.login-logo,
+.register-logo {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.login-logo h1,
+.register-logo h1 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.login-logo p,
+.register-logo p {
+    color: #666;
+}
+
+.login-form,
+.register-form {
+    background: #f8f9fa;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.login-form .form-group input,
+.register-form .form-group input {
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.login-form .form-group input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.register-form .form-group input:focus {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.remember-me {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.remember-me input {
+    margin-right: 10px;
+    width: auto;
+}
+
+.remember-me label {
+    margin-bottom: 0;
+    color: #666;
+    font-weight: normal;
+}
+
+.password-requirements {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+.login-btn,
+.register-btn {
+    width: 100%;
+    padding: 12px;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.login-btn {
+    background: #667eea;
+}
+
+.login-btn:hover {
+    background: #5a67d8;
+}
+
+.register-btn {
+    background: #4299e1;
+}
+
+.register-btn:hover {
+    background: #3182ce;
+}
+
+.login-btn:disabled,
+.register-btn:disabled {
+    background: #a0aec0;
+    cursor: not-allowed;
+}
+
+.login-footer,
+.register-footer {
+    text-align: center;
+    margin-top: 20px;
+    color: #666;
+}
+
+.login-footer a {
+    color: #667eea;
+}
+
+.register-footer a {
+    color: #4299e1;
+}
+
+.login-footer a,
+.register-footer a {
+    text-decoration: none;
+    margin-left: 5px;
+}
+
+.login-footer a:hover,
+.register-footer a:hover {
+    text-decoration: underline;
+}
+
+.error-message {
+    color: #e53e3e;
+    background: #fed7d7;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.success-message {
+    color: #38a169;
+    background: #c6f6d5;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+@media (min-width: 768px) {
+    .login-left,
+    .register-left {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        padding: 40px;
+    }
+
+    .login-left h2,
+    .register-left h2 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+    }
+
+    .login-left p,
+    .register-left p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+}
+
 /* 已登录页面样式 */
 .funds-page {
     opacity: 1;
@@ -176,6 +399,8 @@ body {
 .page-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .page-subheader {
@@ -297,7 +522,7 @@ body {
     color: white;
     z-index: 10000;
     animation: slideIn 0.3s ease;
-    max-width: 400px;
+    max-width: min(400px, calc(100vw - 32px));
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
@@ -682,30 +907,42 @@ body {
         gap: 15px;
         text-align: center;
     }
-    
+
     .page-header {
         flex-direction: column;
         gap: 15px;
         align-items: stretch;
     }
-    
+
     .page-actions {
         justify-content: center;
         flex-wrap: wrap;
     }
-    
+
+    .page-actions .btn {
+        flex: 1 1 calc(50% - 10px);
+        min-width: 140px;
+    }
+
+    .message {
+        left: 16px;
+        right: 16px;
+        top: 16px;
+        max-width: none;
+    }
+
     .fund-details {
         grid-template-columns: 1fr;
     }
-    
+
     .simplified-summary-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .valuation-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .funds-table th,
     .funds-table td {
         padding: 8px 10px;
