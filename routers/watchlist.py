@@ -45,12 +45,13 @@ async def get_watchlist(
 
         if fund_info:
             if 'dwjz' in fund_info:
-                current_nav = float(fund_info.get('dwjz', 0))
+                current_nav = fund_info.get('gsz') or fund_info.get('dwjz') or 0
                 gszzl = fund_info.get('gszzl')
             else:
-                current_nav = float(fund_info.get('value', 0))
+                current_nav = fund_info.get('value', 0)
                 gszzl = None
 
+            current_nav = float(current_nav)
             watchlist_item.current_nav = current_nav
             watchlist_item.change_rate = f"{gszzl}%" if gszzl is not None else "--"
 

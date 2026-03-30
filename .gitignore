@@ -19,3 +19,9 @@ build/
 fund_web_log.log
 
 uploads/*
+
+# docker 文件
+docker-compose.yml
+Dockerfile
+DOCKER_DEPLOY.md
+.dockerignore
