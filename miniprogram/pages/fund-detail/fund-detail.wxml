@@ -19,9 +19,7 @@
           <text class="fund-name">{{fundInfo.fund_name}}</text>
           <text class="fund-code">{{fundInfo.fund_code}}</text>
         </view>
-        <view class="fund-rate {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">
-          {{fundInfo.change_rate}}
-        </view>
+        <view class="fund-rate {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.change_rate}}</view>
       </view>
 
       <view class="fund-main" wx:if="{{isHeld}}">
@@ -73,7 +71,7 @@
         </view>
         <view class="info-item">
           <text class="info-label">今日估值</text>
-          <text class="info-value {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.today_value}} {{fundInfo.today_revenue >= 0 ? '↑' : '↓'}}</text>
+          <text class="info-value {{fundInfo.today_value_trend_class}}">{{fundInfo.today_value}}<block wx:if="{{fundInfo.today_revenue_trend === 'up'}}"> ↑</block><block wx:elif="{{fundInfo.today_revenue_trend === 'down'}}"> ↓</block></text>
         </view>
         <view class="info-item">
           <text class="info-label">累计收益</text>

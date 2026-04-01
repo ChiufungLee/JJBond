@@ -20,4 +20,5 @@ class User(Base):
     nickname = Column(String(100), nullable=True)       # 微信昵称
     avatar_url = Column(String(500), nullable=True)    # 微信头像
     login_type = Column(String(20), default='password')  # 登录方式: password/wechat
+    last_login_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(SHANGHAI_TZ))

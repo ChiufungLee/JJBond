@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import Tuple
 import logging
 import json
@@ -108,11 +108,15 @@ def login(
     else:
         _clear_refresh_cookie(response)
 
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "username": user.username,
         "created_at": user.created_at,
+        "last_login_at": user.last_login_at,
     }
 
 
@@ -287,6 +291,10 @@ async def wechat_login(
         expires_delta=access_token_expires
     )
 
+    if not is_new_user:
+        user.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -295,4 +303,5 @@ async def wechat_login(
         "avatar_url": user.avatar_url,
         "is_new_user": is_new_user,
         "created_at": user.created_at,
+        "last_login_at": user.last_login_at,
     }

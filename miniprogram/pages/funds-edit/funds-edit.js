@@ -2,6 +2,7 @@
 const { get, put } = require('../../utils/request')
 const { checkLogin } = require('../../utils/auth')
 const { showLoading, hideLoading, showToast } = require('../../utils/util')
+const app = getApp()
 
 Page({
   data: {
@@ -89,6 +90,7 @@ Page({
       })
 
       hideLoading()
+      app.markFundDirty(this.data.fundInfo?.fund_code)
       showToast('保存成功')
 
       setTimeout(() => {

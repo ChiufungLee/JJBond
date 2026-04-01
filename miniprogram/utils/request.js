@@ -1,6 +1,34 @@
 // utils/request.js - API请求封装
 const app = getApp()
 
+const DEFAULT_GET_CACHE_TTL = 3000
+const inflightGetRequests = new Map()
+const getResponseCache = new Map()
+let lastCacheToken = null
+
+const clearGetRequestState = () => {
+  inflightGetRequests.clear()
+  getResponseCache.clear()
+}
+
+const syncGetCacheScope = (token) => {
+  const cacheToken = token || null
+  if (cacheToken === lastCacheToken) {
+    return
+  }
+  lastCacheToken = cacheToken
+  clearGetRequestState()
+}
+
+const buildRequestKey = ({ method, url, data, token, skipAuth }) => {
+  return JSON.stringify({
+    method,
+    url,
+    data: data || {},
+    token: skipAuth ? null : (token || null)
+  })
+}
+
 const isSuccessStatus = (statusCode) => {
   return statusCode >= 200 && statusCode < 300
 }
@@ -46,39 +74,79 @@ const request = (url, options = {}) => {
     skipUnauthorizedHandler = false,
     skipErrorToast = false,
     fallbackErrorMessage = '请求失败',
+    forceRefresh = false,
+    cacheTTL = DEFAULT_GET_CACHE_TTL,
+    dedupe = true,
     ...requestOptions
   } = options
 
-  return new Promise((resolve, reject) => {
-    const token = app.getToken()
+  const token = app.getToken()
+  syncGetCacheScope(token)
 
-    const defaultOptions = {
-      url: app.globalData.baseUrl + url,
-      method: 'GET',
-      data: {},
-      header: {
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000
+  const defaultOptions = {
+    url: app.globalData.baseUrl + url,
+    method: 'GET',
+    data: {},
+    header: {
+      'Content-Type': 'application/json'
+    },
+    timeout: 30000
+  }
+
+  const finalOptions = {
+    ...defaultOptions,
+    ...requestOptions,
+    header: {
+      ...defaultOptions.header,
+      ...requestOptions.header
     }
+  }
 
-    const finalOptions = {
-      ...defaultOptions,
-      ...requestOptions,
-      header: {
-        ...defaultOptions.header,
-        ...requestOptions.header
-      }
+  const method = (finalOptions.method || 'GET').toUpperCase()
+  const isGetRequest = method === 'GET'
+
+  if (!skipAuth && token) {
+    finalOptions.header['Authorization'] = `Bearer ${token}`
+  }
+
+  const requestKey = buildRequestKey({
+    method,
+    url,
+    data: finalOptions.data,
+    token,
+    skipAuth
+  })
+
+  if (isGetRequest && !forceRefresh && cacheTTL > 0) {
+    const cachedEntry = getResponseCache.get(requestKey)
+    if (cachedEntry && cachedEntry.expiresAt > Date.now()) {
+      return Promise.resolve(cachedEntry.data)
     }
-
-    if (!skipAuth && token) {
-      finalOptions.header['Authorization'] = `Bearer ${token}`
+    if (cachedEntry) {
+      getResponseCache.delete(requestKey)
     }
+  }
 
+  if (isGetRequest && !forceRefresh && dedupe) {
+    const inflightRequest = inflightGetRequests.get(requestKey)
+    if (inflightRequest) {
+      return inflightRequest
+    }
+  }
+
+  const promise = new Promise((resolve, reject) => {
     wx.request({
       ...finalOptions,
       success(res) {
         if (isSuccessStatus(res.statusCode)) {
+          if (isGetRequest && cacheTTL > 0) {
+            getResponseCache.set(requestKey, {
+              data: res.data,
+              expiresAt: Date.now() + cacheTTL
+            })
+          } else if (!isGetRequest) {
+            clearGetRequestState()
+          }
           resolve(res.data)
           return
         }
@@ -116,13 +184,25 @@ const request = (url, options = {}) => {
       }
     })
   })
+
+  if (isGetRequest && !forceRefresh && dedupe) {
+    inflightGetRequests.set(requestKey, promise)
+    promise.finally(() => {
+      if (inflightGetRequests.get(requestKey) === promise) {
+        inflightGetRequests.delete(requestKey)
+      }
+    })
+  }
+
+  return promise
 }
 
 // GET请求
-const get = (url, data = {}) => {
+const get = (url, data = {}, options = {}) => {
   return request(url, {
     method: 'GET',
-    data
+    data,
+    ...options
   })
 }
 

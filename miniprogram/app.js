@@ -6,11 +6,12 @@ App({
     isLoggedIn: false,
     loginRedirecting: false,
     unauthorizedHandling: false,
+    dirtyFunds: {},
     // 后端API地址，开发时使用本地地址，生产环境需要修改为正式域名
     // baseUrl: 'http://106.13.192.72:8888/api'
-    // baseUrl: 'http://fund.awesomeme.cloud:8888/api'
+    baseUrl: 'https://fund.awesomeme.cloud/api'
     // baseUrl: 'https://jjbond-236500-8-1413585939.sh.run.tcloudbase.com/api',
-    baseUrl: 'http://127.0.0.1:8888/api'
+    // baseUrl: 'http://127.0.0.1:8888/api'
   },
 
   onLaunch() {
@@ -61,9 +62,25 @@ App({
     this.globalData.token = null
     this.globalData.userInfo = null
     this.globalData.isLoggedIn = false
+    this.globalData.dirtyFunds = {}
 
     wx.removeStorageSync('token')
     wx.removeStorageSync('userInfo')
+  },
+
+  markFundDirty(fundCode) {
+    if (!fundCode) {
+      return
+    }
+    this.globalData.dirtyFunds[fundCode] = true
+  },
+
+  consumeFundDirty(fundCode) {
+    if (!fundCode || !this.globalData.dirtyFunds[fundCode]) {
+      return false
+    }
+    delete this.globalData.dirtyFunds[fundCode]
+    return true
   },
 
   // 检查是否登录

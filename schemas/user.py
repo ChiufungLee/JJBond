@@ -38,12 +38,14 @@ class WechatLoginResponse(BaseModel):
     avatar_url: Optional[str] = None
     is_new_user: bool = Field(..., description="是否为新用户")
     created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
 
 class User(UserBase):
     id: int
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
     login_type: str = "password"
+    last_login_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
@@ -55,6 +57,7 @@ class Token(BaseModel):
     token_type: str
     username: str
     created_at: datetime
+    last_login_at: Optional[datetime] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None

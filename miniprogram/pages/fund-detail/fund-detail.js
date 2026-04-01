@@ -1,7 +1,8 @@
 // pages/fund-detail/fund-detail.js
 const { get } = require('../../utils/request')
-const { formatMoney, formatPercent } = require('../../utils/util')
+const { formatMoney, formatPercent, getTrend } = require('../../utils/util')
 let wxCharts = null
+const app = getApp()
 
 const NAV_RANGES = [
   { key: '1m', label: '近1月', days: 30 },
@@ -53,6 +54,7 @@ Page({
   chartPoints: null,
   navRequestId: 0,
   transactionsLoadedFundCode: '',
+  initialized: false,
 
   onLoad(options) {
     const { code } = options
@@ -73,10 +75,20 @@ Page({
   },
 
   onShow() {
-    if (!this.data.fundCode) {
+    const { fundCode } = this.data
+    if (!fundCode) {
       return
     }
-    this.loadFundDetail()
+
+    if (!this.initialized) {
+      this.initialized = true
+      this.loadFundDetail({ forceRefresh: true })
+      return
+    }
+
+    if (app.consumeFundDirty(fundCode)) {
+      this.loadFundDetail({ forceRefresh: true })
+    }
   },
 
   onReady() {
@@ -202,8 +214,8 @@ Page({
     }
   },
 
-  async fetchBaseFundInfo(fundCode) {
-    const summary = await get('/funds/calculate')
+  async fetchBaseFundInfo(fundCode, { forceRefresh = false } = {}) {
+    const summary = await get('/funds/calculate', {}, { forceRefresh })
     const fundDetail = (summary?.fund_details || []).find(
       item => item.fund_code === fundCode
     )
@@ -215,7 +227,7 @@ Page({
       }
     }
 
-    const fundInfo = await get(`/funds/fund_info/${fundCode}`)
+    const fundInfo = await get(`/funds/fund_info/${fundCode}`, {}, { forceRefresh })
     if (!fundInfo) {
       return {
         formattedInfo: null,
@@ -239,7 +251,7 @@ Page({
     }
 
     try {
-      const transactions = await get(`/funds/${fundCode}/transactions`)
+      const transactions = await get(`/funds/${fundCode}/transactions`, {}, { forceRefresh: true, cacheTTL: 0, dedupe: false })
       const normalizedTransactions = Array.isArray(transactions) ? transactions : []
       this.transactionsLoadedFundCode = fundCode
       this.setData({ transactions: normalizedTransactions })
@@ -252,38 +264,45 @@ Page({
   },
 
   // 加载基金详情
-  async loadFundDetail() {
+  async loadFundDetail({ forceRefresh = false } = {}) {
     const { fundCode } = this.data
-    this.chartData = null
-    this.chartPoints = null
-    this.navRequestId += 1
+    const shouldResetRelatedData = forceRefresh || !this.data.fundInfo
 
-    this.transactionsLoadedFundCode = ''
+    if (shouldResetRelatedData) {
+      this.chartData = null
+      this.chartPoints = null
+      this.navRequestId += 1
+      this.transactionsLoadedFundCode = ''
+    }
 
     this.setData({
       loading: true,
-      fundInfo: null,
-      isHeld: false,
+      ...(shouldResetRelatedData
+        ? {
+            fundInfo: null,
+            isHeld: false,
+            navHistoryAll: [],
+            navList: [],
+            navPage: 0,
+            navHasMore: false,
+            navLoading: false,
+            navLoadingMore: false,
+            navError: false,
+            navErrorMessage: '',
+            transactions: [],
+            transactionMarkers: [],
+            'tooltip.show': false,
+            'tooltip.date': '今日',
+            'tooltip.value': ''
+          }
+        : {}),
       error: false,
       errorType: '',
-      errorMessage: '',
-      navHistoryAll: [],
-      navList: [],
-      navPage: 0,
-      navHasMore: false,
-      navLoading: false,
-      navLoadingMore: false,
-      navError: false,
-      navErrorMessage: '',
-      transactions: [],
-      transactionMarkers: [],
-      'tooltip.show': false,
-      'tooltip.date': '今日',
-      'tooltip.value': ''
+      errorMessage: ''
     })
 
     try {
-      const { formattedInfo, isHeld } = await this.fetchBaseFundInfo(fundCode)
+      const { formattedInfo, isHeld } = await this.fetchBaseFundInfo(fundCode, { forceRefresh })
 
       if (!formattedInfo) {
         this.setData({
@@ -305,11 +324,23 @@ Page({
       })
 
       await this.ensureTransactionsLoaded(fundCode)
-      await this.loadNavHistory({
-        resetList: true,
-        rangeKey: this.data.currentNavRange,
-        costPrice: isHeld ? formattedInfo.cost_price : null
-      })
+      if (shouldResetRelatedData) {
+        await this.loadNavHistory({
+          resetList: true,
+          rangeKey: this.data.currentNavRange,
+          costPrice: isHeld ? formattedInfo.cost_price : null,
+          forceRefresh
+        })
+      } else if (this.chartData && this.data.navHistoryAll.length > 0) {
+        this.drawChart(this.data.navHistoryAll, isHeld ? formattedInfo.cost_price : null)
+      } else {
+        await this.loadNavHistory({
+          resetList: true,
+          rangeKey: this.data.currentNavRange,
+          costPrice: isHeld ? formattedInfo.cost_price : null,
+          forceRefresh
+        })
+      }
     } catch (error) {
       console.error('加载基金详情失败:', error)
       this.setData({
@@ -323,7 +354,7 @@ Page({
     }
   },
 
-  async loadNavHistory({ resetList = true, rangeKey = this.data.currentNavRange, costPrice = this.getChartCostPrice() } = {}) {
+  async loadNavHistory({ resetList = true, rangeKey = this.data.currentNavRange, costPrice = this.getChartCostPrice(), forceRefresh = false } = {}) {
     const { fundCode } = this.data
     if (!fundCode) {
       return false
@@ -356,6 +387,10 @@ Page({
     try {
       const history = await get(`/funds/fund_nav_history/${fundCode}`, {
         days: this.getRangeDays(rangeKey)
+      }, {
+        forceRefresh,
+        cacheTTL: forceRefresh ? 0 : undefined,
+        dedupe: !forceRefresh
       })
 
       if (requestId !== this.navRequestId) {
@@ -410,7 +445,8 @@ Page({
     this.loadNavHistory({
       resetList: true,
       rangeKey: range,
-      costPrice: this.getChartCostPrice()
+      costPrice: this.getChartCostPrice(),
+      forceRefresh: true
     })
   },
 
@@ -418,7 +454,8 @@ Page({
     this.loadNavHistory({
       resetList: true,
       rangeKey: this.data.currentNavRange,
-      costPrice: this.getChartCostPrice()
+      costPrice: this.getChartCostPrice(),
+      forceRefresh: true
     })
   },
 
@@ -446,6 +483,8 @@ Page({
   formatFundInfo(info) {
     if (!info) return null
 
+    const todayRevenueTrend = getTrend(info.today_revenue)
+
     return {
       ...info,
       recent_changes: [],
@@ -454,7 +493,9 @@ Page({
       today_revenue_formatted: formatMoney(info.today_revenue),
       total_revenue_formatted: formatMoney(info.total_revenue),
       profit_loss_ratio_formatted: formatPercent(info.profit_loss_ratio),
-      shangrijingzhi_formatted: formatMoney(info.shangrijingzhi, 4)
+      shangrijingzhi_formatted: formatMoney(info.shangrijingzhi, 4),
+      today_revenue_trend: todayRevenueTrend,
+      today_value_trend_class: todayRevenueTrend === 'flat' ? '' : todayRevenueTrend
     }
   },
 
@@ -615,7 +656,7 @@ Page({
       wx.navigateBack()
       return
     }
-    this.loadFundDetail()
+    this.loadFundDetail({ forceRefresh: true })
   },
 
   // 下拉刷新
@@ -624,7 +665,7 @@ Page({
       wx.stopPullDownRefresh()
       return
     }
-    this.loadFundDetail().then(() => {
+    this.loadFundDetail({ forceRefresh: true }).then(() => {
       wx.stopPullDownRefresh()
     })
   },

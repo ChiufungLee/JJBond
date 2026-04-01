@@ -2,6 +2,7 @@
 const { post } = require('../../utils/request')
 const { showLoading, hideLoading, showToast } = require('../../utils/util')
 const { createFundSearchManager } = require('../../utils/fund-search')
+const app = getApp()
 
 Page({
   data: {
@@ -106,6 +107,7 @@ Page({
       })
 
       hideLoading()
+      app.markFundDirty(selectedFund.fund_code)
       showToast('添加成功')
 
       setTimeout(() => {
