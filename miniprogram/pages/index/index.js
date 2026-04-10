@@ -2,6 +2,28 @@
 const { get } = require('../../utils/request')
 const { checkLogin, isLoggedIn } = require('../../utils/auth')
 const { formatPortfolioSummary } = require('../../utils/portfolio-summary')
+const { formatMoney, formatPercent } = require('../../utils/util')
+
+// 示例基金数据（未登录时展示）
+const DEMO_SUMMARY = (() => {
+  const summary = {
+    fund_count: 3,
+    total_cost: 50000,
+    yesterday_holding_amount: 49800,
+    today_holding_amount: 50350,
+    today_holding_income: 0,
+    yesterday_holding_income: 0,
+    today_revenue: 350,
+    fund_details: [
+      { fund_code: '110011', fund_name: '易方达中小盘混合', cost: 20000, amount: 20100, today_revenue: 120, total_revenue: 100, profit_loss_ratio: 0.5, change_rate: '1.23%' },
+      { fund_code: '003834', fund_name: '华夏能源革新股票', cost: 15000, amount: 15150, today_revenue: 80, total_revenue: 150, profit_loss_ratio: 1.0, change_rate: '0.53%' },
+      { fund_code: '161725', fund_name: '招商中证白酒指数', cost: 15000, amount: 15100, today_revenue: 150, total_revenue: 100, profit_loss_ratio: 0.67, change_rate: '-0.89%' }
+    ],
+    high_fund_list: ['华夏能源革新 +0.53%', '易方达中小盘 +1.23%'],
+    low_fund_list: ['招商白酒 -0.89%']
+  }
+  return formatPortfolioSummary(summary)
+})()
 
 Page({
   data: {
@@ -16,22 +38,34 @@ Page({
     // 隐藏金额
     hideAmount: false,
     // 统计时间
-    updateTime: ''
+    updateTime: '',
+    loggedIn: false
   },
 
   onLoad() {
-    if (!checkLogin()) {
-      return
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (loggedIn) {
+      const hideAmount = wx.getStorageSync('hideAmount') || false
+      this.setData({ hideAmount })
     }
-    const hideAmount = wx.getStorageSync('hideAmount') || false
-    this.setData({ hideAmount })
   },
 
   onShow() {
-    if (!checkLogin() || !isLoggedIn()) {
-      return
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (loggedIn) {
+      this.loadData()
+    } else {
+      const now = new Date()
+      const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+      this.setData({
+        loading: false,
+        summary: DEMO_SUMMARY,
+        updateTime,
+        error: false
+      })
     }
-    this.loadData()
   },
 
   // 加载数据
@@ -148,11 +182,35 @@ Page({
     })
   },
 
+  // 跳转到登录页
+  goToLogin() {
+    const app = getApp()
+    app.goToLogin()
+  },
+
   // 添加基金
   goToAddFund() {
+    if (!checkLogin()) return
     wx.navigateTo({
       url: '/pages/funds-add/funds-add'
     })
+  },
+
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      path: '/pages/ranking/ranking',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      imageUrl: '/icons/logo.png'
+    }
   },
 
   // 切换隐藏金额

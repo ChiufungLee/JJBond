@@ -215,20 +215,16 @@ Page({
   },
 
   async fetchBaseFundInfo(fundCode, { forceRefresh = false } = {}) {
-    const summary = await get('/funds/calculate', {}, { forceRefresh })
-    const fundDetail = (summary?.fund_details || []).find(
-      item => item.fund_code === fundCode
-    )
+    const result = await get(`/funds/check/${fundCode}`, {}, { forceRefresh })
 
-    if (fundDetail) {
+    if (result.is_held && result.fund_code) {
       return {
-        formattedInfo: this.formatFundInfo(fundDetail),
+        formattedInfo: this.formatFundInfo(result),
         isHeld: true
       }
     }
 
-    const fundInfo = await get(`/funds/fund_info/${fundCode}`, {}, { forceRefresh })
-    if (!fundInfo) {
+    if (!result.fund_info) {
       return {
         formattedInfo: null,
         isHeld: false
@@ -236,7 +232,7 @@ Page({
     }
 
     return {
-      formattedInfo: this.formatFundInfoBasic(fundInfo),
+      formattedInfo: this.formatFundInfoBasic(result.fund_info),
       isHeld: false
     }
   },
@@ -657,6 +653,29 @@ Page({
       return
     }
     this.loadFundDetail({ forceRefresh: true })
+  },
+
+  // 分享给好友
+  onShareAppMessage() {
+    const { fundInfo, fundCode } = this.data
+    const name = fundInfo?.fund_name || fundCode
+    const change = fundInfo?.change_rate || ''
+    return {
+      title: `这基金今天起飞了呀！`,
+      path: `/pages/fund-detail/fund-detail?code=${fundCode}`,
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    const { fundInfo, fundCode } = this.data
+    const name = fundInfo?.fund_name || fundCode
+    return {
+      title: `${name} - JJBond基金管家`,
+      imageUrl: '/icons/logo.png',
+      query: `code=${fundCode}`
+    }
   },
 
   // 下拉刷新

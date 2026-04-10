@@ -2,43 +2,68 @@
 <view class="mine-container">
   <!-- 用户信息卡片 -->
   <view class="user-card">
-    <view class="user-header">
-      <image class="avatar" src="{{avatarUrl || '/icons/logo.png'}}" mode="aspectFill"></image>
-      <view class="user-info">
-        <view class="username-row" bindtap="goToEditProfile">
-          <text class="username">{{userInfo.nickname || userInfo.username || '用户'}}</text>
-          <image class="edit-icon" src="/icons/edit.svg" mode="aspectFit"></image>
+    <!-- 未登录状态 -->
+    <block wx:if="{{!loggedIn}}">
+      <view class="user-header">
+        <view class="avatar">
+          <view class="avatar-shield">
+            <text class="avatar-yen">¥</text>
+          </view>
         </view>
-        <text class="user-days">已陪伴你 {{daysTogether}} 天</text>
+        <view class="user-info">
+          <view class="username-row" bindtap="goToLogin">
+            <text class="username">未登录</text>
+            <text class="login-hint">点击登录 ›</text>
+          </view>
+          <text class="user-days">登录后查看个人数据</text>
+        </view>
       </view>
-    </view>
+    </block>
 
-    <loading wx:if="{{statsLoading}}" text="加载统计中..."></loading>
+    <!-- 已登录状态 -->
+    <block wx:else>
+      <view class="user-header">
+        <view class="avatar">
+          <view class="avatar-shield">
+            <text class="avatar-yen">¥</text>
+          </view>
+        </view>
+        <view class="user-info">
+          <view class="username-row" bindtap="goToEditProfile">
+            <text class="username">{{userInfo.nickname || userInfo.username || '用户'}}</text>
+            <image class="edit-icon" src="/icons/edit.svg" mode="aspectFit"></image>
+          </view>
+          <text class="user-days">已陪伴你 {{daysTogether}} 天</text>
+        </view>
+      </view>
 
-    <empty
-      wx:elif="{{statsError}}"
-      icon="⚠️"
-      text="{{statsErrorMessage || '加载统计失败，请稍后重试'}}"
-      showButton="{{true}}"
-      buttonText="重新获取统计"
-      bind:buttonTap="loadStats"
-    ></empty>
+      <loading wx:if="{{statsLoading}}" text="加载统计中..."></loading>
 
-    <!-- 统计数据 -->
-    <view class="stats-row" wx:elif="{{stats}}">
-      <view class="stat-item">
-        <text class="stat-value">{{stats.fundCount}}</text>
-        <text class="stat-label">持有基金</text>
+      <empty
+        wx:elif="{{statsError}}"
+        icon="⚠️"
+        text="{{statsErrorMessage || '加载统计失败，请稍后重试'}}"
+        showButton="{{true}}"
+        buttonText="重新获取统计"
+        bind:buttonTap="loadStats"
+      ></empty>
+
+      <!-- 统计数据 -->
+      <view class="stats-row" wx:elif="{{stats}}">
+        <view class="stat-item">
+          <text class="stat-value">{{stats.fundCount}}</text>
+          <text class="stat-label">持有基金</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{stats.totalCost}}</text>
+          <text class="stat-label">总成本</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value {{stats.totalRevenueIsUp ? 'up' : 'down'}}">{{stats.totalRevenue}}</text>
+          <text class="stat-label">累计收益</text>
+        </view>
       </view>
-      <view class="stat-item">
-        <text class="stat-value">{{stats.totalCost}}</text>
-        <text class="stat-label">总成本</text>
-      </view>
-      <view class="stat-item">
-        <text class="stat-value {{stats.totalRevenueIsUp ? 'up' : 'down'}}">{{stats.totalRevenue}}</text>
-        <text class="stat-label">累计收益</text>
-      </view>
-    </view>
+    </block>
   </view>
 
   <!-- 功能菜单 -->
@@ -77,7 +102,7 @@
   </view>
 
   <!-- 退出登录 -->
-  <view class="menu-section">
+  <view class="menu-section" wx:if="{{loggedIn}}">
     <view class="menu-list">
       <view class="menu-item logout-item" bindtap="handleLogout">
         <view class="menu-left">

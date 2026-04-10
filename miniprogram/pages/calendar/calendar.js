@@ -154,6 +154,27 @@ Page({
     wx.navigateTo({ url: `/pages/fund-detail/fund-detail?code=${code}` })
   },
 
+  // 分享给好友
+  onShareAppMessage() {
+    const { year, month, selectedDayInfo } = this.data
+    const dateStr = selectedDayInfo?.date || `${year}年${month}月`
+    const revenue = selectedDayInfo?.revenue
+    return {
+      title: `看看收益日历，泪水打湿猪脚饭！`,
+      path: `/pages/calendar/calendar`,
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    const { year, month } = this.data
+    return {
+      title: `${year}年${month}月 收益日历 - JJBond`,
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
   onPullDownRefresh() {
     this.loadCalendarData().then(() => wx.stopPullDownRefresh())
   },

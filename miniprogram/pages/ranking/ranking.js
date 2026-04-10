@@ -1,5 +1,6 @@
 // pages/ranking/ranking.js
 const { get } = require('../../utils/request')
+const { checkLogin } = require('../../utils/auth')
 
 // 排行榜类型配置
 const RANKING_TYPES = [
@@ -142,6 +143,7 @@ Page({
 
   // 添加到自选
   async addToWatchlist(e) {
+    if (!checkLogin()) return
     const { code, name } = e.currentTarget.dataset
     const { post } = require('../../utils/request')
     const { showToast } = require('../../utils/util')
@@ -157,6 +159,25 @@ Page({
       if (error.message && error.message.includes('已存在')) {
         showToast('已在自选中')
       }
+    }
+  },
+
+  // 分享给好友
+  onShareAppMessage() {
+    const typeName = RANKING_TYPES.find(t => t.key === this.data.currentType)?.name || '日涨幅'
+    return {
+      title: `基金${typeName}排行榜 - JJBond`,
+      path: '/pages/ranking/ranking',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    const typeName = RANKING_TYPES.find(t => t.key === this.data.currentType)?.name || '日涨幅'
+    return {
+      title: `基金${typeName}排行榜 - JJBond`,
+      imageUrl: '/icons/logo.png'
     }
   },
 

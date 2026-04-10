@@ -1,8 +1,15 @@
 // pages/watchlist/watchlist.js
 const { get, post, del } = require('../../utils/request')
-const { checkLogin } = require('../../utils/auth')
+const { isLoggedIn, checkLogin } = require('../../utils/auth')
 const { formatPercent, showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
 const { createFundSearchManager } = require('../../utils/fund-search')
+
+// 示例自选基金数据（未登录时展示）
+const DEMO_WATCHLIST = [
+  { id: 1, fund_code: '110011', fund_name: '易方达中小盘混合', change_rate: '1.23%', total_change_rate: 2.5, total_change_formatted: '+2.50%', is_holding: false, added_at: '2026/01/15' },
+  { id: 2, fund_code: '003834', fund_name: '华夏能源革新股票', change_rate: '0.53%', total_change_rate: 1.8, total_change_formatted: '+1.80%', is_holding: true, added_at: '2026/02/20' },
+  { id: 3, fund_code: '161725', fund_name: '招商中证白酒指数', change_rate: '-0.89%', total_change_rate: -3.2, total_change_formatted: '-3.20%', is_holding: false, added_at: '2026/03/10' }
+]
 
 Page({
   data: {
@@ -10,10 +17,14 @@ Page({
     searchResults: [],
     watchlist: [],
     searching: false,
-    loading: true
+    loading: true,
+    loggedIn: false
   },
 
   onLoad() {
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+
     this.searchManager = createFundSearchManager({
       page: this,
       limit: 10,
@@ -21,16 +32,22 @@ Page({
         console.error('搜索失败:', error)
       }
     })
-
-    checkLogin()
   },
 
   onShow() {
-    if (!checkLogin()) {
-      return
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (loggedIn) {
+      this.loadWatchlist()
+    } else {
+      this.setData({
+        loading: false,
+        watchlist: DEMO_WATCHLIST.map(item => ({
+          ...item,
+          added_at_formatted: this.formatDate(item.added_at)
+        }))
+      })
     }
-
-    this.loadWatchlist()
   },
 
   onUnload() {
@@ -89,8 +106,15 @@ Page({
     })
   },
 
+  // 跳转到登录页
+  goToLogin() {
+    const app = getApp()
+    app.goToLogin()
+  },
+
   // 添加到自选
   async addToWatchlist(e) {
+    if (!checkLogin()) return
     const { code, name } = e.currentTarget.dataset
 
     showLoading('添加中...')
@@ -115,6 +139,7 @@ Page({
 
   // 从自选移除
   async removeFromWatchlist(e) {
+    if (!checkLogin()) return
     const { id, name } = e.currentTarget.dataset
 
     const confirmed = await showConfirm('确认移除', `确定要将 ${name} 从自选中移除吗？`)
@@ -136,10 +161,28 @@ Page({
 
   // 跳转到添加持仓
   goToAddFund(e) {
+    if (!checkLogin()) return
     const { code, name } = e.currentTarget.dataset
     wx.navigateTo({
       url: `/pages/funds-add/funds-add?code=${code}&name=${encodeURIComponent(name)}`
     })
+  },
+
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: '给你分享一只涨幅不错的基金~',
+      path: '/pages/ranking/ranking',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: 'JJBond基金管家 - 发现好基金',
+      imageUrl: '/icons/logo.png'
+    }
   },
 
   // 下拉刷新

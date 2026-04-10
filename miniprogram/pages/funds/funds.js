@@ -1,6 +1,6 @@
 // pages/funds/funds.js
 const { get, del } = require('../../utils/request')
-const { checkLogin } = require('../../utils/auth')
+const { isLoggedIn, checkLogin } = require('../../utils/auth')
 const { showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
 const { formatPortfolioSummary } = require('../../utils/portfolio-summary')
 
@@ -12,21 +12,26 @@ Page({
     errorMessage: '',
     hideAmount: false,
     sortOrder: 'desc',  // 持有收益率排序：desc=从高到低，asc=从低到高
+    loggedIn: false,
   },
 
   onLoad() {
-    if (!checkLogin()) {
-      return
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (loggedIn) {
+      const hideAmount = wx.getStorageSync('hideAmount') || false
+      this.setData({ hideAmount })
     }
-    const hideAmount = wx.getStorageSync('hideAmount') || false
-    this.setData({ hideAmount })
   },
 
   onShow() {
-    if (!checkLogin()) {
-      return
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (loggedIn) {
+      this.loadFunds()
+    } else {
+      this.setData({ loading: false, funds: [], error: false })
     }
-    this.loadFunds()
   },
 
   // 加载基金列表（使用计算接口获取实时数据）
@@ -58,6 +63,23 @@ Page({
     }
   },
 
+  // 分享给好友
+  onShareAppMessage() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      path: '/pages/ranking/ranking',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 分享到朋友圈
+  onShareTimeline() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
   // 下拉刷新
   onPullDownRefresh() {
     this.loadFunds().then(() => {
@@ -65,8 +87,15 @@ Page({
     })
   },
 
+  // 跳转到登录页
+  goToLogin() {
+    const app = getApp()
+    app.goToLogin()
+  },
+
   // 跳转到添加基金页
   goToAddFund() {
+    if (!checkLogin()) return
     wx.navigateTo({
       url: '/pages/funds-add/funds-add'
     })
@@ -74,6 +103,7 @@ Page({
 
   // 跳转到编辑基金页
   goToEditFund(e) {
+    if (!checkLogin()) return
     const { id } = e.currentTarget.dataset
     wx.navigateTo({
       url: `/pages/funds-edit/funds-edit?id=${id}`
@@ -90,6 +120,7 @@ Page({
 
   // 删除基金
   async deleteFund(e) {
+    if (!checkLogin()) return
     const { id, name } = e.currentTarget.dataset
 
     const confirmed = await showConfirm('确认删除', `确定要删除 ${name} 吗？`)

@@ -12,6 +12,15 @@
   ></empty>
 
   <empty
+    wx:elif="{{!loggedIn}}"
+    icon="🔐"
+    text="登录后查看您的持仓"
+    showButton="{{true}}"
+    buttonText="去登录"
+    bind:buttonTap="goToLogin"
+  ></empty>
+
+  <empty
     wx:elif="{{funds.length === 0}}"
     icon="📊"
     text="暂无持仓基金"
@@ -62,7 +71,7 @@
   </view>
 
   <!-- 底部操作栏 -->
-  <view class="bottom-bar" wx:if="{{!loading && funds.length > 0}}">
+  <view class="bottom-bar" wx:if="{{loggedIn && !loading && funds.length > 0}}">
     <view class="hide-btn" bindtap="toggleHideAmount">
       <image class="eye-icon" src="{{hideAmount ? '/icons/eyes_display.svg' : '/icons/eyes_hidden.svg'}}" mode="aspectFit"></image>
       <text>{{hideAmount ? '显示金额' : '隐藏金额'}}</text>

@@ -1,11 +1,11 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/watchlist/watchlist",
     "pages/ranking/ranking",
+    "pages/funds/funds",
+    "pages/watchlist/watchlist",
     "pages/mine/mine",
     "pages/login/login",
-    "pages/funds/funds",
     "pages/funds-add/funds-add",
     "pages/funds-edit/funds-edit",
     "pages/fund-detail/fund-detail",

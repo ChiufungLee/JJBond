@@ -1,5 +1,5 @@
 // pages/mine/mine.js
-const { checkLogin, logout, getUserInfo } = require('../../utils/auth')
+const { checkLogin, logout, getUserInfo, isLoggedIn } = require('../../utils/auth')
 const { get } = require('../../utils/request')
 const { formatMoney } = require('../../utils/util')
 
@@ -23,6 +23,7 @@ Page({
     statsLoading: false,
     statsError: false,
     statsErrorMessage: '',
+    loggedIn: false,
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
@@ -31,11 +32,14 @@ Page({
   },
 
   onLoad() {
-    checkLogin()
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
   },
 
   onShow() {
-    if (!checkLogin()) {
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
+    if (!loggedIn) {
       return
     }
     this.loadUserInfo()
@@ -100,7 +104,14 @@ Page({
   // 跳转菜单
   goToMenu(e) {
     const { path } = e.currentTarget.dataset
+    // 需要登录的页面
+    if (!checkLogin()) return
     wx.navigateTo({ url: path })
+  },
+
+  // 跳转到登录页
+  goToLogin() {
+    app.goToLogin()
   },
 
   // 编辑用户名

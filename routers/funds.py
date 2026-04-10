@@ -81,6 +81,35 @@ async def get_fund_returns(
     return await calculator.get_fund_period_returns(fund_code)
 
 
+@router.get("/check/{fund_code}")
+async def check_fund_holding(
+    fund_code: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    轻量级查询：判断用户是否持有指定基金，并返回实时行情。
+    仅发 1 次外部请求（而非全量组合计算的 2N 次）。
+    """
+    # 查 DB 判断是否持有
+    funds = user_crud.get_user_funds(db, current_user.id)
+    held_fund = next((f for f in funds if f.fund_code == fund_code), None)
+
+    if held_fund:
+        detail = await calculator.calculate_single_fund(
+            fund_code=fund_code,
+            fund_name=held_fund.fund_name or fund_code,
+            cost_price=held_fund.cost_price,
+            shares=held_fund.shares,
+            fund_id=held_fund.id,
+        )
+        return {"is_held": True, **detail}
+
+    # 未持有：只获取基本行情
+    fund_info = await calculator.get_fund_info(fund_code)
+    return {"is_held": False, "fund_info": fund_info}
+
+
 @router.get("/{fund_code}/transactions", response_model=List[schemas.Transaction])
 def get_fund_transactions(
     fund_code: str,

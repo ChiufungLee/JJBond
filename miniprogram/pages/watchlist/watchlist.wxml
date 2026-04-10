@@ -52,6 +52,12 @@
     <text>未找到相关基金</text>
   </view>
 
+  <!-- 未登录提示横幅 -->
+  <view wx:if="{{!searchKeyword && !loggedIn}}" class="demo-banner" bindtap="goToLogin">
+    <text class="demo-banner-text">登录后管理您的自选基金</text>
+    <text class="demo-banner-btn">去登录 ›</text>
+  </view>
+
   <!-- 自选列表 -->
   <view wx:if="{{!searchKeyword}}" class="watchlist-section">
     <view class="section-header">
@@ -77,7 +83,7 @@
         <text class="col-info">基金信息</text>
         <text class="col-today">今日涨幅</text>
         <text class="col-total">自选以来</text>
-        <text class="col-action">移除</text>
+        <text class="col-action" wx:if="{{loggedIn}}">移除</text>
       </view>
 
       <!-- 列表内容 -->
@@ -103,7 +109,7 @@
           </view>
 
           <!-- 移除按钮 -->
-          <view class="col-action">
+          <view class="col-action" wx:if="{{loggedIn}}">
             <view
               class="btn-remove"
               catchtap="removeFromWatchlist"

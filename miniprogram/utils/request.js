@@ -1,7 +1,7 @@
 // utils/request.js - API请求封装
 const app = getApp()
 
-const DEFAULT_GET_CACHE_TTL = 3000
+const DEFAULT_GET_CACHE_TTL = 10000
 const inflightGetRequests = new Map()
 const getResponseCache = new Map()
 let lastCacheToken = null

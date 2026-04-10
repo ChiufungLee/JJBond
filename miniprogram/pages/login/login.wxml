@@ -21,7 +21,7 @@
     </button>
 
     <view class="login-tips">
-      <text>首次登录会自动创建账号，无需单独注册</text>
+      <text>首次登录会自动创建账号</text>
     </view>
   </view>
 </view>

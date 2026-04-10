@@ -23,9 +23,37 @@
 .avatar {
   width: 100rpx;
   height: 100rpx;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.15);
   border-radius: 50%;
   margin-right: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 盾牌图标 */
+.avatar-shield {
+  width: 54rpx;
+  height: 60rpx;
+  background: rgba(255, 255, 255, 0.9);
+  clip-path: polygon(
+    50% 0%,
+    100% 12%,
+    100% 55%,
+    50% 100%,
+    0% 55%,
+    0% 12%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-yen {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #722ed1;
+  margin-top: 8rpx;
 }
 
 .user-info {
@@ -194,4 +222,11 @@ button::after {
 .logout-text {
   color: #ff4d4f;
   text-align: center;
+}
+
+/* 未登录提示 */
+.login-hint {
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.8);
+  margin-left: 16rpx;
 }

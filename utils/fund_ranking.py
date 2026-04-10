@@ -313,22 +313,27 @@ class FundRankingManager:
                 # 升序：涨幅从低到高
                 fund_codes = self.redis.zrange(key, start, end, withscores=True)
 
-            # 获取基金详情
+            # 获取基金详情（pipeline 批量查询，1 次 Redis 往返）
             result = []
             rank_start = start + 1
-            for i, (fund_code, score) in enumerate(fund_codes):
-                detail = self.redis.hgetall(self._get_fund_detail_key(fund_code))
-                if detail:
-                    result.append({
-                        "rank": rank_start + i,
-                        "fundCode": detail.get("fundCode", fund_code),
-                        "fundName": detail.get("fundName", ""),
-                        "ftype": detail.get("ftype", ""),
-                        "company": detail.get("company", ""),
-                        "change": round(float(score), 2) if score is not None else 0,
-                        "perNav": self._safe_float(detail.get("perNav")),
-                        "riskLevel": detail.get("riskLevel"),
-                    })
+            if fund_codes:
+                pipe = self.redis.pipeline()
+                for fund_code, _ in fund_codes:
+                    pipe.hgetall(self._get_fund_detail_key(fund_code))
+                details = pipe.execute()
+
+                for i, ((fund_code, score), detail) in enumerate(zip(fund_codes, details)):
+                    if detail:
+                        result.append({
+                            "rank": rank_start + i,
+                            "fundCode": detail.get("fundCode", fund_code),
+                            "fundName": detail.get("fundName", ""),
+                            "ftype": detail.get("ftype", ""),
+                            "company": detail.get("company", ""),
+                            "change": round(float(score), 2) if score is not None else 0,
+                            "perNav": self._safe_float(detail.get("perNav")),
+                            "riskLevel": detail.get("riskLevel"),
+                        })
 
             # 获取元数据
             meta = self.redis.hgetall(META_KEY)
@@ -393,13 +398,21 @@ class FundRankingManager:
                     "value_str": f"{value}%" if value is not None else "--",
                 })
 
-            # 获取各维度的排名
-            for ranking_type, field in RANKING_FIELD_MAP.items():
+            # 获取各维度的排名（pipeline 批量查询，1 次 Redis 往返）
+            pipe = self.redis.pipeline()
+            keys = []
+            for ranking_type in RANKING_FIELD_MAP:
                 key = self._get_ranking_key(ranking_type)
-                score = self.redis.zscore(key, fund_code)
-                # 获取排名（降序，分数越高排名越靠前）
-                rank = self.redis.zrevrank(key, fund_code)
-                total = self.redis.zcard(key)
+                keys.append((ranking_type, key))
+                pipe.zscore(key, fund_code)
+                pipe.zrevrank(key, fund_code)
+                pipe.zcard(key)
+            pipeline_results = pipe.execute()
+
+            for idx, (ranking_type, key) in enumerate(keys):
+                score = pipeline_results[idx * 3]
+                rank = pipeline_results[idx * 3 + 1]
+                total = pipeline_results[idx * 3 + 2]
 
                 result["rankings"][ranking_type] = {
                     "change": round(float(score), 2) if score is not None else None,

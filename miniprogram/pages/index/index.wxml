@@ -3,7 +3,7 @@
   <loading wx:if="{{loading}}" text="加载中..."></loading>
 
   <empty
-    wx:elif="{{error}}"
+    wx:elif="{{loggedIn && error}}"
     icon="⚠️"
     text="{{errorMessage || '加载持仓概览失败，请稍后重试'}}"
     showButton="{{true}}"
@@ -12,7 +12,7 @@
   ></empty>
 
   <empty
-    wx:elif="{{!summary || summary.fund_count === 0}}"
+    wx:elif="{{loggedIn && (!summary || summary.fund_count === 0)}}"
     icon="📊"
     text="暂无持仓基金"
     showButton="{{true}}"
@@ -20,8 +20,14 @@
     bind:buttonTap="goToAddFund"
   ></empty>
 
+  <!-- 未登录提示横幅 -->
+  <view wx:if="{{!loggedIn && summary}}" class="demo-banner" bindtap="goToLogin">
+    <text class="demo-banner-text">登录后查看您的真实持仓数据</text>
+    <text class="demo-banner-btn">去登录 ›</text>
+  </view>
+
   <!-- 数据展示 -->
-  <block wx:else>
+  <block wx:if="{{summary && summary.fund_count > 0}}">
     <!-- 收益概览卡片 -->
     <view class="summary-card">
       <view class="summary-header">
