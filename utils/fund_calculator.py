@@ -663,6 +663,9 @@ class FundCalculator:
         """
         计算投资组合（完整版）。
         包含 30 天历史净值用于图表展示。
+        采用与 calculate_portfolio_simple 相同的懒加载模式：
+        先并发获取 fund_info，仅为数据不足的基金回退到历史净值，
+        最后再为所有基金补充 30 天历史净值（用于 recent_changes 图表）。
         """
         if not funds_data:
             return {
@@ -674,16 +677,38 @@ class FundCalculator:
 
         fund_codes = [f['fund_code'] for f in funds_data]
 
-        # 并发获取：行情数据 + 30 天历史净值（用于 recent_changes 图表）
-        fund_infos, nav_histories = await asyncio.gather(
-            asyncio.gather(*[self.get_fund_info(code) for code in fund_codes]),
-            asyncio.gather(*[self.get_fund_nav_history_simple(code, days=30) for code in fund_codes]),
+        # 第一步：只并发获取 fund_info（N 个请求，通常有 Redis 缓存）
+        fund_infos = await asyncio.gather(
+            *[self.get_fund_info(code) for code in fund_codes]
         )
 
+        # 第二步：检查哪些基金需要 nav_history 回退（仅需 3 天数据）
+        fallback_indices = []
+        for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
+            resolved = self._resolve_market_values(fund_info, None, None)
+            if not resolved:
+                fallback_indices.append(i)
+
+        nav_histories: Dict[int, List] = {}
+        if fallback_indices:
+            nav_results = await asyncio.gather(
+                *[self.get_fund_nav_history_simple(fund_codes[i], days=3) for i in fallback_indices]
+            )
+            for idx, nav_list in zip(fallback_indices, nav_results):
+                nav_histories[idx] = nav_list
+
+        # 第三步：计算每只基金的详情
         fund_details = []
-        for fund_data, fund_info, nav_history in zip(funds_data, fund_infos, nav_histories):
-            recent = nav_history if nav_history else []
-            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav_history, recent_changes=recent))
+        for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
+            nav = nav_histories.get(i)
+            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav))
+
+        # 第四步：并发获取所有基金的 30 天历史净值（用于 recent_changes 图表）
+        recent_navs = await asyncio.gather(
+            *[self.get_fund_nav_history_simple(code, days=30) for code in fund_codes]
+        )
+        for i, recent in enumerate(recent_navs):
+            fund_details[i]['recent_changes'] = recent if recent else []
 
         fund_details.sort(key=lambda x: x.get('change_rate_value', 0), reverse=True)
         return self._aggregate_portfolio(fund_details)

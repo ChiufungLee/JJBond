@@ -91,6 +91,7 @@ Page({
 
       hideLoading()
       app.markFundDirty(this.data.fundInfo?.fund_code)
+      app.markPortfolioDirty()
       showToast('保存成功')
 
       setTimeout(() => {

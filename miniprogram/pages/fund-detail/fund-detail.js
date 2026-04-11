@@ -1,6 +1,6 @@
 // pages/fund-detail/fund-detail.js
 const { get } = require('../../utils/request')
-const { formatMoney, formatPercent, getTrend } = require('../../utils/util')
+const { formatMoney, formatPercent, getTrend, throttle } = require('../../utils/util')
 let wxCharts = null
 const app = getApp()
 
@@ -55,6 +55,8 @@ Page({
   navRequestId: 0,
   transactionsLoadedFundCode: '',
   initialized: false,
+  // 节流版 tooltip 更新（避免 touchMove 每帧触发 setData）
+  _throttledUpdateTooltip: null,
 
   onLoad(options) {
     const { code } = options
@@ -98,6 +100,10 @@ Page({
     } catch (e) {
       console.warn('wx-charts加载失败:', e)
     }
+    // 初始化节流版 tooltip（80ms 间隔，避免每帧触发 setData）
+    this._throttledUpdateTooltip = throttle((e) => {
+      this.updateTooltipPosition(e)
+    }, 80)
   },
 
   getRangeDays(rangeKey = this.data.currentNavRange) {
@@ -319,23 +325,29 @@ Page({
         errorMessage: ''
       })
 
-      await this.ensureTransactionsLoaded(fundCode)
+      // 并行加载交易记录和净值历史（两者互相独立）
       if (shouldResetRelatedData) {
-        await this.loadNavHistory({
-          resetList: true,
-          rangeKey: this.data.currentNavRange,
-          costPrice: isHeld ? formattedInfo.cost_price : null,
-          forceRefresh
-        })
-      } else if (this.chartData && this.data.navHistoryAll.length > 0) {
-        this.drawChart(this.data.navHistoryAll, isHeld ? formattedInfo.cost_price : null)
+        await Promise.all([
+          this.ensureTransactionsLoaded(fundCode),
+          this.loadNavHistory({
+            resetList: true,
+            rangeKey: this.data.currentNavRange,
+            costPrice: isHeld ? formattedInfo.cost_price : null,
+            forceRefresh
+          })
+        ])
       } else {
-        await this.loadNavHistory({
-          resetList: true,
-          rangeKey: this.data.currentNavRange,
-          costPrice: isHeld ? formattedInfo.cost_price : null,
-          forceRefresh
-        })
+        await this.ensureTransactionsLoaded(fundCode)
+        if (this.chartData && this.data.navHistoryAll.length > 0) {
+          this.drawChart(this.data.navHistoryAll, isHeld ? formattedInfo.cost_price : null)
+        } else {
+          await this.loadNavHistory({
+            resetList: true,
+            rangeKey: this.data.currentNavRange,
+            costPrice: isHeld ? formattedInfo.cost_price : null,
+            forceRefresh
+          })
+        }
       }
     } catch (error) {
       console.error('加载基金详情失败:', error)
@@ -586,9 +598,11 @@ Page({
     this.updateTooltipPosition(e)
   },
 
-  // 处理图表触摸移动
+  // 处理图表触摸移动（节流，避免每帧触发 setData）
   handleChartTouchMove(e) {
-    this.updateTooltipPosition(e)
+    if (this._throttledUpdateTooltip) {
+      this._throttledUpdateTooltip(e)
+    }
   },
 
   // 处理图表触摸结束

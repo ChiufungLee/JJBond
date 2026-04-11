@@ -6,7 +6,8 @@ from models.watchlist import WatchlistFund, FundTransaction
 from schemas.user import UserCreate, FundCreate, FundUpdate
 from utils.password import get_password_hash, verify_password
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
+from calendar import monthrange
 from zoneinfo import ZoneInfo
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
@@ -184,6 +185,14 @@ def get_user_fund(db: Session, user_id: int, fund_id: int):
     ).first()
 
 
+def get_user_fund_by_code(db: Session, user_id: int, fund_code: str):
+    """按基金代码定向查询单条持仓"""
+    return db.query(UserFund).filter(
+        UserFund.user_id == user_id,
+        UserFund.fund_code == fund_code,
+    ).first()
+
+
 def create_user_fund(db: Session, fund: FundCreate, user_id: int):
     """
     新增持仓并记录买入交易。
@@ -279,11 +288,15 @@ def delete_user_fund(db: Session, fund_id: int, user_id: int):
     return True
 
 
-def get_user_transactions(db: Session, user_id: int, fund_code: str = None) -> List[FundTransaction]:
-    """获取用户交易记录"""
+def get_user_transactions(db: Session, user_id: int, fund_code: str = None, before_date: date = None) -> List[FundTransaction]:
+    """获取用户交易记录，可按基金代码和日期过滤"""
     query = db.query(FundTransaction).filter(FundTransaction.user_id == user_id)
     if fund_code:
         query = query.filter(FundTransaction.fund_code == fund_code)
+    if before_date:
+        # 只查询指定日期之前的交易（含该月，用于收益日历计算份额快照）
+        end_of_month = date(before_date.year, before_date.month, monthrange(before_date.year, before_date.month)[1])
+        query = query.filter(FundTransaction.transaction_date <= end_of_month)
     return query.order_by(FundTransaction.transaction_date.desc()).all()
 
 

@@ -7,6 +7,10 @@ App({
     loginRedirecting: false,
     unauthorizedHandling: false,
     dirtyFunds: {},
+    // 组合数据缓存（index 和 funds 页共享）
+    portfolioCache: null,
+    portfolioCacheTime: 0,
+    portfolioDirty: false,
     // 后端API地址，开发时使用本地地址，生产环境需要修改为正式域名
     // baseUrl: 'http://106.13.192.72:8888/api'
     baseUrl: 'https://fund.awesomeme.cloud/api'
@@ -63,6 +67,7 @@ App({
     this.globalData.userInfo = null
     this.globalData.isLoggedIn = false
     this.globalData.dirtyFunds = {}
+    this.clearPortfolioCache()
 
     wx.removeStorageSync('token')
     wx.removeStorageSync('userInfo')
@@ -73,6 +78,38 @@ App({
       return
     }
     this.globalData.dirtyFunds[fundCode] = true
+  },
+
+  // 标记组合数据需要刷新（增删改持仓后调用）
+  markPortfolioDirty() {
+    this.globalData.portfolioDirty = true
+  },
+
+  // 获取组合缓存数据，返回 null 表示需要重新请求
+  // maxAge: 缓存最大有效期（毫秒），默认 60 秒
+  getPortfolioCache(maxAge = 60000) {
+    const { portfolioCache, portfolioCacheTime, portfolioDirty } = this.globalData
+    if (portfolioDirty || !portfolioCache) {
+      return null
+    }
+    if (Date.now() - portfolioCacheTime > maxAge) {
+      return null
+    }
+    return portfolioCache
+  },
+
+  // 写入组合缓存
+  setPortfolioCache(data) {
+    this.globalData.portfolioCache = data
+    this.globalData.portfolioCacheTime = Date.now()
+    this.globalData.portfolioDirty = false
+  },
+
+  // 清除组合缓存
+  clearPortfolioCache() {
+    this.globalData.portfolioCache = null
+    this.globalData.portfolioCacheTime = 0
+    this.globalData.portfolioDirty = false
   },
 
   consumeFundDirty(fundCode) {

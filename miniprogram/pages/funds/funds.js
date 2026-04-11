@@ -28,7 +28,17 @@ Page({
     const loggedIn = isLoggedIn()
     this.setData({ loggedIn })
     if (loggedIn) {
-      this.loadFunds()
+      // 优先使用缓存，避免 tab 切换时重复请求
+      const app = getApp()
+      const cached = app.getPortfolioCache()
+      if (cached) {
+        const summary = formatPortfolioSummary(cached)
+        const funds = summary?.fund_details || []
+        const sorted = this._sortFunds(funds, this.data.sortOrder)
+        this.setData({ funds: sorted, loading: false, error: false, errorMessage: '' })
+      } else {
+        this.loadFunds()
+      }
     } else {
       this.setData({ loading: false, funds: [], error: false })
     }
@@ -36,17 +46,17 @@ Page({
 
   // 加载基金列表（使用计算接口获取实时数据）
   async loadFunds() {
-    this.setData({
-      loading: true,
-      error: false,
-      errorMessage: ''
-    })
+    this.setData({ loading: true, error: false, errorMessage: '' })
 
     try {
-      const summary = formatPortfolioSummary(await get('/funds/calculate-simple'))
+      const rawData = await get('/funds/calculate-simple')
+      // 写入全局缓存，供 index 页复用
+      getApp().setPortfolioCache(rawData)
+      const summary = formatPortfolioSummary(rawData)
       const funds = summary?.fund_details || []
       const sorted = this._sortFunds(funds, this.data.sortOrder)
       this.setData({
+        loading: false,
         funds: sorted,
         error: false,
         errorMessage: ''
@@ -54,12 +64,11 @@ Page({
     } catch (error) {
       console.error('加载基金列表失败:', error)
       this.setData({
+        loading: false,
         funds: [],
         error: true,
         errorMessage: error.message || '加载持仓列表失败，请稍后重试'
       })
-    } finally {
-      this.setData({ loading: false })
     }
   },
 
@@ -133,7 +142,8 @@ Page({
       hideLoading()
       showToast('删除成功')
 
-      // 刷新列表
+      // 标记缓存失效并刷新列表
+      getApp().markPortfolioDirty()
       this.loadFunds()
     } catch (error) {
       hideLoading()

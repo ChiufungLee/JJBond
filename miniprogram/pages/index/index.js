@@ -55,7 +55,19 @@ Page({
     const loggedIn = isLoggedIn()
     this.setData({ loggedIn })
     if (loggedIn) {
-      this.loadData()
+      // 优先使用缓存，避免 tab 切换时重复请求
+      const app = getApp()
+      const cached = app.getPortfolioCache()
+      if (cached) {
+        this.setData({
+          summary: this.formatSummary(cached),
+          loading: false,
+          error: false,
+          errorMessage: ''
+        })
+      } else {
+        this.loadData()
+      }
     } else {
       const now = new Date()
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
@@ -70,16 +82,16 @@ Page({
 
   // 加载数据
   async loadData() {
-    this.setData({
-      loading: true,
-      error: false,
-      errorMessage: ''
-    })
+    this.setData({ loading: true, error: false, errorMessage: '' })
     try {
       const summary = await get('/funds/calculate-simple')
+      // 写入全局缓存，供 funds 页复用
+      getApp().setPortfolioCache(summary)
       const now = new Date()
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       this.setData({
+        loading: false,
+        refreshing: false,
         summary: this.formatSummary(summary),
         updateTime,
         error: false,
@@ -88,12 +100,12 @@ Page({
     } catch (error) {
       console.error('加载数据失败:', error)
       this.setData({
+        loading: false,
+        refreshing: false,
         summary: null,
         error: true,
         errorMessage: error.message || '加载持仓概览失败，请稍后重试'
       })
-    } finally {
-      this.setData({ loading: false, refreshing: false })
     }
   },
 

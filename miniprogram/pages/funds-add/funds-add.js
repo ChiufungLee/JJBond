@@ -108,6 +108,7 @@ Page({
 
       hideLoading()
       app.markFundDirty(selectedFund.fund_code)
+      app.markPortfolioDirty()
       showToast('添加成功')
 
       setTimeout(() => {

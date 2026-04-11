@@ -91,9 +91,8 @@ async def check_fund_holding(
     轻量级查询：判断用户是否持有指定基金，并返回实时行情。
     仅发 1 次外部请求（而非全量组合计算的 2N 次）。
     """
-    # 查 DB 判断是否持有
-    funds = user_crud.get_user_funds(db, current_user.id)
-    held_fund = next((f for f in funds if f.fund_code == fund_code), None)
+    # 查 DB 判断是否持有（定向查询，避免加载全部持仓）
+    held_fund = user_crud.get_user_fund_by_code(db, current_user.id, fund_code)
 
     if held_fund:
         detail = await calculator.calculate_single_fund(
@@ -168,9 +167,12 @@ async def get_revenue_calendar(
     获取收益日历数据
     返回指定月份每天的收益情况
     """
-    # 获取用户所有交易记录
-    transactions = user_crud.get_user_transactions(db=db, user_id=current_user.id)
-
+    # 获取用户交易记录（仅查询目标月份及之前，减少数据传输量）
+    from datetime import date as date_type
+    transactions = user_crud.get_user_transactions(
+        db=db, user_id=current_user.id,
+        before_date=date_type(year, month, 1)
+    )
     return await calculator.calculate_revenue_calendar(transactions, year, month)
 
 
