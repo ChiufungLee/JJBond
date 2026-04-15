@@ -392,11 +392,69 @@ class FundCalculator:
         except (TypeError, ValueError):
             return None
 
+    def _is_nav_updated_today(self, real_nav_info: Dict) -> bool:
+        """检查实际净值是否已更新到今天"""
+        fsrq = real_nav_info.get('fsrq', '')
+        if not fsrq:
+            return False
+        today = date.today()
+        for fmt in ('%Y-%m-%d', '%Y%m%d', '%Y/%m/%d'):
+            try:
+                nav_date = datetime.strptime(fsrq, fmt).date()
+                return nav_date == today
+            except ValueError:
+                continue
+        return False
+
+    async def _get_real_nav_info(self, fund_code: str) -> Optional[Dict]:
+        """获取实际净值信息（天天基金 FundCoreDiyNew 接口）"""
+        cache_key = f"real_nav:{fund_code}"
+        cached_data = self._cache_get(cache_key)
+        if cached_data:
+            try:
+                return json.loads(cached_data)
+            except json.JSONDecodeError:
+                pass
+
+        url = "https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+        fields = 'SHORTNAME,RZDF,DWJZ,LJJZ,FSRQ,FCODE'
+        data = {
+            'deviceid': '1234567.py.service',
+            'version': '6.5.5',
+            'appVersion': '6.5.5',
+            'product': 'EFund',
+            'plat': 'Iphone',
+            'FCODES': fund_code,
+            'FIELDS': fields
+        }
+        try:
+            session = get_http_session()
+            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                resp.raise_for_status()
+                result = await resp.json()
+                if result.get('success') and result.get('data'):
+                    item = result['data'][0]
+                    nav_info = {
+                        'dwjz': item.get('DWJZ'),
+                        'rzdf': item.get('RZDF'),
+                        'fsrq': item.get('FSRQ'),
+                    }
+                    self._cache_set(cache_key, json.dumps(nav_info), 300)
+                    return nav_info
+        except Exception as e:
+            logger.warning(f"获取实际净值失败: {fund_code}, 错误: {str(e)}")
+        return None
+
     def _resolve_market_values(
         self,
         fund_info: Optional[Dict[str, Any]],
         today_nav: Optional[float],
         prev_nav: Optional[float],
+        real_nav_info: Optional[Dict] = None,
     ) -> Optional[Dict[str, float]]:
         estimate_value = self._parse_float(fund_info.get('gsz')) if fund_info else None
         market_prev_nav = self._parse_float(fund_info.get('dwjz')) if fund_info else None
@@ -414,12 +472,21 @@ class FundCalculator:
         if today_value is None:
             today_value = lof_value
 
+        # 3点后使用实际净值覆盖
+        nav_updated = False
+        if real_nav_info:
+            real_dwjz = self._parse_float(real_nav_info.get('dwjz'))
+            if real_dwjz is not None:
+                today_value = real_dwjz
+                nav_updated = True
+
         if shangrijingzhi is None or today_value is None:
             return None
 
         return {
             'shangrijingzhi': shangrijingzhi,
             'today_value': today_value,
+            'nav_updated': nav_updated,
         }
 
     async def calculate_single_fund(
@@ -433,14 +500,23 @@ class FundCalculator:
         count = round(cost_price * shares, 2)
 
         fund_info = await self.get_fund_info(fund_code)
-        resolved = self._resolve_market_values(fund_info, None, None)
+
+        # 3点后获取实际净值
+        real_nav_info = None
+        nav_updated = False
+        if datetime.now().hour >= 15:
+            real_nav_info = await self._get_real_nav_info(fund_code)
+            if real_nav_info and self._is_nav_updated_today(real_nav_info):
+                nav_updated = True
+
+        resolved = self._resolve_market_values(fund_info, None, None, real_nav_info)
 
         if not resolved:
             # fund_info 不足，回退到历史净值
             nav_history = await self.get_fund_nav_history_simple(fund_code, days=3)
             today_nav = nav_history[0].get('unit_nav') if nav_history and len(nav_history) >= 1 else None
             prev_nav = nav_history[1].get('unit_nav') if nav_history and len(nav_history) >= 2 else None
-            resolved = self._resolve_market_values(fund_info, today_nav, prev_nav)
+            resolved = self._resolve_market_values(fund_info, today_nav, prev_nav, real_nav_info)
 
         if not resolved:
             return {
@@ -455,10 +531,12 @@ class FundCalculator:
                 'change_rate': None, 'today_revenue': None,
                 'total_revenue': None, 'profit_loss_ratio': None,
                 'recent_changes': [],
+                'nav_updated': False,
             }
 
         shangrijingzhi = resolved['shangrijingzhi']
         today_value = resolved['today_value']
+        nav_updated = resolved.get('nav_updated', nav_updated)
         amount = round(shangrijingzhi * shares, 2)
         today_revenue = round((today_value - shangrijingzhi) * shares, 2)
         total_revenue = round((today_value - cost_price) * shares, 2)
@@ -466,6 +544,11 @@ class FundCalculator:
 
         name = fund_info.get('name', fund_name) if fund_info else fund_name
         gszzl = self._parse_float(fund_info.get('gszzl')) if fund_info else None
+        # 3点后使用实际涨跌幅
+        if nav_updated and real_nav_info:
+            rzdf = self._parse_float(real_nav_info.get('rzdf'))
+            if rzdf is not None:
+                gszzl = rzdf
         change_rate = f"{gszzl}%" if gszzl is not None else "--"
 
         return {
@@ -484,12 +567,14 @@ class FundCalculator:
             'total_revenue': total_revenue,
             'profit_loss_ratio': profit_loss_ratio,
             'recent_changes': [],
+            'nav_updated': nav_updated,
         }
 
     def _compute_fund_detail(
         self, fund_data: Dict, fund_info: Optional[Dict],
         nav_history: Optional[List[Dict]] = None,
         recent_changes: Optional[List[Dict]] = None,
+        real_nav_info: Optional[Dict] = None,
     ) -> Dict:
         """
         计算单只基金的详情 dict。
@@ -503,14 +588,14 @@ class FundCalculator:
         count      = round(cost_price * share, 2)
 
         # 先尝试只用 fund_info 计算
-        resolved_values = self._resolve_market_values(fund_info, None, None)
+        resolved_values = self._resolve_market_values(fund_info, None, None, real_nav_info)
 
         daily_growth_value = None
         if not resolved_values and nav_history:
             today_nav = nav_history[0].get('unit_nav') if len(nav_history) >= 1 else None
             prev_nav = nav_history[1].get('unit_nav') if len(nav_history) >= 2 else None
             daily_growth_value = nav_history[0].get('daily_growth_value') if len(nav_history) >= 1 else None
-            resolved_values = self._resolve_market_values(fund_info, today_nav, prev_nav)
+            resolved_values = self._resolve_market_values(fund_info, today_nav, prev_nav, real_nav_info)
 
         if not resolved_values:
             logger.warning(f"基金 {fund_code} 缺少可用估值数据，返回降级记录")
@@ -531,11 +616,13 @@ class FundCalculator:
                 'total_revenue': None,
                 'profit_loss_ratio': None,
                 'recent_changes': recent_changes if recent_changes is not None else [],
+                'nav_updated': False,
             }
 
         shangrijingzhi = resolved_values['shangrijingzhi']
         amount = round(shangrijingzhi * share, 2)
         today_value = resolved_values['today_value']
+        nav_updated = resolved_values.get('nav_updated', False)
         today_revenue = round((today_value - shangrijingzhi) * share, 2)
         name = fund_info.get('name', fund_name) if fund_info else fund_name
 
@@ -543,6 +630,12 @@ class FundCalculator:
         profit_and_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
 
         gszzl_raw = self._parse_float(fund_info.get('gszzl')) if fund_info else None
+        # 3点后使用实际涨跌幅
+        if nav_updated and real_nav_info:
+            rzdf = self._parse_float(real_nav_info.get('rzdf'))
+            if rzdf is not None:
+                gszzl_raw = rzdf
+
         if gszzl_raw is not None:
             gszzl = gszzl_raw
             change_rate = f"{gszzl}%"
@@ -570,6 +663,7 @@ class FundCalculator:
             'total_revenue': total_revenue,
             'profit_loss_ratio': profit_and_loss_ratio,
             'recent_changes': recent_changes if recent_changes is not None else [],
+            'nav_updated': nav_updated,
         }
 
     def _aggregate_portfolio(self, fund_details: List[Dict]) -> Dict:
@@ -618,6 +712,7 @@ class FundCalculator:
         """
         计算投资组合（轻量版）。
         优先使用 get_fund_info 的 dwjz/gsz，数据不足时才回退到历史净值。
+        3点后获取实际净值。
         """
         if not funds_data:
             return {
@@ -634,10 +729,21 @@ class FundCalculator:
             *[self.get_fund_info(code) for code in fund_codes]
         )
 
+        # 3点后并发获取实际净值
+        real_nav_map: Dict[str, Optional[Dict]] = {}
+        if datetime.now().hour >= 15:
+            real_nav_results = await asyncio.gather(
+                *[self._get_real_nav_info(code) for code in fund_codes]
+            )
+            for code, real_nav in zip(fund_codes, real_nav_results):
+                if real_nav and self._is_nav_updated_today(real_nav):
+                    real_nav_map[code] = real_nav
+
         # 第二步：检查哪些基金需要 nav_history 回退
         fallback_indices = []
         for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
-            resolved = self._resolve_market_values(fund_info, None, None)
+            real_nav = real_nav_map.get(fund_data['fund_code'])
+            resolved = self._resolve_market_values(fund_info, None, None, real_nav)
             if not resolved:
                 fallback_indices.append(i)
 
@@ -654,7 +760,8 @@ class FundCalculator:
         fund_details = []
         for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
             nav = nav_histories.get(i)
-            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav))
+            real_nav = real_nav_map.get(fund_data['fund_code'])
+            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav, None, real_nav))
 
         fund_details.sort(key=lambda x: x.get('change_rate_value', 0), reverse=True)
         return self._aggregate_portfolio(fund_details)
@@ -663,9 +770,7 @@ class FundCalculator:
         """
         计算投资组合（完整版）。
         包含 30 天历史净值用于图表展示。
-        采用与 calculate_portfolio_simple 相同的懒加载模式：
-        先并发获取 fund_info，仅为数据不足的基金回退到历史净值，
-        最后再为所有基金补充 30 天历史净值（用于 recent_changes 图表）。
+        3点后获取实际净值。
         """
         if not funds_data:
             return {
@@ -682,10 +787,21 @@ class FundCalculator:
             *[self.get_fund_info(code) for code in fund_codes]
         )
 
+        # 3点后并发获取实际净值
+        real_nav_map: Dict[str, Optional[Dict]] = {}
+        if datetime.now().hour >= 15:
+            real_nav_results = await asyncio.gather(
+                *[self._get_real_nav_info(code) for code in fund_codes]
+            )
+            for code, real_nav in zip(fund_codes, real_nav_results):
+                if real_nav and self._is_nav_updated_today(real_nav):
+                    real_nav_map[code] = real_nav
+
         # 第二步：检查哪些基金需要 nav_history 回退（仅需 3 天数据）
         fallback_indices = []
         for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
-            resolved = self._resolve_market_values(fund_info, None, None)
+            real_nav = real_nav_map.get(fund_data['fund_code'])
+            resolved = self._resolve_market_values(fund_info, None, None, real_nav)
             if not resolved:
                 fallback_indices.append(i)
 
@@ -701,7 +817,8 @@ class FundCalculator:
         fund_details = []
         for i, (fund_data, fund_info) in enumerate(zip(funds_data, fund_infos)):
             nav = nav_histories.get(i)
-            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav))
+            real_nav = real_nav_map.get(fund_data['fund_code'])
+            fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav, None, real_nav))
 
         # 第四步：并发获取所有基金的 30 天历史净值（用于 recent_changes 图表）
         recent_navs = await asyncio.gather(

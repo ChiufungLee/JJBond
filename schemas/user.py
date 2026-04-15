@@ -96,6 +96,7 @@ class WatchlistItem(BaseModel):
     current_nav: Optional[float] = None  # 当前净值
     change_rate: Optional[str] = None  # 今日涨跌幅
     total_change_rate: Optional[float] = None  # 加入自选以来涨跌幅(%)
+    nav_updated: bool = False  # 今日实际净值是否已更新
 
     class Config:
         from_attributes = True
@@ -133,6 +134,7 @@ class FundDetail(BaseModel):
     total_revenue: Optional[float] = None
     profit_loss_ratio: Optional[float] = None
     recent_changes: List[Dict[str, Any]] = []
+    nav_updated: bool = False  # 今日实际净值是否已更新
 
 class PortfolioSummary(BaseModel):
     fund_count: int

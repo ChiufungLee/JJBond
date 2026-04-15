@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import asyncio
+from datetime import datetime
 
 from core.dependencies import get_current_user
 from core.database import get_db
@@ -32,6 +33,16 @@ async def get_watchlist(
         *[calculator.get_fund_info(item.fund_code) for item in watchlist]
     )
 
+    # 3点后获取实际净值
+    real_nav_map = {}
+    if datetime.now().hour >= 15:
+        real_nav_results = await asyncio.gather(
+            *[calculator._get_real_nav_info(item.fund_code) for item in watchlist]
+        )
+        for item, real_nav in zip(watchlist, real_nav_results):
+            if real_nav and calculator._is_nav_updated_today(real_nav):
+                real_nav_map[item.fund_code] = real_nav
+
     result = []
     for item, fund_info in zip(watchlist, fund_infos):
         watchlist_item = schemas.WatchlistItem(
@@ -44,14 +55,19 @@ async def get_watchlist(
         )
 
         if fund_info:
+            real_nav = real_nav_map.get(item.fund_code)
             if 'dwjz' in fund_info:
-                current_nav = fund_info.get('gsz') or fund_info.get('dwjz') or 0
-                gszzl = fund_info.get('gszzl')
+                if real_nav:
+                    current_nav = float(real_nav.get('dwjz', fund_info.get('gsz') or fund_info.get('dwjz') or 0))
+                    gszzl = real_nav.get('rzdf')
+                    watchlist_item.nav_updated = True
+                else:
+                    current_nav = float(fund_info.get('gsz') or fund_info.get('dwjz') or 0)
+                    gszzl = fund_info.get('gszzl')
             else:
-                current_nav = fund_info.get('value', 0)
+                current_nav = float(fund_info.get('value', 0))
                 gszzl = None
 
-            current_nav = float(current_nav)
             watchlist_item.current_nav = current_nav
             watchlist_item.change_rate = f"{gszzl}%" if gszzl is not None else "--"
 

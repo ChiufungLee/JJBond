@@ -39,7 +39,6 @@ Page({
     navError: false,
     navErrorMessage: '',
     transactions: [],
-    transactionMarkers: [],
     tooltip: {
       show: false,
       date: '今日',
@@ -122,91 +121,6 @@ Page({
   formatUnitNav(value) {
     const num = parseFloat(value)
     return Number.isFinite(num) ? num.toFixed(4) : ''
-  },
-
-  formatTransactionDate(value) {
-    if (!value) {
-      return ''
-    }
-
-    if (typeof value === 'string') {
-      return value.slice(0, 10)
-    }
-
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) {
-      return ''
-    }
-
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  },
-
-  buildTransactionMarkers(transactions = this.data.transactions) {
-    const { categories } = this.chartData || {}
-    const points = this.chartPoints || []
-    if (!categories || categories.length === 0 || points.length === 0 || !Array.isArray(transactions)) {
-      return []
-    }
-
-    const dateIndexMap = new Map()
-    categories.forEach((date, index) => {
-      dateIndexMap.set(date, index)
-    })
-
-    const markerMap = new Map()
-    const dateTypeMap = new Map()
-
-    transactions.forEach(item => {
-      const date = this.formatTransactionDate(item.transaction_date)
-      const index = dateIndexMap.get(date)
-      const point = index === undefined ? null : points[index]
-      if (!point) {
-        return
-      }
-
-      const type = item.transaction_type === 'buy' ? 'buy' : 'sell'
-      const key = `${date}_${type}`
-      const existing = markerMap.get(key)
-
-      if (existing) {
-        existing.count += 1
-        return
-      }
-
-      markerMap.set(key, {
-        key,
-        date,
-        type,
-        x: point.x,
-        y: point.y,
-        count: 1
-      })
-
-      const existingTypes = dateTypeMap.get(date) || new Set()
-      existingTypes.add(type)
-      dateTypeMap.set(date, existingTypes)
-    })
-
-    return Array.from(markerMap.values()).map(marker => {
-      const typeCount = dateTypeMap.get(marker.date)?.size || 1
-      if (typeCount < 2) {
-        return marker
-      }
-
-      return {
-        ...marker,
-        x: marker.x + (marker.type === 'buy' ? -7 : 7)
-      }
-    })
-  },
-
-  updateTransactionMarkers(transactions = this.data.transactions) {
-    this.setData({
-      transactionMarkers: this.buildTransactionMarkers(transactions)
-    })
   },
 
   buildNavListState(history) {
@@ -292,7 +206,6 @@ Page({
             navError: false,
             navErrorMessage: '',
             transactions: [],
-            transactionMarkers: [],
             'tooltip.show': false,
             'tooltip.date': '今日',
             'tooltip.value': ''
@@ -378,7 +291,6 @@ Page({
       navLoadingMore: false,
       navError: false,
       navErrorMessage: '',
-      transactionMarkers: [],
       ...(resetList
         ? {
             navHistoryAll: [],
@@ -423,8 +335,6 @@ Page({
             this.drawChart(navHistory, costPrice)
           }
         }, 100)
-      } else {
-        this.setData({ transactionMarkers: [] })
       }
 
       return true
@@ -511,18 +421,26 @@ Page({
   formatFundInfoBasic(info) {
     if (!info) return null
 
+    const navUpdated = !!info.nav_updated
+    const gszzlNum = parseFloat(info.gszzl)
+
+    // 已更新实际净值时，dwjz 已被后端替换为实际净值
+    const todayValue = navUpdated ? info.dwjz : (info.gsz || '--')
+    const changeRate = info.gszzl ? `${info.gszzl}%` : '--'
+
     return {
       fund_code: info.fundcode || info.fund_code,
       fund_name: info.name || info.fund_name,
-      change_rate: info.gszzl ? `${info.gszzl}%` : '--',
+      change_rate: changeRate,
+      nav_updated: navUpdated,
       recent_changes: [],
       // 未持有基金没有以下数据
       cost: null,
       cost_formatted: '--',
       shares: '--',
       cost_price: null,
-      today_value: info.gsz || '--',
-      today_revenue: null,
+      today_value: todayValue,
+      today_revenue: Number.isFinite(gszzlNum) ? gszzlNum : null,
       today_revenue_formatted: '--',
       total_revenue: null,
       total_revenue_formatted: '--',
@@ -585,7 +503,6 @@ Page({
         dataPointShape: false,
         onSuccess: (points) => {
           this.chartPoints = points
-          this.updateTransactionMarkers()
         }
       })
     } catch (e) {

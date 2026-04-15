@@ -99,8 +99,8 @@
           </view>
 
           <!-- 今日涨幅 -->
-          <view class="col-today {{item.change_rate && item.change_rate.indexOf('-') >= 0 ? 'down' : 'up'}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-            <text>{{item.change_rate || '--'}}</text>
+          <view class="col-today {{item.change_rate_class}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+            <text>{{item.change_rate || '--'}}<text wx:if="{{item.nav_updated}}" class="nav-updated-tag">已更新</text></text>
           </view>
 
           <!-- 自选以来涨幅 -->

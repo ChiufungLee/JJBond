@@ -4,6 +4,10 @@ const { isLoggedIn, checkLogin } = require('../../utils/auth')
 const { formatPercent, showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
 const { createFundSearchManager } = require('../../utils/fund-search')
 
+const isDownChangeRate = (rate) => {
+  return (rate && rate[0] === '-') || rate === '0' || rate === '0.00%' || rate === '--'
+}
+
 // 示例自选基金数据（未登录时展示）
 const DEMO_WATCHLIST = [
   { id: 1, fund_code: '110011', fund_name: '易方达中小盘混合', change_rate: '1.23%', total_change_rate: 2.5, total_change_formatted: '+2.50%', is_holding: false, added_at: '2026/01/15' },
@@ -44,7 +48,8 @@ Page({
         loading: false,
         watchlist: DEMO_WATCHLIST.map(item => ({
           ...item,
-          added_at_formatted: this.formatDate(item.added_at)
+          added_at_formatted: this.formatDate(item.added_at),
+          change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
         }))
       })
     }
@@ -65,7 +70,9 @@ Page({
         watchlist: (watchlist || []).map(item => ({
           ...item,
           added_at_formatted: this.formatDate(item.added_at),
-          total_change_formatted: formatPercent(item.total_change_rate)
+          total_change_formatted: formatPercent(item.total_change_rate),
+          nav_updated: !!item.nav_updated,
+          change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
         })),
         loading: false
       })

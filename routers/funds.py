@@ -1,6 +1,7 @@
 import json
 import logging
 import aiohttp
+from datetime import datetime
 from core.http_client import get_http_session
 from typing import List
 
@@ -104,8 +105,18 @@ async def check_fund_holding(
         )
         return {"is_held": True, **detail}
 
-    # 未持有：只获取基本行情
+    # 未持有：获取基本行情，3点后检查实际净值
     fund_info = await calculator.get_fund_info(fund_code)
+
+    # 3点后获取实际净值，补充 nav_updated 标识给前端
+    if datetime.now().hour >= 15 and fund_info:
+        real_nav_info = await calculator._get_real_nav_info(fund_code)
+        if real_nav_info and calculator._is_nav_updated_today(real_nav_info):
+            fund_info['nav_updated'] = True
+            fund_info['dwjz'] = real_nav_info.get('dwjz', fund_info.get('dwjz'))
+            if real_nav_info.get('rzdf') is not None:
+                fund_info['gszzl'] = str(real_nav_info['rzdf'])
+
     return {"is_held": False, "fund_info": fund_info}
 
 

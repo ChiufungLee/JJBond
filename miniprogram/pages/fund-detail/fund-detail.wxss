@@ -73,6 +73,17 @@
   font-weight: bold;
 }
 
+.nav-updated-tag {
+  font-size: 18rpx;
+  font-weight: 400;
+  color: #fff;
+  background-color: #722ed1;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-left: 8rpx;
+  vertical-align: middle;
+}
+
 .fund-main {
   display: flex;
   justify-content: space-between;
@@ -233,44 +244,6 @@
   width: 100%;
   height: 100%;
   z-index: 2;
-}
-
-.transaction-marker-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.transaction-marker {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 1px solid #fff;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.16);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.transaction-marker-buy {
-  background-color: #ff7a45;
-}
-
-.transaction-marker-sell {
-  background-color: #1677ff;
-}
-
-.transaction-marker-count {
-  color: #fff;
-  font-size: 14rpx;
-  line-height: 1;
-  font-weight: 600;
 }
 
 .crosshair-layer {

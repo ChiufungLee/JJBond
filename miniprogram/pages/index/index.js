@@ -131,9 +131,9 @@ Page({
       let aVal, bVal
 
       if (sortBy === 'change_rate') {
-        // change_rate 是字符串如 "-1.23%" 或 "2.45%"，需要解析
-        aVal = this.parseChangeRate(a.change_rate)
-        bVal = this.parseChangeRate(b.change_rate)
+        // 按当日收益金额排序，而非涨幅百分比
+        aVal = a.today_revenue || 0
+        bVal = b.today_revenue || 0
       } else {
         aVal = a[sortBy] || 0
         bVal = b[sortBy] || 0

@@ -6,7 +6,7 @@
       <text class="fund-code">{{fund.fund_code || defaultFund.fund_code}}</text>
     </view>
     <view class="fund-rate {{fund.today_revenue >= 0 ? 'up' : 'down'}}">
-      {{fund.change_rate || defaultFund.change_rate}}
+      {{fund.change_rate || defaultFund.change_rate}}<text wx:if="{{fund.nav_updated}}" class="nav-updated-tag">已更新</text>
     </view>
   </view>
 

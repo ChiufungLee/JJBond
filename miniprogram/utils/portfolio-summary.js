@@ -12,7 +12,8 @@ const normalizeFundDetail = (item) => ({
   total_revenue_formatted: item.total_revenue !== null ? formatMoney(item.total_revenue) : '--',
   profit_loss_ratio_formatted: item.profit_loss_ratio !== null ? formatPercent(item.profit_loss_ratio) : '--',
   change_rate: item.change_rate || '--',
-  change_rate_class: isDownChangeRate(item.change_rate || '--') ? 'down' : 'up'
+  change_rate_class: isDownChangeRate(item.change_rate || '--') ? 'down' : 'up',
+  nav_updated: !!item.nav_updated
 })
 
 const formatPortfolioSummary = (summary) => {

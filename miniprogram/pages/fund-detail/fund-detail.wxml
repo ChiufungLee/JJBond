@@ -19,7 +19,7 @@
           <text class="fund-name">{{fundInfo.fund_name}}</text>
           <text class="fund-code">{{fundInfo.fund_code}}</text>
         </view>
-        <view class="fund-rate {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.change_rate}}</view>
+        <view class="fund-rate {{fundInfo.today_revenue >= 0 ? 'up' : 'down'}}">{{fundInfo.change_rate}}<text wx:if="{{fundInfo.nav_updated}}" class="nav-updated-tag">已更新</text></view>
       </view>
 
       <view class="fund-main" wx:if="{{isHeld}}">
@@ -47,7 +47,7 @@
       <!-- 未持有基金显示今日估值 -->
       <view class="fund-main" wx:else>
         <view class="revenue-section">
-          <view class="revenue-label">今日估值</view>
+          <view class="revenue-label">{{fundInfo.nav_updated ? '今日净值' : '今日估值'}}</view>
           <view class="revenue-value">{{fundInfo.today_value}}</view>
         </view>
       </view>
@@ -70,7 +70,7 @@
           <text class="info-value">{{hideAmount ? '****' : fundInfo.cost_price}}</text>
         </view>
         <view class="info-item">
-          <text class="info-label">今日估值</text>
+          <text class="info-label">{{fundInfo.nav_updated ? '今日净值' : '今日估值'}}</text>
           <text class="info-value {{fundInfo.today_value_trend_class}}">{{fundInfo.today_value}}<block wx:if="{{fundInfo.today_revenue_trend === 'up'}}"> ↑</block><block wx:elif="{{fundInfo.today_revenue_trend === 'down'}}"> ↓</block></text>
         </view>
         <view class="info-item">
@@ -124,16 +124,6 @@
             <canvas type="2d" id="fundChart" class="fund-chart"></canvas>
             <!-- 触摸层 -->
             <view class="chart-overlay" catchtouchstart="handleChartTouchStart" catchtouchmove="handleChartTouchMove" catchtouchend="handleChartTouchEnd"></view>
-          </view>
-          <view class="transaction-marker-layer" wx:if="{{transactionMarkers.length > 0}}">
-            <view
-              wx:for="{{transactionMarkers}}"
-              wx:key="key"
-              class="transaction-marker transaction-marker-{{item.type}}"
-              style="left: {{item.x}}px; top: {{item.y}}px;"
-            >
-              <text wx:if="{{item.count > 1}}" class="transaction-marker-count">{{item.count}}</text>
-            </view>
           </view>
           <!-- 十字光标 -->
           <view class="crosshair-layer" wx:if="{{tooltip.show}}">

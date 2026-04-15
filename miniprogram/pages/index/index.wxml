@@ -133,7 +133,7 @@
             <text class="fund-value {{item.total_revenue >= 0 ? 'up' : 'down'}}">{{item.total_revenue >= 0 ? '+' : ''}}{{hideAmount ? '****' : item.total_revenue_formatted}}</text>
           </view>
           <view class="fund-row">
-            <text class="fund-cost">{{hideAmount ? '￥****' : '￥' + item.cost_formatted}}</text>
+            <text class="fund-cost">{{hideAmount ? '￥****' : '￥' + item.cost_formatted}}<text wx:if="{{item.nav_updated}}" class="nav-updated-tag">已更新</text></text>
             <text class="fund-rate {{item.change_rate_class}}">{{item.change_rate}}</text>
             <text class="fund-rate {{item.profit_loss_ratio >= 0 ? 'up' : 'down'}}">{{item.profit_loss_ratio_formatted}}</text>
           </view>

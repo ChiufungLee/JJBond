@@ -86,3 +86,14 @@
   background-color: rgba(82, 196, 26, 0.1);
   color: #52c41a;
 }
+
+.nav-updated-tag {
+  font-size: 16rpx;
+  font-weight: 400;
+  color: #fff;
+  background-color: #722ed1;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  margin-left: 6rpx;
+  vertical-align: middle;
+}
