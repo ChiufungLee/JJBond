@@ -100,7 +100,7 @@
           style="top:{{item.top}};left:{{item.left}};width:{{item.width}};height:{{item.height}};background-color:{{item.color}};"
         >
           <text class="chart-label" wx:if="{{item.label}}" style="font-size:{{item.labelSize}}rpx;color:{{item.textColor}};">{{item.label}}</text>
-          <text class="chart-revenue" wx:if="{{item.revenueStr}}" style="color:{{item.textColor}};">{{item.revenueStr}}</text>
+          <text class="chart-revenue" wx:if="{{item.revenueStr}}" style="font-size:{{item.revenueSize}}rpx;color:{{item.textColor}};">{{item.revenueStr}}</text>
         </view>
       </view>
     </view>
@@ -108,6 +108,10 @@
     <!-- 各基金明细（后端按当日实际持仓和净值计算） -->
     <view wx:if="{{selectedFundDetails.length > 0}}">
       <view class="detail-list">
+        <view class="detail-list-header">
+          <text class="header-name">基金明细</text>
+          <text class="header-col">金额</text>
+        </view>
         <view
           class="detail-item"
           wx:for="{{selectedFundDetails}}"
@@ -116,14 +120,9 @@
           data-code="{{item.fund_code}}"
         >
           <text class="detail-fund-name">{{item.fund_name}}</text>
-          <view class="detail-right">
-            <text class="detail-value {{item.revenue >= 0 ? 'up' : 'down'}}">
-              {{item.revenue >= 0 ? '+' : ''}}{{item.revenue_formatted}}
-            </text>
-            <text class="detail-rate {{item.revenue >= 0 ? 'up' : 'down'}}">
-              {{item.revenue >= 0 ? '+' : ''}}{{item.change_rate}}
-            </text>
-          </view>
+          <text class="detail-value {{item.revenue >= 0 ? 'up' : 'down'}}">
+            {{item.revenue >= 0 ? '+' : ''}}{{item.revenue_formatted}}
+          </text>
         </view>
       </view>
     </view>

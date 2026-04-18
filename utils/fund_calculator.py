@@ -10,6 +10,8 @@ import logging
 from typing import Dict, Optional, List, Any
 from core.database import redis_client
 from core.http_client import get_http_session
+from utils.http_headers import UA_DESKTOP, UA_MOBILE, REFERER_EASTMONEY
+from utils.helpers import safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +74,7 @@ class FundCalculator:
     async def _get_common_fund_info(self, fund_code: str) -> Optional[Dict]:
         """获取普通基金信息（异步，复用 ClientSession 重试）"""
         url = f"http://fundgz.1234567.com.cn/js/{fund_code}.js"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        }
+        headers = {'User-Agent': UA_DESKTOP, 'Referer': REFERER_EASTMONEY}
         session = get_http_session()
         for i in range(2):
             try:
@@ -97,8 +97,9 @@ class FundCalculator:
         """备用接口获取基金信息（天天基金 API）"""
         url = "https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'User-Agent': UA_MOBILE,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': REFERER_EASTMONEY,
         }
         # 请求参数
         fields = 'SHORTNAME,RZDF,DWJZ,LJJZ,SYL_1N,SYL_LN,FSRQ,ISBUY,DTZT,FTYPE,FCODE,ISSALES,ISSBDATE,ISSEDATE,TSRQ,BACKCODE,MINSG,MINSBSG,SHZT,SGZT,SOURCERATE,RATE,REALSGCODE,FEATURE,SYL,MINRG,SYL_Z,BFUNDTYPE,QDCODE,MINDT,BAGTYPE,FUNDTYPE,BENCH,ESTABDATE,SELLSTATE,ESTDIFF,SYSDATE,PTYPE,FUNDTYPE,ISEXCHG,ISNEW,BTYPE'
@@ -142,7 +143,8 @@ class FundCalculator:
         """获取LOF基金信息（异步，复用 ClientSession 重试）"""
         url = f'http://fund.eastmoney.com/{fund_code}.html'
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': UA_DESKTOP,
+            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
         session = get_http_session()
         for i in range(3):
@@ -179,7 +181,8 @@ class FundCalculator:
                f"?type=lsjz&code={fund_code}&page=1"
                f"&sdate={six_days_ago}&edate={yesterday}&per=20")
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': UA_DESKTOP,
+            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
         try:
             session = get_http_session()
@@ -232,8 +235,9 @@ class FundCalculator:
 
         url = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNPeriodIncrease"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'User-Agent': UA_MOBILE,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': REFERER_EASTMONEY,
         }
 
         result = {
@@ -305,7 +309,7 @@ class FundCalculator:
                 pass
 
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': UA_DESKTOP,
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
         result = []
@@ -384,13 +388,9 @@ class FundCalculator:
             return []
 
 
+    # 兼容旧调用，委托给共享函数
     def _parse_float(self, value: Any) -> Optional[float]:
-        try:
-            if value is None or value == '':
-                return None
-            return float(value)
-        except (TypeError, ValueError):
-            return None
+        return safe_float(value)
 
     def _is_nav_updated_today(self, real_nav_info: Dict) -> bool:
         """检查实际净值是否已更新到今天"""
@@ -418,8 +418,9 @@ class FundCalculator:
 
         url = "https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+            'User-Agent': UA_MOBILE,
             'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': REFERER_EASTMONEY,
         }
         fields = 'SHORTNAME,RZDF,DWJZ,LJJZ,FSRQ,FCODE'
         data = {
@@ -855,7 +856,7 @@ class FundCalculator:
         url = (f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
                f"?type=lsjz&code={fund_code}&page=1&sdate={sdate}&edate={edate}&per=50")
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': UA_DESKTOP,
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
         result = []

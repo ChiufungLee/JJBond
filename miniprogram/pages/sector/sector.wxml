@@ -1,0 +1,69 @@
+<!--pages/sector/sector.wxml-->
+<view class="sector-container">
+  <!-- 板块类型切换 -->
+  <view class="type-tabs">
+    <view
+      wx:for="{{sectorTypes}}"
+      wx:key="key"
+      class="type-tab {{currentType === item.key ? 'active' : ''}}"
+      data-type="{{item.key}}"
+      bindtap="onTypeChange"
+    >{{item.name}}</view>
+  </view>
+
+  <!-- 排序类别 + 时间范围 -->
+  <view class="filter-bar">
+    <view class="sort-tabs">
+      <view
+        wx:for="{{sortFields}}"
+        wx:key="key"
+        class="sort-tab {{currentSort === item.key ? 'active' : ''}}"
+        data-sort="{{item.key}}"
+        bindtap="onSortChange"
+      >{{item.name}}</view>
+    </view>
+    <view class="time-tabs">
+      <view
+        wx:for="{{timeRanges}}"
+        wx:key="key"
+        class="time-tab {{currentTime === item.key ? 'active' : ''}}"
+        data-time="{{item.key}}"
+        bindtap="onTimeChange"
+      >{{item.name}}</view>
+    </view>
+  </view>
+
+  <loading wx:if="{{loading && sectorList.length === 0}}" text="加载中..."></loading>
+
+  <empty
+    wx:elif="{{error}}"
+    icon="⚠️"
+    text="{{errorMessage || '加载板块数据失败，请稍后重试'}}"
+    showButton="{{true}}"
+    buttonText="重新加载"
+    bind:buttonTap="loadSectors"
+  ></empty>
+
+  <empty
+    wx:elif="{{sectorList.length === 0 && !loading}}"
+    icon="📊"
+    text="暂无板块数据"
+    showButton="{{true}}"
+    buttonText="重新加载"
+    bind:buttonTap="loadSectors"
+  ></empty>
+
+  <!-- 板块列表 -->
+  <view class="sector-list" wx:if="{{sectorList.length > 0}}">
+    <view
+      class="sector-card {{item.isUp ? 'up' : 'down'}}"
+      wx:for="{{sectorList}}"
+      wx:key="code"
+    >
+      <text class="sector-name">{{item.name}}</text>
+      <text class="sector-value">{{item.valueText}}</text>
+    </view>
+  </view>
+
+  <loading wx:if="{{loading && sectorList.length > 0}}" text="加载中..."></loading>
+</view>

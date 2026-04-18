@@ -131,6 +131,14 @@
             <view class="crosshair-y" style="top: {{tooltip.y}}px;"></view>
             <view class="crosshair-dot" style="left: {{tooltip.x}}px; top: {{tooltip.y}}px;"></view>
           </view>
+          <!-- 买入卖出标记 -->
+          <view class="marker-layer" wx:if="{{chartMarkers.length > 0}}">
+            <view
+              class="chart-marker {{item.type === 'buy' ? 'marker-buy' : 'marker-sell'}}"
+              wx:for="{{chartMarkers}}" wx:key="index"
+              style="left: {{item.x}}px; top: {{item.y}}px;"
+            ></view>
+          </view>
         </view>
       </block>
     </view>

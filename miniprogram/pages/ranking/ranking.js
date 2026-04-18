@@ -1,6 +1,6 @@
 // pages/ranking/ranking.js
 const { get } = require('../../utils/request')
-const { checkLogin } = require('../../utils/auth')
+const { checkLogin, isLoggedIn } = require('../../utils/auth')
 
 // 排行榜类型配置
 const RANKING_TYPES = [
@@ -24,7 +24,9 @@ Page({
     error: false,
     errorMessage: '',
     hasMore: true,
-    lastUpdate: ''
+    lastUpdate: '',
+    watchlistCodes: [],
+    heldCodes: []
   },
 
   onLoad() {
@@ -32,7 +34,7 @@ Page({
   },
 
   onShow() {
-    // 页面显示时不重新加载，保持当前状态
+    this.loadUserFunds()
   },
 
   // 切换排行榜类型
@@ -67,6 +69,37 @@ Page({
     this.loadRanking()
   },
 
+  // 加载用户自选和持仓数据
+  async loadUserFunds() {
+    if (!isLoggedIn()) return
+    try {
+      const [watchlist, funds] = await Promise.all([
+        get('/watchlist/', {}, { skipErrorToast: true }).catch(() => []),
+        get('/funds/', {}, { skipErrorToast: true }).catch(() => [])
+      ])
+      const watchlistCodes = (watchlist || []).map(item => item.fund_code)
+      const heldCodes = (funds || []).map(item => item.fund_code)
+      this.setData({ watchlistCodes, heldCodes })
+      this._markRankingItems()
+    } catch (e) {
+      // 静默失败，不影响排行榜展示
+    }
+  },
+
+  // 标记排行榜中的自选/持仓状态
+  _markRankingItems() {
+    const { watchlistCodes, heldCodes, rankingList } = this.data
+    if (!rankingList.length) return
+    const watchSet = new Set(watchlistCodes)
+    const heldSet = new Set(heldCodes)
+    const updated = rankingList.map(item => ({
+      ...item,
+      isWatched: watchSet.has(item.fundCode),
+      isHeld: heldSet.has(item.fundCode)
+    }))
+    this.setData({ rankingList: updated })
+  },
+
   // 加载排行榜数据
   async loadRanking() {
     // 防止重复加载
@@ -98,10 +131,15 @@ Page({
         return
       }
 
+      const watchSet = new Set(this.data.watchlistCodes)
+      const heldSet = new Set(this.data.heldCodes)
+
       const newList = (result.data || []).map(item => ({
         ...item,
         changeText: this.formatChange(item.change),
-        changeClass: item.change >= 0 ? 'up' : 'down'
+        changeClass: item.change >= 0 ? 'up' : 'down',
+        isWatched: watchSet.has(item.fundCode),
+        isHeld: heldSet.has(item.fundCode)
       }))
 
       this.setData({

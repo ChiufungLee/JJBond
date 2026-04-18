@@ -68,7 +68,17 @@ Page({
 
       let { selectedDate } = this.data
       const inThisMonth = calendar.some(day => day.date === selectedDate)
-      if (!inThisMonth && calendar.length > 0) {
+
+      if (inThisMonth) {
+        // 选中日期在当月：如果是非交易日（周末/节假日），回退到最近交易日
+        const selectedDay = calendar.find(day => day.date === selectedDate)
+        if (selectedDay && !selectedDay.is_trading_day) {
+          const prevTradingDays = calendar.filter(day => day.is_trading_day && day.date <= selectedDate)
+          if (prevTradingDays.length > 0) {
+            selectedDate = prevTradingDays[prevTradingDays.length - 1].date
+          }
+        }
+      } else if (calendar.length > 0) {
         selectedDate = calendar.find(day => day.is_trading_day && day.revenue !== null)?.date
           || calendar.find(day => day.is_trading_day)?.date
           || calendar[0].date
@@ -228,17 +238,28 @@ Page({
     const blockColor = f => f.revenue > 0 ? 'rgb(250,212,215)' : 'rgb(206,235,229)'
     const textColor = f => f.revenue > 0 ? 'rgb(207,64,80)' : 'rgb(49,154,128)'
 
-    const GAP = 4
+    const GAP = 5
     const CONTAINER_H = 460
     const CONTAINER_W = 700
 
     const makeBlock = (top, left, w, h, f, weight) => {
       const pxH = h * CONTAINER_H
+      const pxW = w * CONTAINER_W
       const areaPct = weight * 100
-      const canShowLabel = areaPct >= 5
-      const canShowRevenue = areaPct >= 12
-      const labelSize = pxH < 70 ? 18 : pxH < 100 ? 20 : 24
+      const labelSize = pxH < 70 ? 16 : pxH < 100 ? 18 : 20
+      const revenueSize = pxH < 70 ? 14 : pxH < 100 ? 16 : 18
+      const canShowLabel = pxW > 100 && pxH > 50
+      const canShowRevenue = pxW > 100 && pxH > 80
       const inset = GAP / 2
+
+      // 根据区块宽度截断基金名称
+      let displayName = ''
+      if (canShowLabel) {
+        const maxChars = Math.floor((pxW - 12) / (labelSize * 0.55))
+        displayName = maxChars >= 2 && f.fund_name.length > maxChars
+          ? f.fund_name.slice(0, maxChars - 1) + '…'
+          : f.fund_name
+      }
 
       return {
         top: `calc(${p(top)} + ${inset}rpx)`,
@@ -247,15 +268,17 @@ Page({
         height: `calc(${p(h)} - ${GAP}rpx)`,
         color: blockColor(f),
         textColor: textColor(f),
-        label: canShowLabel ? f.fund_name : '',
+        label: displayName,
         revenueStr: canShowRevenue ? revenueStr(f) : '',
         labelSize,
+        revenueSize,
         estimatedWidth: w * CONTAINER_W
       }
     }
 
     const blocks = []
 
+    // 二分切割：找最接近一半的分割点，使区块更接近正方形
     const split = (indexes, top, left, w, h) => {
       if (indexes.length === 0) return
       if (indexes.length === 1) {
@@ -265,16 +288,31 @@ Page({
       }
 
       const groupSum = indexes.reduce((s, i) => s + weights[i], 0)
-      const firstRatio = weights[indexes[0]] / groupSum
+
+      // 找到最接近 groupSum/2 的分割点
+      let cumSum = 0
+      let bestK = 0
+      let bestDiff = Infinity
+      for (let k = 0; k < indexes.length - 1; k++) {
+        cumSum += weights[indexes[k]]
+        const diff = Math.abs(cumSum - groupSum / 2)
+        if (diff < bestDiff) {
+          bestDiff = diff
+          bestK = k
+        }
+      }
+
+      const leftSum = indexes.slice(0, bestK + 1).reduce((s, i) => s + weights[i], 0)
+      const ratio = leftSum / groupSum
 
       if (w >= h) {
-        const w0 = w * firstRatio
-        blocks.push(makeBlock(top, left, w0, h, funds[indexes[0]], weights[indexes[0]]))
-        split(indexes.slice(1), top, left + w0, w - w0, h)
+        const w0 = w * ratio
+        split(indexes.slice(0, bestK + 1), top, left, w0, h)
+        split(indexes.slice(bestK + 1), top, left + w0, w - w0, h)
       } else {
-        const h0 = h * firstRatio
-        blocks.push(makeBlock(top, left, w, h0, funds[indexes[0]], weights[indexes[0]]))
-        split(indexes.slice(1), top + h0, left, w, h - h0)
+        const h0 = h * ratio
+        split(indexes.slice(0, bestK + 1), top, left, w, h0)
+        split(indexes.slice(bestK + 1), top + h0, left, w, h - h0)
       }
     }
 

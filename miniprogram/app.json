@@ -13,7 +13,8 @@
     "pages/calendar/calendar",
     "pages/feedback/feedback",
     "pages/contact/contact",
-    "pages/profile-edit/profile-edit"
+    "pages/profile-edit/profile-edit",
+    "pages/sector/sector"
   ],
   "window": {
     "backgroundTextStyle": "light",

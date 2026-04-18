@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 import aiohttp
 from core.database import redis_client
 from core.http_client import get_http_session
+from utils.http_headers import UA_DESKTOP, REFERER_EASTMONEY
+from utils.helpers import safe_float
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -71,9 +73,9 @@ class FundRankingManager:
         """
         url = "https://condition.tiantianfunds.com/condition/conditionFund/fundSelect"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "User-Agent": UA_DESKTOP,
             "Content-Type": "application/x-www-form-urlencoded",
-            "Referer": "https://fund.eastmoney.com/",
+            "Referer": REFERER_EASTMONEY,
             "Origin": "https://fund.eastmoney.com",
         }
 
@@ -163,14 +165,9 @@ class FundRankingManager:
             })
         return result
 
+    # 兼容旧调用，委托给共享函数
     def _safe_float(self, value) -> Optional[float]:
-        """安全转换为浮点数"""
-        if value is None:
-            return None
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return None
+        return safe_float(value)
 
     async def sync_ranking_data(self, data: List[Dict] = None) -> bool:
         """

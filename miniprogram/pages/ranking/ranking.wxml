@@ -68,6 +68,8 @@
           </view>
           <view class="item-meta">
             <text class="item-code">{{item.fundCode}}</text>
+            <text class="tag-held" wx:if="{{item.isHeld}}">已持有</text>
+            <text class="tag-watched" wx:elif="{{item.isWatched}}">已自选</text>
           </view>
         </view>
 

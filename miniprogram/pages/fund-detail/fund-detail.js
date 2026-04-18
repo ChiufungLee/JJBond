@@ -39,6 +39,7 @@ Page({
     navError: false,
     navErrorMessage: '',
     transactions: [],
+    chartMarkers: [],
     tooltip: {
       show: false,
       date: '今日',
@@ -171,6 +172,11 @@ Page({
       const normalizedTransactions = Array.isArray(transactions) ? transactions : []
       this.transactionsLoadedFundCode = fundCode
       this.setData({ transactions: normalizedTransactions })
+      // 图表已绘制时，补充计算交易标记
+      if (this.chartPoints && this.chartData) {
+        const markers = this._computeTransactionMarkers(this.chartData.categories, this.chartPoints)
+        this.setData({ chartMarkers: markers })
+      }
       return normalizedTransactions
     } catch (error) {
       console.error('加载基金交易记录失败:', error)
@@ -206,6 +212,7 @@ Page({
             navError: false,
             navErrorMessage: '',
             transactions: [],
+            chartMarkers: [],
             'tooltip.show': false,
             'tooltip.date': '今日',
             'tooltip.value': ''
@@ -301,7 +308,8 @@ Page({
         : {}),
       'tooltip.show': false,
       'tooltip.date': '今日',
-      'tooltip.value': ''
+      'tooltip.value': '',
+      chartMarkers: []
     })
 
     try {
@@ -503,6 +511,8 @@ Page({
         dataPointShape: false,
         onSuccess: (points) => {
           this.chartPoints = points
+          const markers = this._computeTransactionMarkers(categories, points)
+          this.setData({ chartMarkers: markers })
         }
       })
     } catch (e) {
@@ -576,6 +586,49 @@ Page({
         })
       }
     }).exec()
+  },
+
+  // 计算买入卖出标记点
+  _computeTransactionMarkers(categories, chartPoints) {
+    const transactions = this.data.transactions
+    if (!transactions || transactions.length === 0 || !chartPoints || !categories || categories.length === 0) return []
+
+    const minDate = categories[0]
+    const maxDate = categories[categories.length - 1]
+    const markers = []
+    const seenPositions = new Set()
+
+    for (const tx of transactions) {
+      const txDate = tx.transaction_date ? tx.transaction_date.split('T')[0] : ''
+      if (!txDate || txDate < minDate || txDate > maxDate) continue
+
+      // 精确匹配日期
+      let bestIndex = categories.indexOf(txDate)
+      // 未匹配则回退到最近的前一个交易日
+      if (bestIndex < 0) {
+        for (let i = categories.length - 1; i >= 0; i--) {
+          if (categories[i] <= txDate) {
+            bestIndex = i
+            break
+          }
+        }
+      }
+
+      if (bestIndex < 0 || !chartPoints[bestIndex]) continue
+
+      // 同一日期去重
+      const posKey = `${bestIndex}`
+      if (seenPositions.has(posKey)) continue
+      seenPositions.add(posKey)
+
+      markers.push({
+        x: chartPoints[bestIndex].x,
+        y: chartPoints[bestIndex].y,
+        type: tx.transaction_type
+      })
+    }
+
+    return markers
   },
 
   handleErrorAction() {

@@ -158,6 +158,24 @@
   color: #999;
 }
 
+.tag-held,
+.tag-watched {
+  font-size: 18rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 4rpx;
+  flex-shrink: 0;
+}
+
+.tag-held {
+  color: #ff4d4f;
+  background-color: #fff1f0;
+}
+
+.tag-watched {
+  color: #722ed1;
+  background-color: #f9f0ff;
+}
+
 .item-company {
   font-size: 22rpx;
   color: #bbb;

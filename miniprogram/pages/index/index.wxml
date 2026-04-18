@@ -60,7 +60,7 @@
     <!-- 涨跌榜 -->
     <view class="rank-section" wx:if="{{summary.high_fund_list.length > 0 || summary.low_fund_list.length > 0}}">
       <view class="section-header">
-        <text class="section-title">涨跌幅度大于3%的基金</text>
+        <text class="section-title">涨幅大于3%的基金</text>
       </view>
 
       <!-- 涨幅榜 -->
@@ -87,7 +87,7 @@
       <view class="section-header">
         <view class="section-title-row">
           <text class="section-title">持仓信息 ({{summary.fund_count}})</text>
-          <text class="section-time">统计于 {{updateTime}}</text>
+          <text class="section-time">更新于 {{updateTime}}</text>
         </view>
         <text class="section-more" bindtap="goToAddFund">+ 添加</text>
       </view>
@@ -101,7 +101,7 @@
             bindtap="handleSort"
             data-field="change_rate"
           >
-            <text>当日涨幅</text>
+            <text>实时估值</text>
             <view class="sort-icons">
               <text class="sort-icon sort-asc {{sortBy === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
               <text class="sort-icon sort-desc {{sortBy === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>

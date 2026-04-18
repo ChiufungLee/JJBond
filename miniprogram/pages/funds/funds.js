@@ -158,11 +158,11 @@ Page({
     this.setData({ funds: sorted, sortOrder })
   },
 
-  // 按持有收益率排序
+  // 按持有收益金额排序
   _sortFunds(funds, order) {
     return [...funds].sort((a, b) => {
-      const va = a.profit_loss_ratio ?? -Infinity
-      const vb = b.profit_loss_ratio ?? -Infinity
+      const va = a.profit_loss ?? -Infinity
+      const vb = b.profit_loss ?? -Infinity
       return order === 'desc' ? vb - va : va - vb
     })
   },

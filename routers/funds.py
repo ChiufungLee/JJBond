@@ -2,7 +2,9 @@ import json
 import logging
 import aiohttp
 from datetime import datetime
+from core.database import redis_client
 from core.http_client import get_http_session
+from utils.http_headers import UA_DESKTOP, REFERER_EASTMONEY
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -218,15 +220,65 @@ async def search_fund(
         return search_funds(db, q, limit)
 
 
+_FUND_LIST_CACHE_KEY = "fund_search:all_funds"
+_FUND_LIST_CACHE_TTL = 86400  # 24 小时
+
+
+def _search_in_fund_list(raw_data: list, keyword: str, limit: int) -> List[dict]:
+    """在基金列表中搜索匹配项"""
+    keyword_lower = keyword.lower()
+    funds = []
+    seen_codes = set()
+
+    for item in raw_data:
+        if len(item) < 4:
+            continue
+
+        fund_code = str(item[0]).strip()
+        fund_name = str(item[2]).strip()
+        raw_type = str(item[3]).strip()
+        fund_type = raw_type.split("-", 1)[0] if "-" in raw_type else raw_type
+
+        if fund_code in seen_codes:
+            continue
+
+        if keyword_lower not in fund_code.lower() and keyword_lower not in fund_name.lower():
+            continue
+
+        seen_codes.add(fund_code)
+        funds.append({
+            "fund_code": fund_code,
+            "fund_name": fund_name,
+            "fund_type": fund_type,
+        })
+
+        if len(funds) >= limit:
+            break
+
+    return funds
+
+
 async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
-    """从东方财富基金列表接口搜索基金"""
+    """从东方财富基金列表接口搜索基金（带 Redis 缓存）"""
     if not keyword:
         return []
 
+    # 尝试从 Redis 获取缓存的基金列表
+    if redis_client is not None:
+        try:
+            cached = redis_client.get(_FUND_LIST_CACHE_KEY)
+            if cached:
+                raw_data = json.loads(cached)
+                return _search_in_fund_list(raw_data, keyword, limit)
+        except Exception:
+            pass
+
+    # 缓存未命中，下载并解析
     url = "http://fund.eastmoney.com/js/fundcode_search.js"
+    headers = {"User-Agent": UA_DESKTOP, "Referer": REFERER_EASTMONEY}
     try:
         session = get_http_session()
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
             content = await resp.text(encoding="utf-8", errors="ignore")
 
         start_marker = "var r = ["
@@ -240,9 +292,18 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
             return []
 
         raw_data = json.loads(content[start_idx:end_idx + 1])
-        keyword_lower = keyword.lower()
-        funds = []
-        seen_codes = set()
+
+        # 缓存解析后的基金列表
+        if redis_client is not None:
+            try:
+                redis_client.setex(_FUND_LIST_CACHE_KEY, _FUND_LIST_CACHE_TTL, json.dumps(raw_data))
+            except Exception:
+                pass
+
+        return _search_in_fund_list(raw_data, keyword, limit)
+    except Exception as e:
+        logger.error(f"第三方 API 搜索失败: {e}")
+        return []
 
         for item in raw_data:
             if len(item) < 4:

@@ -27,6 +27,7 @@ Page({
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
+      { icon: 'sector', title: '板块详情', path: '/pages/sector/sector', noAuth: true },
       { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]
   },
@@ -75,8 +76,12 @@ Page({
     })
 
     try {
-      // 使用轻量级接口，加载更快
-      const summary = await get('/funds/calculate-simple')
+      // 优先使用全局缓存
+      let summary = app.getPortfolioCache()
+      if (!summary) {
+        summary = await get('/funds/calculate-simple')
+        app.setPortfolioCache(summary)
+      }
       const totalRevenue = (summary?.today_holding_amount || 0) - (summary?.total_cost || 0)
       const formattedRevenue = formatMoney(Math.abs(totalRevenue))
       this.setData({
@@ -103,9 +108,8 @@ Page({
 
   // 跳转菜单
   goToMenu(e) {
-    const { path } = e.currentTarget.dataset
-    // 需要登录的页面
-    if (!checkLogin()) return
+    const { path, noauth } = e.currentTarget.dataset
+    if (!noauth && !checkLogin()) return
     wx.navigateTo({ url: path })
   },
 
