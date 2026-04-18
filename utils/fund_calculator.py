@@ -506,8 +506,9 @@ class FundCalculator:
         real_nav_info = None
         nav_updated = False
         if datetime.now().hour >= 15:
-            real_nav_info = await self._get_real_nav_info(fund_code)
-            if real_nav_info and self._is_nav_updated_today(real_nav_info):
+            raw_nav = await self._get_real_nav_info(fund_code)
+            if raw_nav and self._is_nav_updated_today(raw_nav):
+                real_nav_info = raw_nav
                 nav_updated = True
 
         resolved = self._resolve_market_values(fund_info, None, None, real_nav_info)

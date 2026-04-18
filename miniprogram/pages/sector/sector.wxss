@@ -87,7 +87,7 @@
 }
 
 .sector-card {
-  width: calc(33.333% - 8rpx);
+  width: calc(25% - 9rpx);
   border-radius: 12rpx;
   padding: 20rpx 16rpx;
   box-sizing: border-box;
