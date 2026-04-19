@@ -1,7 +1,5 @@
 // pages/mine/mine.js
 const { checkLogin, logout, getUserInfo, isLoggedIn } = require('../../utils/auth')
-const { get } = require('../../utils/request')
-const { formatMoney } = require('../../utils/util')
 
 const app = getApp()
 
@@ -19,15 +17,12 @@ Page({
     userInfo: null,
     avatarUrl: '',
     daysTogether: 0,
-    stats: null,
-    statsLoading: false,
-    statsError: false,
-    statsErrorMessage: '',
     loggedIn: false,
     menuList: [
       { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
       { icon: 'sector', title: '板块详情', path: '/pages/sector/sector', noAuth: true },
+      { icon: 'market', title: '排行榜', path: '/pages/ranking/ranking', noAuth: true },
       { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]
   },
@@ -44,7 +39,6 @@ Page({
       return
     }
     this.loadUserInfo()
-    this.loadStats()
   },
 
   // 加载用户信息
@@ -65,45 +59,6 @@ Page({
       avatarUrl: getFullAvatarUrl(userInfo?.avatar_url),
       daysTogether
     })
-  },
-
-  // 加载统计数据
-  async loadStats() {
-    this.setData({
-      statsLoading: true,
-      statsError: false,
-      statsErrorMessage: ''
-    })
-
-    try {
-      // 优先使用全局缓存
-      let summary = app.getPortfolioCache()
-      if (!summary) {
-        summary = await get('/funds/calculate-simple')
-        app.setPortfolioCache(summary)
-      }
-      const totalRevenue = (summary?.today_holding_amount || 0) - (summary?.total_cost || 0)
-      const formattedRevenue = formatMoney(Math.abs(totalRevenue))
-      this.setData({
-        stats: {
-          fundCount: summary?.fund_count || 0,
-          totalCost: formatMoney(summary?.total_cost || 0),
-          totalRevenue: totalRevenue >= 0 ? `+${formattedRevenue}` : `-${formattedRevenue}`,
-          totalRevenueIsUp: totalRevenue >= 0
-        },
-        statsLoading: false,
-        statsError: false,
-        statsErrorMessage: ''
-      })
-    } catch (error) {
-      console.error('加载统计失败:', error)
-      this.setData({
-        stats: null,
-        statsLoading: false,
-        statsError: true,
-        statsErrorMessage: error.message || '加载统计失败，请稍后重试'
-      })
-    }
   },
 
   // 跳转菜单

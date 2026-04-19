@@ -1,0 +1,200 @@
+/* pages/market/market.wxss */
+.market-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding-bottom: 40rpx;
+}
+
+/* ====== 通用模块 ====== */
+.section {
+  margin: 24rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16rpx;
+  padding-left: 4rpx;
+}
+
+/* 涨跌颜色 */
+.up { color: #ff4d4f; }
+.down { color: #52c41a; }
+
+/* ====== 指数卡片 ====== */
+.card-wrap {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 16rpx;
+}
+
+.card-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.index-card {
+  flex: 1;
+  border-radius: 16rpx;
+  padding: 24rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-up {
+  background: linear-gradient(180deg, #ffccc7 0%, #fff1f0 100%);
+}
+
+.card-down {
+  background: linear-gradient(180deg, #b7eb8f 0%, #f6ffed 100%);
+}
+
+.idx-name {
+  font-size: 24rpx;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.idx-price {
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.idx-change-row {
+  display: flex;
+  gap: 8rpx;
+}
+
+.idx-change,
+.idx-pct {
+  font-size: 22rpx;
+}
+
+/* ====== 资金流入/流出榜 ====== */
+.flow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.sector-type-tabs {
+  display: flex;
+  gap: 16rpx;
+}
+
+.sector-type-tab {
+  font-size: 26rpx;
+  color: #999;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  background-color: #fff;
+}
+
+.sector-type-active {
+  color: #722ed1;
+  background-color: #f9f0ff;
+  font-weight: 500;
+}
+
+.flow-tabs {
+  display: flex;
+  gap: 24rpx;
+}
+
+.flow-tab {
+  font-size: 28rpx;
+  color: #999;
+  padding-bottom: 8rpx;
+}
+
+.flow-tab-active {
+  color: #333;
+  font-weight: 600;
+  border-bottom: 4rpx solid #722ed1;
+}
+
+/* ====== 通用列表 ====== */
+.list-card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.item-rank {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: #fff;
+  background-color: #722ed1;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.item-name {
+  flex: 1;
+  margin-left: 16rpx;
+  font-size: 28rpx;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.item-code {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+/* ====== 日涨幅排行榜 ====== */
+.rank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.rank-more {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  font-size: 26rpx;
+  color: #722ed1;
+}
+
+.rank-arrow {
+  font-size: 32rpx;
+}
+
+.rank-empty {
+  text-align: center;
+  padding: 40rpx;
+  font-size: 26rpx;
+  color: #999;
+  background-color: #fff;
+  border-radius: 16rpx;
+}

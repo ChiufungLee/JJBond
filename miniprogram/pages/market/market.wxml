@@ -1,0 +1,95 @@
+<!--pages/market/market.wxml-->
+<view class="market-container">
+  <loading wx:if="{{loading}}" />
+
+  <block wx:else>
+    <!-- 指数分组 -->
+    <view class="section" wx:for="{{groups}}" wx:key="name">
+      <view class="section-title">{{item.name}}</view>
+      <view class="card-wrap">
+        <view class="card-row">
+          <view
+            wx:for="{{item.items}}"
+            wx:for-item="idx"
+            wx:key="code"
+            class="index-card {{idx.isUp ? 'card-up' : 'card-down'}}"
+          >
+            <text class="idx-name">{{idx.name}}</text>
+            <text class="idx-price {{idx.isUp ? 'up' : 'down'}}">{{idx.priceStr}}</text>
+            <view class="idx-change-row">
+              <text class="idx-change {{idx.isUp ? 'up' : 'down'}}">{{idx.changeStr}}</text>
+              <text class="idx-pct {{idx.isUp ? 'up' : 'down'}}">{{idx.pctStr}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 资金流入/流出榜 -->
+    <view class="section">
+      <view class="flow-header">
+        <view class="sector-type-tabs">
+          <view
+            class="sector-type-tab {{activeSectorType === 'industry' ? 'sector-type-active' : ''}}"
+            data-type="industry"
+            bindtap="onSectorTypeChange"
+          >行业板块</view>
+          <view
+            class="sector-type-tab {{activeSectorType === 'concept' ? 'sector-type-active' : ''}}"
+            data-type="concept"
+            bindtap="onSectorTypeChange"
+          >概念板块</view>
+        </view>
+        <view class="flow-tabs">
+          <view
+            class="flow-tab {{activeFlowTab === 'inflow' ? 'flow-tab-active' : ''}}"
+            data-tab="inflow"
+            bindtap="onFlowTabChange"
+          >资金流入</view>
+          <view
+            class="flow-tab {{activeFlowTab === 'outflow' ? 'flow-tab-active' : ''}}"
+            data-tab="outflow"
+            bindtap="onFlowTabChange"
+          >资金流出</view>
+        </view>
+        <view class="rank-more" bindtap="goToSector">
+          <text>更多</text>
+          <text class="rank-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="list-card">
+        <view class="list-item" wx:for="{{flowList}}" wx:key="rank">
+          <text class="item-rank">{{item.rank}}</text>
+          <text class="item-name">{{item.name}}</text>
+          <text class="item-value {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 日涨幅排行榜 -->
+    <view class="section">
+      <view class="rank-header">
+        <text class="section-title">日涨幅榜</text>
+        <view class="rank-more" bindtap="goToRanking">
+          <text>更多排行榜</text>
+          <text class="rank-arrow">›</text>
+        </view>
+      </view>
+
+      <view class="list-card" wx:if="{{rankingList.length > 0}}">
+        <view class="list-item" wx:for="{{rankingList}}" wx:key="fundCode">
+          <text class="item-rank">{{item.rank}}</text>
+          <view class="item-name" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+            <text>{{item.fundName}}</text>
+            <text class="item-code">{{item.fundCode}}</text>
+          </view>
+          <text class="item-value {{item.isUp ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fundCode}}">{{item.changeText}}</text>
+        </view>
+      </view>
+      <view class="rank-empty" wx:else>
+        <text>暂无排行榜数据</text>
+      </view>
+    </view>
+  </block>
+</view>

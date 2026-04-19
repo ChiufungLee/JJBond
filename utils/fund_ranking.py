@@ -290,7 +290,7 @@ class FundRankingManager:
             排行榜数据
         """
         if not self._is_redis_available():
-            return {"error": "Redis 不可用", "data": []}
+            return None
 
         try:
             key = self._get_ranking_key(ranking_type)

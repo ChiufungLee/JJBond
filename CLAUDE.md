@@ -57,6 +57,8 @@ routers/
   funds.py               # /api/funds/* CRUD + 搜索 + 组合计算
   watchlist.py           # /api/watchlist/*
   ranking.py             # /api/ranking/*
+  sector.py              # /api/sector/* 板块详情
+  market.py              # /api/market/* 股市指数行情
 crud/
   user.py                # 所有数据库写操作（原子事务，单次 commit）
 utils/
@@ -159,6 +161,7 @@ result = await calculator.get_fund_info(code)
 | GET | /api/ranking/{fund_code} | 单基金排名 |
 | GET | /api/ranking/status/cache | 缓存状态 |
 | POST | /api/ranking/sync | 手动同步排行榜 |
+| GET | /api/market/indices | 股市指数行情（A股/港股/全球） |
 
 ---
 
@@ -207,6 +210,7 @@ miniprogram/
     mine/              # 我的
     contact/           # 联系
     feedback/          # 反馈
+    market/            # 股市行情（A股/港股/全球指数）
   components/
     fund-card/         # 基金卡片组件
     summary-card/      # 汇总卡片组件

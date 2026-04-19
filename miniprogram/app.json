@@ -14,7 +14,8 @@
     "pages/feedback/feedback",
     "pages/contact/contact",
     "pages/profile-edit/profile-edit",
-    "pages/sector/sector"
+    "pages/sector/sector",
+    "pages/market/market"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -37,8 +38,8 @@
         "text": "自选"
       },
       {
-        "pagePath": "pages/ranking/ranking",
-        "text": "排行榜"
+        "pagePath": "pages/market/market",
+        "text": "行情"
       },
       {
         "pagePath": "pages/mine/mine",

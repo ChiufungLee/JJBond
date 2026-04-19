@@ -15,7 +15,7 @@ from core.http_client import init_http_session, close_http_session
 from models import base as models
 from core.config import settings
 from core.scheduler import setup_scheduler, start_scheduler, shutdown_scheduler
-from routers import auth, user, funds, watchlist, ranking, sector
+from routers import auth, user, funds, watchlist, ranking, sector, market
 from utils.fund_data_manager import init_fund_lib
 from utils.fund_ranking import fund_ranking_manager
 
@@ -117,6 +117,7 @@ app.include_router(funds.router,     prefix="/api")
 app.include_router(watchlist.router, prefix="/api")
 app.include_router(ranking.router,   prefix="/api")
 app.include_router(sector.router,    prefix="/api")
+app.include_router(market.router,    prefix="/api")
 
 # 挂载静态文件目录（用户头像）
 os.makedirs(settings.AVATAR_UPLOAD_DIR, exist_ok=True)
