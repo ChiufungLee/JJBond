@@ -9,7 +9,7 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from core.database import redis_client
+from core.database import get_redis
 from core.http_client import get_http_session
 from utils.http_headers import UA_DESKTOP
 
@@ -105,9 +105,10 @@ async def _fetch_indices(fs: str) -> list:
 @router.get("/indices")
 async def get_market_indices():
     # 尝试 Redis 缓存
-    if redis_client is not None:
+    redis = get_redis()
+    if redis is not None:
         try:
-            cached = redis_client.get(CACHE_KEY)
+            cached = await redis.get(CACHE_KEY)
             if cached:
                 return json.loads(cached)
         except Exception:
@@ -136,9 +137,9 @@ async def get_market_indices():
     result = {"groups": groups}
 
     # 写入缓存
-    if redis_client is not None:
+    if redis is not None:
         try:
-            redis_client.setex(CACHE_KEY, CACHE_TTL, json.dumps(result, ensure_ascii=False))
+            await redis.setex(CACHE_KEY, CACHE_TTL, json.dumps(result, ensure_ascii=False))
         except Exception:
             pass
 

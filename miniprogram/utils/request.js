@@ -49,7 +49,7 @@ const extractErrorMessage = (data, fallback = '请求失败') => {
   }
 
   if (typeof data === 'string' && data.trim()) {
-    return data
+    return fallback
   }
 
   return fallback

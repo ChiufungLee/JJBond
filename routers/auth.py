@@ -121,7 +121,7 @@ def login(
 
 
 @router.post("/logout", response_model=schemas.LogoutResponse)
-def logout(
+async def logout(
     request: Request,
     response: Response,
     current_user_and_token: Tuple[User, str] = Depends(get_current_user_with_token),
@@ -132,18 +132,18 @@ def logout(
     Redis 不可用时降级处理：接口正常返回，token 将在过期时间后自然失效。
     """
     _, token = current_user_and_token
-    revoke_token(token)
+    await revoke_token(token)
 
     refresh_token = request.cookies.get(settings.REFRESH_TOKEN_COOKIE_NAME)
     if refresh_token:
-        revoke_token(refresh_token)
+        await revoke_token(refresh_token)
 
     _clear_refresh_cookie(response)
     return {"message": "登出成功"}
 
 
 @router.post("/refresh", response_model=schemas.RefreshTokenResponse)
-def refresh_token(request: Request, response: Response):
+async def refresh_token(request: Request, response: Response):
     refresh_token_value = request.cookies.get(settings.REFRESH_TOKEN_COOKIE_NAME)
     if not refresh_token_value:
         raise HTTPException(
@@ -151,7 +151,7 @@ def refresh_token(request: Request, response: Response):
             detail="Refresh token missing",
         )
 
-    payload = verify_token(refresh_token_value, token_type=REFRESH_TOKEN_TYPE)
+    payload = await verify_token(refresh_token_value, token_type=REFRESH_TOKEN_TYPE)
     if payload is None:
         _clear_refresh_cookie(response)
         raise HTTPException(

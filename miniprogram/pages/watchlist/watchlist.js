@@ -2,11 +2,8 @@
 const { get, post, del } = require('../../utils/request')
 const { isLoggedIn, checkLogin } = require('../../utils/auth')
 const { formatPercent, showLoading, hideLoading, showToast, showConfirm } = require('../../utils/util')
+const { isDownChangeRate } = require('../../utils/portfolio-summary')
 const { createFundSearchManager } = require('../../utils/fund-search')
-
-const isDownChangeRate = (rate) => {
-  return (rate && rate[0] === '-') || rate === '0' || rate === '0.00%' || rate === '--'
-}
 
 // 示例自选基金数据（未登录时展示）
 const DEMO_WATCHLIST = [
@@ -42,7 +39,13 @@ Page({
     const loggedIn = isLoggedIn()
     this.setData({ loggedIn })
     if (loggedIn) {
-      this.loadWatchlist()
+      const app = getApp()
+      const cached = app.getWatchlistCache()
+      if (cached) {
+        this.setData({ watchlist: cached, loading: false })
+      } else {
+        this.loadWatchlist()
+      }
     } else {
       this.setData({
         loading: false,
@@ -66,16 +69,15 @@ Page({
 
     try {
       const watchlist = await get('/watchlist/')
-      this.setData({
-        watchlist: (watchlist || []).map(item => ({
-          ...item,
-          added_at_formatted: this.formatDate(item.added_at),
-          total_change_formatted: formatPercent(item.total_change_rate),
-          nav_updated: !!item.nav_updated,
-          change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
-        })),
-        loading: false
-      })
+      const formatted = (watchlist || []).map(item => ({
+        ...item,
+        added_at_formatted: this.formatDate(item.added_at),
+        total_change_formatted: formatPercent(item.total_change_rate),
+        nav_updated: !!item.nav_updated,
+        change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
+      }))
+      getApp().setWatchlistCache(formatted)
+      this.setData({ watchlist: formatted, loading: false })
       hideLoading()
     } catch (error) {
       hideLoading()
@@ -136,6 +138,7 @@ Page({
 
       this.searchManager?.invalidate()
       this.searchManager?.clearResults()
+      getApp().markWatchlistDirty()
       this.setData({ searchKeyword: '' })
       this.loadWatchlist()
     } catch (error) {
@@ -158,7 +161,7 @@ Page({
       await del(`/watchlist/${id}`)
       hideLoading()
       showToast('已从自选移除')
-
+      getApp().markWatchlistDirty()
       this.loadWatchlist()
     } catch (error) {
       hideLoading()

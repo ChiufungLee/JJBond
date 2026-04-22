@@ -167,14 +167,15 @@ Page({
       sortOrder = 'desc'
     }
 
-    this.setData({ sortBy, sortOrder })
-
-    // 重新排序
     const { summary } = this.data
     if (summary && summary.fund_details) {
       this.setData({
+        sortBy,
+        sortOrder,
         'summary.fund_details': this.sortFunds(summary.fund_details)
       })
+    } else {
+      this.setData({ sortBy, sortOrder })
     }
   },
 

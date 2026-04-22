@@ -12,9 +12,19 @@ Page({
   },
 
   onLoad() {
+    this._loaded = false
     this.loadIndices()
     this.loadFlowData()
     this.loadRanking()
+    this._loaded = true
+  },
+
+  onShow() {
+    if (this._loaded) {
+      this.loadIndices()
+      this.loadFlowData()
+      this.loadRanking()
+    }
   },
 
   onPullDownRefresh() {
@@ -23,7 +33,7 @@ Page({
 
   async loadIndices() {
     try {
-      const res = await get('/market/indices', {}, { forceRefresh: true, cacheTTL: 0 })
+      const res = await get('/market/indices', {}, { cacheTTL: 60000 })
       const groups = (res.groups || []).map(g => ({
         ...g,
         items: (g.items || []).map(idx => ({

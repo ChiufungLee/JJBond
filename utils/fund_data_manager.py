@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import time
 from typing import List, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -13,6 +14,11 @@ logger = logging.getLogger(__name__)
 # Redis key 常量
 _CACHE_KEY = "fund_lib:all"           # 全量基金列表（JSON 字符串）
 _CACHE_TTL = 86400                     # 缓存 24 小时（基金库基本不变）
+
+# 进程级缓存：避免每次请求都从 Redis 反序列化 25K 条 JSON
+_parsed_cache: Optional[List[Dict]] = None
+_parsed_cache_time: float = 0
+_PARSED_CACHE_MAX_AGE = 3600  # 1 小时
 
 # 初始基金数据，用于首次建库时写入
 INITIAL_FUNDS = [
@@ -41,7 +47,7 @@ INITIAL_FUNDS = [
 
 # ---------- 初始化 ----------
 
-def init_fund_lib(db: Session) -> None:
+async def init_fund_lib(db: Session) -> None:
     """
     启动时初始化基金库：
     - 优先从 data/funds.json 加载完整数据（约 25000+ 条）
@@ -50,7 +56,7 @@ def init_fund_lib(db: Session) -> None:
     """
     if db.query(FundLib).count() > 100:
         logger.info("基金库已初始化，跳过")
-        _warm_up_search_cache(db)  # 数据库已有数据，预热搜索缓存
+        await _warm_up_search_cache(db)  # 数据库已有数据，预热搜索缓存
         return
 
     funds_to_insert = _load_funds_json()
@@ -63,22 +69,23 @@ def init_fund_lib(db: Session) -> None:
     db.commit()
     logger.info(f"初始化基金库完成，写入 {len(funds_to_insert)} 条记录")
 
-    _warm_up_search_cache(db)
+    await _warm_up_search_cache(db)
 
 
-def _warm_up_search_cache(db: Session) -> None:
+async def _warm_up_search_cache(db: Session) -> None:
     """
     将全量基金库写入 Redis，后续搜索直接走缓存，不再扫描数据库。
     Redis 不可用时静默跳过，搜索自动降级到数据库 LIKE 查询。
     """
     try:
-        from core.database import redis_client
-        if redis_client is None:
+        from core.database import get_redis
+        redis = get_redis()
+        if redis is None:
             return
 
         rows = db.query(FundLib).all()
         fund_list = [_to_dict(r) for r in rows]
-        redis_client.setex(_CACHE_KEY, _CACHE_TTL, json.dumps(fund_list, ensure_ascii=False))
+        await redis.setex(_CACHE_KEY, _CACHE_TTL, json.dumps(fund_list, ensure_ascii=False))
         logger.info(f"基金搜索缓存预热完成，共 {len(fund_list)} 条写入 Redis")
     except Exception as e:
         logger.warning(f"搜索缓存预热失败，将使用数据库查询: {e}")
@@ -86,7 +93,7 @@ def _warm_up_search_cache(db: Session) -> None:
 
 # ---------- 搜索 ----------
 
-def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
+async def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
     """
     搜索基金。
 
@@ -94,7 +101,7 @@ def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
     Redis 不可用时降级为数据库 LIKE 查询，行为与原实现一致。
     """
     # 优先走缓存
-    result = _search_from_cache(keyword, limit)
+    result = await _search_from_cache(keyword, limit)
     if result is not None:
         return result
 
@@ -103,22 +110,30 @@ def search_funds(db: Session, keyword: str, limit: int = 20) -> List[Dict]:
     return _search_from_db(db, keyword, limit)
 
 
-def _search_from_cache(keyword: str, limit: int) -> Optional[List[Dict]]:
+async def _search_from_cache(keyword: str, limit: int) -> Optional[List[Dict]]:
     """
-    从 Redis 缓存搜索基金。
+    从缓存搜索基金（优先用进程级缓存，避免重复反序列化）。
     返回 None 表示缓存不可用（调用方应降级到数据库）。
     返回列表（可能为空）表示缓存命中。
     """
+    global _parsed_cache, _parsed_cache_time
     try:
-        from core.database import redis_client
-        if redis_client is None:
+        from core.database import get_redis
+        redis = get_redis()
+        if redis is None:
             return None
 
-        raw = redis_client.get(_CACHE_KEY)
-        if not raw:
-            return None
-
-        fund_list: List[Dict] = json.loads(raw)
+        # 优先使用进程级缓存
+        now = time.time()
+        if _parsed_cache and (now - _parsed_cache_time < _PARSED_CACHE_MAX_AGE):
+            fund_list = _parsed_cache
+        else:
+            raw = await redis.get(_CACHE_KEY)
+            if not raw:
+                return None
+            fund_list = json.loads(raw)
+            _parsed_cache = fund_list
+            _parsed_cache_time = now
 
         if not keyword:
             return fund_list[:limit]
@@ -198,7 +213,7 @@ def get_fund_by_code(db: Session, fund_code: str) -> Optional[Dict]:
     return _to_dict(row) if row else None
 
 
-def upsert_fund(db: Session, fund_code: str, fund_name: str, fund_type: str = "其他") -> None:
+async def upsert_fund(db: Session, fund_code: str, fund_name: str, fund_type: str = "其他") -> None:
     """新增或更新基金库记录，同时使缓存失效（下次搜索时重建）"""
     row = db.query(FundLib).filter(FundLib.fund_code == fund_code).first()
     if row:
@@ -209,15 +224,19 @@ def upsert_fund(db: Session, fund_code: str, fund_name: str, fund_type: str = "�
     db.commit()
 
     # 使缓存失效，下次搜索时触发重建
-    _invalidate_search_cache()
+    await _invalidate_search_cache()
 
 
-def _invalidate_search_cache() -> None:
+async def _invalidate_search_cache() -> None:
     """删除 Redis 中的全量缓存，下次搜索时重新预热"""
+    global _parsed_cache, _parsed_cache_time
+    _parsed_cache = None
+    _parsed_cache_time = 0
     try:
-        from core.database import redis_client
-        if redis_client:
-            redis_client.delete(_CACHE_KEY)
+        from core.database import get_redis
+        redis = get_redis()
+        if redis:
+            await redis.delete(_CACHE_KEY)
     except Exception as e:
         logger.warning(f"缓存失效操作失败: {e}")
 

@@ -9,7 +9,7 @@ import time
 
 from fastapi import APIRouter, Query, HTTPException
 
-from core.database import redis_client
+from core.database import get_redis
 from core.http_client import get_http_session
 from utils.http_headers import eastmoney_fund_headers
 
@@ -45,9 +45,10 @@ async def get_sector_list(
 
     # 尝试从 Redis 缓存读取
     cache_key = f"{CACHE_PREFIX}{type}:{sort}:{st}"
-    if redis_client is not None:
+    redis = get_redis()
+    if redis is not None:
         try:
-            cached = redis_client.get(cache_key)
+            cached = await redis.get(cache_key)
             if cached:
                 return json.loads(cached)
         except Exception:
@@ -100,9 +101,9 @@ async def get_sector_list(
     }
 
     # 写入 Redis 缓存
-    if redis_client is not None:
+    if redis is not None:
         try:
-            redis_client.setex(cache_key, CACHE_TTL, json.dumps(response, ensure_ascii=False))
+            await redis.setex(cache_key, CACHE_TTL, json.dumps(response, ensure_ascii=False))
         except Exception:
             pass
 

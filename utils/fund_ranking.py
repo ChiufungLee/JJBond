@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Literal
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import aiohttp
-from core.database import redis_client
+from core.database import get_redis
 from core.http_client import get_http_session
 from utils.http_headers import UA_DESKTOP, REFERER_EASTMONEY
 from utils.helpers import safe_float
@@ -49,11 +49,11 @@ class FundRankingManager:
     """基金排行榜管理器"""
 
     def __init__(self):
-        self.redis = redis_client
+        pass
 
     def _is_redis_available(self) -> bool:
         """检查 Redis 是否可用"""
-        return self.redis is not None
+        return get_redis() is not None
 
     def _get_ranking_key(self, ranking_type: RankingType) -> str:
         """获取排行榜的 Redis Key"""
@@ -63,13 +63,18 @@ class FundRankingManager:
         """获取基金详情的 Redis Key"""
         return f"{FUND_DETAIL_KEY_PREFIX}{fund_code}"
 
-    async def fetch_ranking_data_from_api(self, ranking_type: RankingType = "day") -> Optional[List[Dict]]:
+    async def fetch_ranking_data_from_api(
+        self, ranking_type: RankingType = "day",
+        page_index: int = None, page_num: int = None,
+    ) -> Optional[List[Dict]]:
         """
         从天天基金 API 获取排行榜数据
         API: POST https://condition.tiantianfunds.com/condition/conditionFund/fundSelect
 
         Args:
             ranking_type: 排行榜类型，决定 orderField 参数值
+            page_index: 指定单页页码（降级模式，仅取一页）
+            page_num: 指定单页数量（降级模式）
         """
         url = "https://condition.tiantianfunds.com/condition/conditionFund/fundSelect"
         headers = {
@@ -83,8 +88,9 @@ class FundRankingManager:
         order_field = ORDER_FIELD_MAP.get(ranking_type, "5_1_-1")
 
         all_funds = []
-        page_index = 1
-        page_size = 500  # 每页获取500条，减少请求次数
+        single_page_mode = page_index is not None
+        current_page = page_index if single_page_mode else 1
+        current_size = page_num if single_page_mode else 500
 
         try:
             session = get_http_session()
@@ -92,8 +98,8 @@ class FundRankingManager:
                     # 构建请求体
                     form_data = aiohttp.FormData()
                     form_data.add_field("orderField", order_field)
-                    form_data.add_field("pageIndex", str(page_index))
-                    form_data.add_field("pageNum", str(page_size))
+                    form_data.add_field("pageIndex", str(current_page))
+                    form_data.add_field("pageNum", str(current_size))
                     form_data.add_field("pageType", "5")
                     form_data.add_field("deviceid", "Wap")
                     form_data.add_field("plat", "Wap")
@@ -118,14 +124,15 @@ class FundRankingManager:
 
                         all_funds.extend(funds)
 
-                        # 检查是否还有更多数据
-                        # 注意：API返回的TotalCount可能为0，所以用返回数据量来判断
-                        if len(funds) < page_size:
+                        # 单页模式只取一页
+                        if single_page_mode:
                             break
 
-                        page_index += 1
-                        # 并发场景下适当降低页间延迟
-                        await asyncio.sleep(0.2)
+                        # 检查是否还有更多数据
+                        if len(funds) < current_size:
+                            break
+
+                        current_page += 1
 
             logger.info(f"从天天基金获取了 {len(all_funds)} 只基金数据 (类型: {ranking_type})")
             return self._parse_ranking_data(all_funds)
@@ -226,7 +233,8 @@ class FundRankingManager:
                 return False
 
             # Redis pipeline 批量写入，将几万次往返合并为一次
-            pipe = self.redis.pipeline()
+            redis = get_redis()
+            pipe = redis.pipeline()
 
             # 清除旧排行榜 key
             for ranking_type in RANKING_FIELD_MAP.keys():
@@ -261,7 +269,7 @@ class FundRankingManager:
                 "totalCount": str(len(all_fund_details)),
             })
 
-            pipe.execute()  # 一次性提交所有命令
+            await pipe.execute()  # 一次性提交所有命令
 
             logger.info(f"排行榜数据同步成功，共 {len(all_fund_details)} 只基金")
             return True
@@ -270,7 +278,7 @@ class FundRankingManager:
             logger.error(f"同步排行榜数据失败: {e}")
             return False
 
-    def get_ranking(
+    async def get_ranking(
         self,
         ranking_type: RankingType,
         page: int = 1,
@@ -289,14 +297,15 @@ class FundRankingManager:
         Returns:
             排行榜数据
         """
-        if not self._is_redis_available():
+        redis = get_redis()
+        if redis is None:
             return None
 
         try:
             key = self._get_ranking_key(ranking_type)
 
             # 获取总数
-            total = self.redis.zcard(key)
+            total = await redis.zcard(key)
 
             # 计算分页偏移
             start = (page - 1) * page_size
@@ -304,20 +313,18 @@ class FundRankingManager:
 
             # 获取排行榜（Sorted Set）
             if descending:
-                # 降序：涨幅从高到低
-                fund_codes = self.redis.zrevrange(key, start, end, withscores=True)
+                fund_codes = await redis.zrevrange(key, start, end, withscores=True)
             else:
-                # 升序：涨幅从低到高
-                fund_codes = self.redis.zrange(key, start, end, withscores=True)
+                fund_codes = await redis.zrange(key, start, end, withscores=True)
 
             # 获取基金详情（pipeline 批量查询，1 次 Redis 往返）
             result = []
             rank_start = start + 1
             if fund_codes:
-                pipe = self.redis.pipeline()
+                pipe = redis.pipeline()
                 for fund_code, _ in fund_codes:
                     pipe.hgetall(self._get_fund_detail_key(fund_code))
-                details = pipe.execute()
+                details = await pipe.execute()
 
                 for i, ((fund_code, score), detail) in enumerate(zip(fund_codes, details)):
                     if detail:
@@ -333,7 +340,7 @@ class FundRankingManager:
                         })
 
             # 获取元数据
-            meta = self.redis.hgetall(META_KEY)
+            meta = await redis.hgetall(META_KEY)
 
             return {
                 "rankingType": ranking_type,
@@ -348,7 +355,7 @@ class FundRankingManager:
             logger.error(f"获取排行榜失败: {e}")
             return {"error": str(e), "data": []}
 
-    def get_fund_ranking_info(self, fund_code: str) -> Optional[Dict]:
+    async def get_fund_ranking_info(self, fund_code: str) -> Optional[Dict]:
         """
         获取单个基金在各排行榜中的排名和涨跌幅
 
@@ -358,11 +365,12 @@ class FundRankingManager:
         Returns:
             基金排名信息和各阶段涨跌幅
         """
-        if not self._is_redis_available():
+        redis = get_redis()
+        if redis is None:
             return None
 
         try:
-            detail = self.redis.hgetall(self._get_fund_detail_key(fund_code))
+            detail = await redis.hgetall(self._get_fund_detail_key(fund_code))
             if not detail:
                 return None
 
@@ -396,7 +404,7 @@ class FundRankingManager:
                 })
 
             # 获取各维度的排名（pipeline 批量查询，1 次 Redis 往返）
-            pipe = self.redis.pipeline()
+            pipe = redis.pipeline()
             keys = []
             for ranking_type in RANKING_FIELD_MAP:
                 key = self._get_ranking_key(ranking_type)
@@ -404,7 +412,7 @@ class FundRankingManager:
                 pipe.zscore(key, fund_code)
                 pipe.zrevrank(key, fund_code)
                 pipe.zcard(key)
-            pipeline_results = pipe.execute()
+            pipeline_results = await pipe.execute()
 
             for idx, (ranking_type, key) in enumerate(keys):
                 score = pipeline_results[idx * 3]
@@ -423,16 +431,17 @@ class FundRankingManager:
             logger.error(f"获取基金排名信息失败: {fund_code}, {e}")
             return None
 
-    def get_cache_status(self) -> Dict:
+    async def get_cache_status(self) -> Dict:
         """获取缓存状态"""
-        if not self._is_redis_available():
+        redis = get_redis()
+        if redis is None:
             return {"available": False, "message": "Redis 不可用"}
 
         try:
-            meta = self.redis.hgetall(META_KEY)
+            meta = await redis.hgetall(META_KEY)
             counts = {}
             for ranking_type in RANKING_FIELD_MAP.keys():
-                counts[ranking_type] = self.redis.zcard(self._get_ranking_key(ranking_type))
+                counts[ranking_type] = await redis.zcard(self._get_ranking_key(ranking_type))
 
             return {
                 "available": True,

@@ -73,12 +73,22 @@ Page({
   async loadUserFunds() {
     if (!isLoggedIn()) return
     try {
-      const [watchlist, funds] = await Promise.all([
-        get('/watchlist/', {}, { skipErrorToast: true }).catch(() => []),
-        get('/funds/', {}, { skipErrorToast: true }).catch(() => [])
-      ])
-      const watchlistCodes = (watchlist || []).map(item => item.fund_code)
-      const heldCodes = (funds || []).map(item => item.fund_code)
+      const app = getApp()
+      // 优先从缓存提取 fund code 集合，避免每次 tab 切换都发请求
+      const watchlistCache = app.getWatchlistCache(120000)
+      const portfolioCache = app.getPortfolioCache(120000)
+      let watchlistCodes = watchlistCache ? watchlistCache.map(f => f.fund_code) : null
+      let heldCodes = portfolioCache?.fund_details ? portfolioCache.fund_details.map(f => f.fund_code) : null
+
+      // 缓存未命中时回退到 API
+      if (watchlistCodes === null || heldCodes === null) {
+        const [watchlist, funds] = await Promise.all([
+          get('/watchlist/', {}, { skipErrorToast: true }).catch(() => []),
+          get('/funds/', {}, { skipErrorToast: true }).catch(() => [])
+        ])
+        if (watchlistCodes === null) watchlistCodes = (watchlist || []).map(item => item.fund_code)
+        if (heldCodes === null) heldCodes = (funds || []).map(item => item.fund_code)
+      }
       this.setData({ watchlistCodes, heldCodes })
       this._markRankingItems()
     } catch (e) {

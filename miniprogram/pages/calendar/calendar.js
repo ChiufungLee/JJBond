@@ -88,8 +88,8 @@ Page({
       const selectedFundDetails = this._formatFundDetails(selectedDayInfo)
       const revenueChart = this._buildChartBlocks(selectedDayInfo?.fund_details || [])
 
+      this._calendarData = calendarData
       this.setData({
-        calendarData,
         calendarDays,
         selectedDate,
         selectedDayInfo,
@@ -119,9 +119,9 @@ Page({
   // ── 日期点击 ──────────────────────────────────────────
   onDayTap(e) {
     const { date } = e.currentTarget.dataset
-    if (!date || !this.data.calendarData?.calendar) return
+    if (!date || !this._calendarData?.calendar) return
 
-    const selectedDayInfo = this._findDayInfo(this.data.calendarData.calendar, date)
+    const selectedDayInfo = this._findDayInfo(this._calendarData.calendar, date)
     const selectedFundDetails = this._formatFundDetails(selectedDayInfo)
     const revenueChart = this._buildChartBlocks(selectedDayInfo?.fund_details || [])
 

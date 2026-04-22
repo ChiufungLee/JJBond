@@ -2,17 +2,18 @@ import json
 import logging
 import aiohttp
 from datetime import datetime
-from core.database import redis_client
+from core.database import get_redis
 from core.http_client import get_http_session
 from utils.http_headers import UA_DESKTOP, REFERER_EASTMONEY
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 import schemas
 from core.database import get_db
 from core.dependencies import get_current_user
+from core.limiter import limiter
 from crud import user as user_crud
 from utils.fund_calculator import calculator
 from utils.fund_data_manager import search_funds, upsert_fund
@@ -72,7 +73,7 @@ async def get_fund_returns(
     返回：近一周、近一月、近三月、近六月、近1年、近2年、近3年、近5年、今年来、成立来
     """
     # 优先从排行榜缓存获取
-    ranking_info = fund_ranking_manager.get_fund_ranking_info(fund_code)
+    ranking_info = await fund_ranking_manager.get_fund_ranking_info(fund_code)
     # 检查 returns 列表是否非空（空列表 [] 也是 truthy，需要检查长度）
     if ranking_info and ranking_info.get("returns") and len(ranking_info["returns"]) > 0:
         # 缓存命中，直接返回
@@ -132,7 +133,9 @@ def get_fund_transactions(
 
 
 @router.get("/calculate", response_model=schemas.PortfolioSummary)
+@limiter.limit("10/minute")
 async def calculate_portfolio(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
@@ -150,7 +153,9 @@ async def calculate_portfolio(
 
 
 @router.get("/calculate-simple", response_model=schemas.PortfolioSummary)
+@limiter.limit("10/minute")
 async def calculate_portfolio_simple(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
@@ -170,7 +175,9 @@ async def calculate_portfolio_simple(
 
 
 @router.get("/revenue-calendar", response_model=schemas.RevenueCalendar)
+@limiter.limit("10/minute")
 async def get_revenue_calendar(
+    request: Request,
     year: int = Query(..., description="年份"),
     month: int = Query(..., ge=1, le=12, description="月份(1-12)"),
     db: Session = Depends(get_db),
@@ -202,9 +209,9 @@ async def search_fund(
         if use_api:
             funds = await _search_funds_from_api(q, limit)
             for fund in funds:
-                upsert_fund(db, fund["fund_code"], fund["fund_name"], fund.get("fund_type", "其他"))
+                await upsert_fund(db, fund["fund_code"], fund["fund_name"], fund.get("fund_type", "其他"))
         else:
-            funds = search_funds(db, q, limit)
+            funds = await search_funds(db, q, limit)
             if len(funds) < 5 and q:
                 try:
                     api_funds = await _search_funds_from_api(q, limit)
@@ -217,7 +224,7 @@ async def search_fund(
         return funds
     except Exception as e:
         logger.error(f"搜索失败: {str(e)}", exc_info=True)
-        return search_funds(db, q, limit)
+        return await search_funds(db, q, limit)
 
 
 _FUND_LIST_CACHE_KEY = "fund_search:all_funds"
@@ -264,9 +271,10 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
         return []
 
     # 尝试从 Redis 获取缓存的基金列表
-    if redis_client is not None:
+    redis = get_redis()
+    if redis is not None:
         try:
-            cached = redis_client.get(_FUND_LIST_CACHE_KEY)
+            cached = await redis.get(_FUND_LIST_CACHE_KEY)
             if cached:
                 raw_data = json.loads(cached)
                 return _search_in_fund_list(raw_data, keyword, limit)
@@ -294,43 +302,13 @@ async def _search_funds_from_api(keyword: str, limit: int = 10) -> List[dict]:
         raw_data = json.loads(content[start_idx:end_idx + 1])
 
         # 缓存解析后的基金列表
-        if redis_client is not None:
+        if redis is not None:
             try:
-                redis_client.setex(_FUND_LIST_CACHE_KEY, _FUND_LIST_CACHE_TTL, json.dumps(raw_data))
+                await redis.setex(_FUND_LIST_CACHE_KEY, _FUND_LIST_CACHE_TTL, json.dumps(raw_data))
             except Exception:
                 pass
 
         return _search_in_fund_list(raw_data, keyword, limit)
-    except Exception as e:
-        logger.error(f"第三方 API 搜索失败: {e}")
-        return []
-
-        for item in raw_data:
-            if len(item) < 4:
-                continue
-
-            fund_code = str(item[0]).strip()
-            fund_name = str(item[2]).strip()
-            raw_type = str(item[3]).strip()
-            fund_type = raw_type.split("-", 1)[0] if "-" in raw_type else raw_type
-
-            if fund_code in seen_codes:
-                continue
-
-            if keyword_lower not in fund_code.lower() and keyword_lower not in fund_name.lower():
-                continue
-
-            seen_codes.add(fund_code)
-            funds.append({
-                "fund_code": fund_code,
-                "fund_name": fund_name,
-                "fund_type": fund_type,
-            })
-
-            if len(funds) >= limit:
-                break
-
-        return funds
     except Exception as e:
         logger.error(f"第三方 API 搜索失败: {e}")
         return []

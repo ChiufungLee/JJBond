@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from jose import JWTError, jwt
 from core.config import settings
-from core.database import redis_client
+from core.database import get_redis
 import logging
 
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
@@ -40,12 +40,13 @@ def create_refresh_token(data: dict, expires_delta: timedelta = None) -> str:
     )
 
 
-def revoke_token(token: str) -> bool:
+async def revoke_token(token: str) -> bool:
     """
     将 token 加入黑名单，直到其自然过期。
     返回 True 表示吊销成功，False 表示 Redis 不可用（降级：token 将在过期时间后自然失效）。
     """
-    if redis_client is None:
+    redis = get_redis()
+    if redis is None:
         logger.warning("Redis 不可用，token 无法立即吊销，将在过期时间后自然失效")
         return False
     try:
@@ -62,7 +63,7 @@ def revoke_token(token: str) -> bool:
         else:
             ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-        redis_client.setex(f"{_BLACKLIST_PREFIX}{token}", ttl, "1")
+        await redis.setex(f"{_BLACKLIST_PREFIX}{token}", ttl, "1")
         logger.info("Token 已加入黑名单")
         return True
     except Exception as e:
@@ -70,14 +71,15 @@ def revoke_token(token: str) -> bool:
         return False
 
 
-def verify_token(token: str, token_type: str | None = ACCESS_TOKEN_TYPE) -> dict | None:
+async def verify_token(token: str, token_type: str | None = ACCESS_TOKEN_TYPE) -> dict | None:
     """
     验证令牌，返回整个 payload 或 None。
     验证步骤：黑名单检查 → 签名 & 过期校验 → token 类型校验 → 返回 payload。
     """
-    if redis_client is not None:
+    redis = get_redis()
+    if redis is not None:
         try:
-            if redis_client.exists(f"{_BLACKLIST_PREFIX}{token}"):
+            if await redis.exists(f"{_BLACKLIST_PREFIX}{token}"):
                 logger.warning("Token 已被吊销")
                 return None
         except Exception as e:

@@ -168,7 +168,7 @@ Page({
     }
 
     try {
-      const transactions = await get(`/funds/${fundCode}/transactions`, {}, { forceRefresh: true, cacheTTL: 0, dedupe: false })
+      const transactions = await get(`/funds/${fundCode}/transactions`, {}, { cacheTTL: 300000 })
       const normalizedTransactions = Array.isArray(transactions) ? transactions : []
       this.transactionsLoadedFundCode = fundCode
       this.setData({ transactions: normalizedTransactions })

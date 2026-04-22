@@ -1,9 +1,10 @@
 """
 基金涨跌幅排行榜 API
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Optional
 from core.dependencies import require_ranking_sync_token
+from core.limiter import limiter
 from utils.fund_ranking import fund_ranking_manager, RankingType, RANKING_FIELD_MAP
 
 router = APIRouter(prefix="/ranking", tags=["排行榜"])
@@ -13,7 +14,7 @@ async def _get_ranking_with_fallback(
     ranking_type: RankingType, page: int, page_size: int, desc: bool
 ):
     """优先从 Redis 读取，不可用时降级直接调 API"""
-    result = fund_ranking_manager.get_ranking(
+    result = await fund_ranking_manager.get_ranking(
         ranking_type=ranking_type,
         page=page,
         page_size=page_size,
@@ -25,21 +26,20 @@ async def _get_ranking_with_fallback(
             raise HTTPException(status_code=500, detail=result["error"])
         return result
 
-    # Redis 不可用，降级：直接从 API 获取
-    raw = await fund_ranking_manager.fetch_ranking_data_from_api(ranking_type)
+    # Redis 不可用，降级：直接从 API 获取单页数据
+    raw = await fund_ranking_manager.fetch_ranking_data_from_api(
+        ranking_type, page_index=page, page_num=page_size
+    )
     if not raw:
         raise HTTPException(status_code=502, detail="获取排行榜数据失败")
 
     change_field = RANKING_FIELD_MAP.get(ranking_type, "daySyl")
     sorted_data = sorted(raw, key=lambda x: x.get(change_field, 0) or 0, reverse=desc)
-    total = len(sorted_data)
-    start = (page - 1) * page_size
-    page_data = sorted_data[start:start + page_size]
 
     items = []
-    for i, item in enumerate(page_data):
+    for i, item in enumerate(sorted_data):
         items.append({
-            "rank": start + i + 1,
+            "rank": (page - 1) * page_size + i + 1,
             "fundCode": item.get("fundCode", ""),
             "fundName": item.get("fundName", ""),
             "ftype": item.get("ftype", ""),
@@ -53,14 +53,16 @@ async def _get_ranking_with_fallback(
         "rankingType": ranking_type,
         "page": page,
         "pageSize": page_size,
-        "total": total,
+        "total": None,
         "lastUpdate": "",
         "data": items,
     }
 
 
 @router.get("/")
+@limiter.limit("20/minute")
 async def get_ranking(
+    request: Request,
     type: RankingType = Query("day", description="排行榜类型: day/week/month/year/ytd"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -71,7 +73,7 @@ async def get_ranking(
 
 @router.get("/{fund_code}")
 async def get_fund_ranking(fund_code: str):
-    result = fund_ranking_manager.get_fund_ranking_info(fund_code)
+    result = await fund_ranking_manager.get_fund_ranking_info(fund_code)
     if result is None:
         raise HTTPException(status_code=404, detail="基金未在排行榜中找到")
     return result
@@ -79,7 +81,7 @@ async def get_fund_ranking(fund_code: str):
 
 @router.get("/status/cache")
 async def get_cache_status():
-    return fund_ranking_manager.get_cache_status()
+    return await fund_ranking_manager.get_cache_status()
 
 
 @router.post("/sync")

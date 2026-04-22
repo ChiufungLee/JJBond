@@ -10,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from core.database import SessionLocal, engine
+from core.database import init_redis, close_redis
 from core.limiter import limiter
 from core.http_client import init_http_session, close_http_session
 from models import base as models
@@ -32,29 +33,32 @@ async def lifespan(app: FastAPI):
     # 1. 创建数据库表（已存在则跳过）
     models.Base.metadata.create_all(bind=engine)
 
-    # 2. 初始化基金库（首次启动写入数据，已有则跳过）
+    # 2. 初始化 async Redis
+    await init_redis()
+
+    # 3. 初始化基金库（首次启动写入数据，已有则跳过）
     db = SessionLocal()
     try:
-        init_fund_lib(db)
+        await init_fund_lib(db)
     finally:
         db.close()
 
-    # 3. 初始化全局 HTTP session（复用 TCP 连接）
+    # 4. 初始化全局 HTTP session（复用 TCP 连接）
     await init_http_session()
 
-    # 4. 配置并启动定时任务调度器
+    # 5. 配置并启动定时任务调度器
     setup_scheduler()
     start_scheduler()
 
-    # 5. 排行榜数据预热：检查 Redis 是否已有数据，没有则同步一次
-    #    直接 await 而非 create_task，确保应用就绪前数据已可用
+    # 6. 排行榜数据预热：检查 Redis 是否已有数据，没有则同步一次
     await _warmup_ranking()
 
     yield  # 应用正常运行阶段
 
-    # 关闭：调度器 → HTTP session
+    # 关闭：调度器 → HTTP session → Redis
     shutdown_scheduler()
     await close_http_session()
+    await close_redis()
 
 
 async def _warmup_ranking() -> None:
@@ -64,7 +68,7 @@ async def _warmup_ranking() -> None:
     - Redis 不可用时静默跳过，不影响应用启动
     """
     try:
-        status = fund_ranking_manager.get_cache_status()
+        status = await fund_ranking_manager.get_cache_status()
         if not status.get("available"):
             logger.warning("排行榜预热跳过：Redis 不可用")
             return

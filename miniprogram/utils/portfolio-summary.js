@@ -44,5 +44,6 @@ const formatPortfolioSummary = (summary) => {
 
 module.exports = {
   formatPortfolioSummary,
-  normalizeFundDetail
+  normalizeFundDetail,
+  isDownChangeRate
 }

@@ -8,7 +8,7 @@ from lxml import etree
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, Optional, List, Any
-from core.database import redis_client
+from core.database import get_redis
 from core.http_client import get_http_session
 from utils.http_headers import UA_DESKTOP, UA_MOBILE, REFERER_EASTMONEY
 from utils.helpers import safe_float
@@ -21,39 +21,41 @@ class FundCalculator:
     通过模块级单例 `calculator` 在整个应用中共享，无需每次 new。
     """
 
-    def _cache_get(self, key: str) -> Optional[str]:
+    async def _cache_get(self, key: str) -> Optional[str]:
         """从 Redis 读取缓存，Redis 不可用时返回 None"""
-        if redis_client is None:
+        redis = get_redis()
+        if redis is None:
             return None
         try:
-            return redis_client.get(key)
+            return await redis.get(key)
         except Exception as e:
             logger.warning(f"Redis 读取失败: {e}")
             return None
 
-    def _cache_set(self, key: str, value: str, expire: int) -> None:
+    async def _cache_set(self, key: str, value: str, expire: int) -> None:
         """写入 Redis 缓存，Redis 不可用时静默跳过"""
-        if redis_client is None:
+        redis = get_redis()
+        if redis is None:
             return
         try:
-            redis_client.setex(key, expire, value)
+            await redis.setex(key, expire, value)
         except Exception as e:
             logger.warning(f"Redis 写入失败: {e}")
 
-    def _get_cached_fund_info(self, fund_code: str) -> Optional[Dict]:
+    async def _get_cached_fund_info(self, fund_code: str) -> Optional[Dict]:
         """从缓存获取基金信息"""
-        cached_data = self._cache_get(f"fund_info:{fund_code}")
+        cached_data = await self._cache_get(f"fund_info:{fund_code}")
         if cached_data:
             return json.loads(cached_data)
         return None
 
-    def _set_cached_fund_info(self, fund_code: str, data: Dict, expire: int = 300):
+    async def _set_cached_fund_info(self, fund_code: str, data: Dict, expire: int = 300):
         """缓存基金信息（5分钟）"""
-        self._cache_set(f"fund_info:{fund_code}", json.dumps(data), expire)
+        await self._cache_set(f"fund_info:{fund_code}", json.dumps(data), expire)
 
     async def get_fund_info(self, fund_code: str) -> Optional[Dict]:
         """获取基金信息（异步，优先读缓存）"""
-        cached_info = self._get_cached_fund_info(fund_code)
+        cached_info = await self._get_cached_fund_info(fund_code)
         if cached_info:
             return cached_info
 
@@ -65,7 +67,7 @@ class FundCalculator:
                 fund_info = await self._get_lof_fund_info(fund_code)
 
             if fund_info:
-                self._set_cached_fund_info(fund_code, fund_info)
+                await self._set_cached_fund_info(fund_code, fund_info)
             return fund_info
         except Exception as e:
             logger.error(f"获取基金信息失败: {fund_code}, 错误: {str(e)}")
@@ -102,7 +104,7 @@ class FundCalculator:
             'Referer': REFERER_EASTMONEY,
         }
         # 请求参数
-        fields = 'SHORTNAME,RZDF,DWJZ,LJJZ,SYL_1N,SYL_LN,FSRQ,ISBUY,DTZT,FTYPE,FCODE,ISSALES,ISSBDATE,ISSEDATE,TSRQ,BACKCODE,MINSG,MINSBSG,SHZT,SGZT,SOURCERATE,RATE,REALSGCODE,FEATURE,SYL,MINRG,SYL_Z,BFUNDTYPE,QDCODE,MINDT,BAGTYPE,FUNDTYPE,BENCH,ESTABDATE,SELLSTATE,ESTDIFF,SYSDATE,PTYPE,FUNDTYPE,ISEXCHG,ISNEW,BTYPE'
+        fields = 'SHORTNAME,RZDF,DWJZ,FSRQ,FCODE'
         data = {
             'deviceid': '1234567.py.service',
             'version': '6.5.5',
@@ -152,7 +154,7 @@ class FundCalculator:
                 async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     resp.raise_for_status()
                     body = await resp.read()
-                    soup = BeautifulSoup(body, 'html.parser')
+                    soup = await asyncio.to_thread(BeautifulSoup, body, 'html.parser')
                     name_element = soup.find('a', href=url, target="_self")
                     name = name_element.getText() if name_element else "未知基金"
 
@@ -171,7 +173,7 @@ class FundCalculator:
     async def get_change_recent_days(self, fund_code: str) -> str:
         """获取基金最近涨跌情况（异步）"""
         cache_key = f"fund_recent:{fund_code}"
-        cached_data = self._cache_get(cache_key)
+        cached_data = await self._cache_get(cache_key)
         if cached_data:
             return cached_data
 
@@ -194,12 +196,12 @@ class FundCalculator:
             if not matched:
                 return "无数据"
 
-            html = etree.HTML(matched[0])
+            html = await asyncio.to_thread(etree.HTML, matched[0])
             html_data = html.xpath('//tr/td/text()')
             rise_fall_list = [num for num in html_data if num.endswith('%')]
             rise_fall_list.reverse()
             result = ' , '.join(rise_fall_list)
-            self._cache_set(cache_key, result, 600)
+            await self._cache_set(cache_key, result, 600)
             return result
         except Exception as e:
             logger.error(f"获取近期涨跌失败: {fund_code}, 错误: {str(e)}")
@@ -211,7 +213,7 @@ class FundCalculator:
         使用天天基金 /fundMNPeriodIncrease 接口
         """
         cache_key = f"fund_returns:{fund_code}"
-        cached_data = self._cache_get(cache_key)
+        cached_data = await self._cache_get(cache_key)
         if cached_data:
             try:
                 return json.loads(cached_data)
@@ -285,7 +287,7 @@ class FundCalculator:
                     order_map = {code: i for i, code in enumerate(period_codes)}
                     result['periods'].sort(key=lambda x: order_map.get(x['period_code'], 999))
 
-            self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)  # 缓存15分钟
+            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)  # 缓存15分钟
             logger.info(f"获取基金阶段涨幅成功: {fund_code}")
             return result
 
@@ -301,7 +303,7 @@ class FundCalculator:
         edate = end_date.strftime("%Y-%m-%d")
 
         cache_key = f"fund_nav_simple:{fund_code}:{sdate}:{edate}"
-        cached_data = self._cache_get(cache_key)
+        cached_data = await self._cache_get(cache_key)
         if cached_data:
             try:
                 return json.loads(cached_data)
@@ -336,7 +338,7 @@ class FundCalculator:
 
                 raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
                 total_pages = int(match.group(3))
-                html = etree.HTML(raw_html)
+                html = await asyncio.to_thread(etree.HTML, raw_html)
                 page_rows = 0
 
                 for row in html.xpath('//tr')[1:]:
@@ -379,7 +381,7 @@ class FundCalculator:
                 page += 1
 
             result.sort(key=lambda x: x["date"], reverse=True)
-            self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
+            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
             logger.info(f"获取基金净值历史成功: {fund_code}, 记录数: {len(result)}")
             return result
 
@@ -409,7 +411,7 @@ class FundCalculator:
     async def _get_real_nav_info(self, fund_code: str) -> Optional[Dict]:
         """获取实际净值信息（天天基金 FundCoreDiyNew 接口）"""
         cache_key = f"real_nav:{fund_code}"
-        cached_data = self._cache_get(cache_key)
+        cached_data = await self._cache_get(cache_key)
         if cached_data:
             try:
                 return json.loads(cached_data)
@@ -444,7 +446,7 @@ class FundCalculator:
                         'rzdf': item.get('RZDF'),
                         'fsrq': item.get('FSRQ'),
                     }
-                    self._cache_set(cache_key, json.dumps(nav_info), 300)
+                    await self._cache_set(cache_key, json.dumps(nav_info), 300)
                     return nav_info
         except Exception as e:
             logger.warning(f"获取实际净值失败: {fund_code}, 错误: {str(e)}")
@@ -822,13 +824,6 @@ class FundCalculator:
             real_nav = real_nav_map.get(fund_data['fund_code'])
             fund_details.append(self._compute_fund_detail(fund_data, fund_info, nav, None, real_nav))
 
-        # 第四步：并发获取所有基金的 30 天历史净值（用于 recent_changes 图表）
-        recent_navs = await asyncio.gather(
-            *[self.get_fund_nav_history_simple(code, days=30) for code in fund_codes]
-        )
-        for i, recent in enumerate(recent_navs):
-            fund_details[i]['recent_changes'] = recent if recent else []
-
         fund_details.sort(key=lambda x: x.get('change_rate_value', 0), reverse=True)
         return self._aggregate_portfolio(fund_details)
 
@@ -847,7 +842,7 @@ class FundCalculator:
         edate = end_date.strftime("%Y-%m-%d")
 
         cache_key = f"fund_nav_month:{fund_code}:{sdate}:{edate}"
-        cached_data = self._cache_get(cache_key)
+        cached_data = await self._cache_get(cache_key)
         if cached_data:
             try:
                 return json.loads(cached_data)
@@ -873,7 +868,7 @@ class FundCalculator:
                 return result
 
             raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
-            html = etree.HTML(raw_html)
+            html = await asyncio.to_thread(etree.HTML, raw_html)
             for row in html.xpath('//tr')[1:]:
                 cells = row.xpath('./td')
                 if len(cells) < 4:
@@ -891,7 +886,7 @@ class FundCalculator:
                     logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
 
             result.sort(key=lambda x: x["date"])
-            self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
+            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
             return result
 
         except Exception as e:

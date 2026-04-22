@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 import asyncio
@@ -6,6 +6,7 @@ from datetime import datetime
 
 from core.dependencies import get_current_user
 from core.database import get_db
+from core.limiter import limiter
 import schemas
 from crud import user as user_crud
 from utils.fund_calculator import calculator
@@ -17,7 +18,9 @@ router = APIRouter(prefix="/watchlist", tags=["watchlist"])
 
 
 @router.get("/", response_model=List[schemas.WatchlistItem])
+@limiter.limit("15/minute")
 async def get_watchlist(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):

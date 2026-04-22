@@ -24,7 +24,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    payload = verify_token(token)
+    payload = await verify_token(token)
     if payload is None:
         raise credentials_exception
 
@@ -62,7 +62,7 @@ async def get_current_user_with_token(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    payload = verify_token(token)
+    payload = await verify_token(token)
     if payload is None:
         raise credentials_exception
 

@@ -11,6 +11,10 @@ App({
     portfolioCache: null,
     portfolioCacheTime: 0,
     portfolioDirty: false,
+    // 自选列表缓存
+    watchlistCache: null,
+    watchlistCacheTime: 0,
+    watchlistDirty: false,
     // 后端API地址，开发时使用本地地址，生产环境需要修改为正式域名
     // baseUrl: 'http://106.13.192.72:8888/api'
     // baseUrl: 'https://fund.awesomeme.cloud/api'
@@ -68,6 +72,7 @@ App({
     this.globalData.isLoggedIn = false
     this.globalData.dirtyFunds = {}
     this.clearPortfolioCache()
+    this.clearWatchlistCache()
 
     wx.removeStorageSync('token')
     wx.removeStorageSync('userInfo')
@@ -110,6 +115,33 @@ App({
     this.globalData.portfolioCache = null
     this.globalData.portfolioCacheTime = 0
     this.globalData.portfolioDirty = false
+  },
+
+  markWatchlistDirty() {
+    this.globalData.watchlistDirty = true
+  },
+
+  getWatchlistCache(maxAge = 30000) {
+    const { watchlistCache, watchlistCacheTime, watchlistDirty } = this.globalData
+    if (watchlistDirty || !watchlistCache) {
+      return null
+    }
+    if (Date.now() - watchlistCacheTime > maxAge) {
+      return null
+    }
+    return watchlistCache
+  },
+
+  setWatchlistCache(data) {
+    this.globalData.watchlistCache = data
+    this.globalData.watchlistCacheTime = Date.now()
+    this.globalData.watchlistDirty = false
+  },
+
+  clearWatchlistCache() {
+    this.globalData.watchlistCache = null
+    this.globalData.watchlistCacheTime = 0
+    this.globalData.watchlistDirty = false
   },
 
   consumeFundDirty(fundCode) {
