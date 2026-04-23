@@ -28,14 +28,14 @@
     <!-- 资金流入/流出榜 -->
     <view class="section">
       <view class="flow-header">
-        <view class="sector-type-tabs">
+        <view class="flow-tabs">
           <view
-            class="sector-type-tab {{activeSectorType === 'industry' ? 'sector-type-active' : ''}}"
+            class="flow-tab {{activeSectorType === 'industry' ? 'flow-tab-active' : ''}}"
             data-type="industry"
             bindtap="onSectorTypeChange"
           >行业板块</view>
           <view
-            class="sector-type-tab {{activeSectorType === 'concept' ? 'sector-type-active' : ''}}"
+            class="flow-tab {{activeSectorType === 'concept' ? 'flow-tab-active' : ''}}"
             data-type="concept"
             bindtap="onSectorTypeChange"
           >概念板块</view>

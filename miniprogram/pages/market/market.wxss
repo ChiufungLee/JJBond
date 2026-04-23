@@ -8,6 +8,8 @@
 /* ====== 通用模块 ====== */
 .section {
   margin: 24rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #eee;
 }
 
 .section-title {

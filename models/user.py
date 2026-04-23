@@ -4,8 +4,6 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Column, Integer, String, DateTime
 from .base import Base
 
-SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
-
 
 class User(Base):
     __tablename__ = 'users'
@@ -21,4 +19,4 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)    # 微信头像
     login_type = Column(String(20), default='password')  # 登录方式: password/wechat
     last_login_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(SHANGHAI_TZ))
+    created_at = Column(DateTime, default=lambda: datetime.now(ZoneInfo("UTC")))

@@ -13,6 +13,7 @@ Page({
     hideAmount: false,
     sortOrder: 'desc',  // 持有收益率排序：desc=从高到低，asc=从低到高
     loggedIn: false,
+    pieData: null,
   },
 
   onLoad() {
@@ -35,7 +36,13 @@ Page({
         const summary = formatPortfolioSummary(cached)
         const funds = summary?.fund_details || []
         const sorted = this._sortFunds(funds, this.data.sortOrder)
-        this.setData({ funds: sorted, loading: false, error: false, errorMessage: '' })
+        this.setData({
+          funds: sorted,
+          pieData: this._buildPieData(sorted),
+          loading: false,
+          error: false,
+          errorMessage: ''
+        })
       } else {
         this.loadFunds()
       }
@@ -58,6 +65,7 @@ Page({
       this.setData({
         loading: false,
         funds: sorted,
+        pieData: this._buildPieData(sorted),
         error: false,
         errorMessage: ''
       })
@@ -158,11 +166,45 @@ Page({
     this.setData({ funds: sorted, sortOrder })
   },
 
+  // 构建饼图数据
+  _buildPieData(funds) {
+    if (!funds || funds.length === 0) return null
+
+    const colors = ['#722ed1', '#1890ff', '#13c2c2', '#52c41a', '#faad14', '#f5222d', '#eb2f96', '#2f54eb', '#fa8c16', '#a0d911']
+    const totalCost = funds.reduce((sum, f) => sum + (f.cost || 0), 0)
+    if (totalCost <= 0) return null
+
+    let cumPct = 0
+    const stops = []
+    const legend = []
+
+    funds.forEach((f, i) => {
+      const pct = (f.cost || 0) / totalCost * 100
+      const color = colors[i % colors.length]
+      const start = cumPct
+      cumPct += pct
+      stops.push(`${color} ${start}% ${cumPct}%`)
+      legend.push({
+        name: f.fund_name || f.fund_code,
+        pct: pct.toFixed(1),
+        cost: f.cost || 0,
+        color,
+      })
+    })
+
+    legend.sort((a, b) => b.cost - a.cost)
+
+    return {
+      gradient: `conic-gradient(${stops.join(', ')})`,
+      legend,
+    }
+  },
+
   // 按持有收益金额排序
   _sortFunds(funds, order) {
     return [...funds].sort((a, b) => {
-      const va = a.profit_loss ?? -Infinity
-      const vb = b.profit_loss ?? -Infinity
+      const va = a.total_revenue ?? -Infinity
+      const vb = b.total_revenue ?? -Infinity
       return order === 'desc' ? vb - va : va - vb
     })
   },

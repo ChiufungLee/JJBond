@@ -31,6 +31,24 @@
 
   <!-- 基金表格 -->
   <view wx:else class="fund-table">
+    <!-- 扇形图表 -->
+    <view class="pie-section" wx:if="{{pieData}}">
+      <view class="pie-chart-wrap">
+        <view class="pie-chart" style="background: {{pieData.gradient}}">
+          <view class="pie-inner">
+            <text class="pie-total-label">持有基金</text>
+            <text class="pie-total-value">{{funds.length}}只</text>
+          </view>
+        </view>
+      </view>
+      <view class="pie-legend">
+        <view class="legend-item" wx:for="{{pieData.legend}}" wx:key="name">
+          <view class="legend-dot" style="background: {{item.color}}"></view>
+          <text class="legend-name">{{item.name}}</text>
+          <text class="legend-pct">{{item.pct}}%</text>
+        </view>
+      </view>
+    </view>
     <!-- 表头 -->
     <view class="table-header">
       <text class="col-info">基金信息</text>
