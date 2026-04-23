@@ -59,6 +59,9 @@
       class="sector-card {{item.isUp ? 'up' : 'down'}}"
       wx:for="{{sectorList}}"
       wx:key="code"
+      bindtap="goToSectorFunds"
+      data-code="{{item.code}}"
+      data-name="{{item.name}}"
     >
       <text class="sector-name">{{item.name}}</text>
       <text class="sector-value">{{item.valueText}}</text>

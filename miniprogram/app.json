@@ -15,6 +15,7 @@
     "pages/contact/contact",
     "pages/profile-edit/profile-edit",
     "pages/sector/sector",
+    "pages/sector-funds/sector-funds",
     "pages/market/market"
   ],
   "window": {

@@ -20,8 +20,8 @@ engine = create_engine(
 
 # ---- Redis 配置 ----
 
-# 同步 Redis 客户端：仅供 core/limiter.py 读取连接参数，不执行命令。
-# 不调用 .ping()，延迟到 init_redis() 中探测。
+# 同步 Redis 客户端：仅供 core/limiter.py 读取连接参数。
+# 构造后立即 ping() 验证连通性，不可用时设为 None，limiter 降级为内存存储。
 _redis_host = os.getenv("REDIS_HOST", "localhost")
 _redis_port = int(os.getenv("REDIS_PORT", 6379))
 _redis_db = int(os.getenv("REDIS_DB", 0))
@@ -32,8 +32,9 @@ try:
         port=_redis_port,
         db=_redis_db,
         decode_responses=True,
-        socket_connect_timeout=20,
+        socket_connect_timeout=5,
     )
+    redis_client.ping()
 except Exception:
     redis_client = None
 

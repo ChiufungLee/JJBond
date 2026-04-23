@@ -1,0 +1,100 @@
+<view class="sector-funds-container">
+  <loading wx:if="{{loading && fundList.length === 0 && !sectorInfo}}" text="加载中..."></loading>
+
+  <empty
+    wx:elif="{{error && fundList.length === 0 && !sectorInfo}}"
+    icon="⚠️"
+    text="{{errorMessage || '加载板块基金失败，请稍后重试'}}"
+    showButton="{{true}}"
+    buttonText="重新加载"
+    bind:buttonTap="loadFunds"
+  ></empty>
+
+  <block wx:else>
+    <!-- 板块涨跌详情 -->
+    <view class="sector-detail" wx:if="{{sectorInfo}}">
+      <text class="sector-detail-name">{{sectorInfo.name}}</text>
+      <view class="sector-detail-changes">
+        <view class="change-item">
+          <text class="change-label">日涨幅</text>
+          <text class="change-value {{sectorInfo.isUpD ? 'up' : 'down'}}">{{sectorInfo.changeD}}</text>
+        </view>
+        <view class="change-item">
+          <text class="change-label">周涨幅</text>
+          <text class="change-value {{sectorInfo.isUpW ? 'up' : 'down'}}">{{sectorInfo.changeW}}</text>
+        </view>
+        <view class="change-item">
+          <text class="change-label">月涨幅</text>
+          <text class="change-value {{sectorInfo.isUpM ? 'up' : 'down'}}">{{sectorInfo.changeM}}</text>
+        </view>
+      </view>
+      <view class="sector-detail-changes">
+        <view class="change-item">
+          <text class="change-label">季涨幅</text>
+          <text class="change-value {{sectorInfo.isUpQ ? 'up' : 'down'}}">{{sectorInfo.changeQ}}</text>
+        </view>
+        <view class="change-item">
+          <text class="change-label">年涨幅</text>
+          <text class="change-value {{sectorInfo.isUpY ? 'up' : 'down'}}">{{sectorInfo.changeY}}</text>
+        </view>
+        <view class="change-item">
+          <text class="change-label">今年来</text>
+          <text class="change-value {{sectorInfo.isUpYtd ? 'up' : 'down'}}">{{sectorInfo.changeYtd}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 基金列表表头 -->
+    <view class="list-header" wx:if="{{fundList.length > 0}}">
+      <text class="header-info">基金信息</text>
+      <text class="header-relation">关联度</text>
+      <text class="header-change">日涨幅</text>
+    </view>
+
+    <empty
+      wx:if="{{fundList.length === 0 && !loading}}"
+      icon="📊"
+      text="暂无基金数据"
+      showButton="{{true}}"
+      buttonText="重新加载"
+      bind:buttonTap="loadFunds"
+    ></empty>
+
+    <!-- 基金列表 -->
+    <view class="fund-list" wx:if="{{fundList.length > 0}}">
+      <view
+        class="fund-item"
+        wx:for="{{fundList}}"
+        wx:key="fundCode"
+      >
+        <view class="item-rank {{index < 3 ? 'top' : ''}}" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+          <text>{{index + 1}}</text>
+        </view>
+
+        <view class="item-info" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+          <view class="item-header">
+            <text class="item-name">{{item.fundName}}</text>
+          </view>
+          <view class="item-meta">
+            <text class="item-code">{{item.fundCode}}</text>
+          </view>
+        </view>
+
+        <view class="item-relation" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+          <text class="relation-value">{{item.relationText}}</text>
+        </view>
+
+        <view class="item-change {{item.isUp ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+          <text class="change-value">{{item.changeText}}</text>
+          <text class="nav-value">净值 {{item.nav}}</text>
+        </view>
+      </view>
+    </view>
+
+    <loading wx:if="{{loading && fundList.length > 0}}" text="加载更多中..."></loading>
+
+    <view class="no-more" wx:if="{{!hasMore && fundList.length > 0}}">
+      <text>没有更多了</text>
+    </view>
+  </block>
+</view>

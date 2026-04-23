@@ -59,7 +59,8 @@
       </view>
 
       <view class="list-card">
-        <view class="list-item" wx:for="{{flowList}}" wx:key="rank">
+        <view class="list-item" wx:for="{{flowList}}" wx:key="rank"
+          bindtap="goToSectorDetail" data-code="{{item.code}}" data-name="{{item.name}}">
           <text class="item-rank">{{item.rank}}</text>
           <text class="item-name">{{item.name}}</text>
           <text class="item-value {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>

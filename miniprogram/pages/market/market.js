@@ -67,10 +67,10 @@ Page({
         const outflow = items.filter(i => i.value < 0).slice(-10).reverse()
         return {
           inflow: inflow.map((item, i) => ({
-            rank: i + 1, name: item.name, valueStr: formatFlow(item.value), isUp: true,
+            rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: true,
           })),
           outflow: outflow.map((item, i) => ({
-            rank: i + 1, name: item.name, valueStr: formatFlow(item.value), isUp: false,
+            rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: false,
           })),
         }
       }
@@ -130,5 +130,10 @@ Page({
 
   goToSector() {
     wx.navigateTo({ url: '/pages/sector/sector' })
+  },
+
+  goToSectorDetail(e) {
+    const { code, name } = e.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/sector/sector?code=${code}&name=${encodeURIComponent(name)}` })
   },
 })

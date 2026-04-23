@@ -128,6 +128,11 @@ Page({
     return yi >= 0 ? `+${yi.toFixed(2)}亿` : `${yi.toFixed(2)}亿`
   },
 
+  goToSectorFunds(e) {
+    const { code, name } = e.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/sector-funds/sector-funds?code=${code}&name=${encodeURIComponent(name)}` })
+  },
+
   async onPullDownRefresh() {
     await this.loadSectors()
     wx.stopPullDownRefresh()
