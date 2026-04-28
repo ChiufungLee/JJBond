@@ -83,25 +83,6 @@
   margin-bottom: 16rpx;
 }
 
-.sector-type-tabs {
-  display: flex;
-  gap: 16rpx;
-}
-
-.sector-type-tab {
-  font-size: 26rpx;
-  color: #999;
-  padding: 8rpx 20rpx;
-  border-radius: 24rpx;
-  background-color: #fff;
-}
-
-.sector-type-active {
-  color: #722ed1;
-  background-color: #f9f0ff;
-  font-weight: 500;
-}
-
 .flow-tabs {
   display: flex;
   gap: 24rpx;
@@ -199,4 +180,25 @@
   color: #999;
   background-color: #fff;
   border-radius: 16rpx;
+}
+
+/* 未登录提示 */
+.login-hint-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 40rpx 32rpx;
+}
+
+.login-hint-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.login-hint-btn {
+  font-size: 28rpx;
+  color: #722ed1;
+  font-weight: 500;
 }

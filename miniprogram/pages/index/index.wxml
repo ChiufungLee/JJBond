@@ -21,10 +21,16 @@
   ></empty>
 
   <!-- 未登录提示横幅 -->
-  <view wx:if="{{!loggedIn && summary}}" class="demo-banner" bindtap="goToLogin">
-    <text class="demo-banner-text">登录后查看您的真实持仓数据</text>
+  <view wx:if="{{!loggedIn}}" class="demo-banner" bindtap="goToLogin">
+    <text class="demo-banner-text">登录后查看您的持仓数据</text>
     <text class="demo-banner-btn">去登录 ›</text>
   </view>
+
+  <empty
+    wx:if="{{!loggedIn}}"
+    icon="📊"
+    text="暂无持仓信息"
+  ></empty>
 
   <!-- 数据展示 -->
   <block wx:if="{{summary && summary.fund_count > 0}}">
@@ -101,7 +107,7 @@
             bindtap="handleSort"
             data-field="change_rate"
           >
-            <text>实时估值</text>
+            <text>今日涨幅</text>
             <view class="sort-icons">
               <text class="sort-icon sort-asc {{sortBy === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
               <text class="sort-icon sort-desc {{sortBy === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>

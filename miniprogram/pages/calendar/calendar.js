@@ -91,6 +91,7 @@ Page({
       this._calendarData = calendarData
       this.setData({
         calendarData,
+        calendarDays,
         selectedDate,
         selectedDayInfo,
         selectedFundDetails,

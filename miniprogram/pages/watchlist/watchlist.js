@@ -5,13 +5,6 @@ const { formatPercent, showLoading, hideLoading, showToast, showConfirm } = requ
 const { isDownChangeRate } = require('../../utils/portfolio-summary')
 const { createFundSearchManager } = require('../../utils/fund-search')
 
-// 示例自选基金数据（未登录时展示）
-const DEMO_WATCHLIST = [
-  { id: 1, fund_code: '110011', fund_name: '易方达中小盘混合', change_rate: '1.23%', total_change_rate: 2.5, total_change_formatted: '+2.50%', is_holding: false, added_at: '2026/01/15' },
-  { id: 2, fund_code: '003834', fund_name: '华夏能源革新股票', change_rate: '0.53%', total_change_rate: 1.8, total_change_formatted: '+1.80%', is_holding: true, added_at: '2026/02/20' },
-  { id: 3, fund_code: '161725', fund_name: '招商中证白酒指数', change_rate: '-0.89%', total_change_rate: -3.2, total_change_formatted: '-3.20%', is_holding: false, added_at: '2026/03/10' }
-]
-
 Page({
   data: {
     searchKeyword: '',
@@ -49,11 +42,7 @@ Page({
     } else {
       this.setData({
         loading: false,
-        watchlist: DEMO_WATCHLIST.map(item => ({
-          ...item,
-          added_at_formatted: this.formatDate(item.added_at),
-          change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
-        }))
+        watchlist: []
       })
     }
   },

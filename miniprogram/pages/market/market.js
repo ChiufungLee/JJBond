@@ -1,29 +1,40 @@
 // pages/market/market.js
 const { get } = require('../../utils/request')
+const { isLoggedIn } = require('../../utils/auth')
 
 Page({
   data: {
     loading: true,
+    loggedIn: false,
     groups: [],
     activeFlowTab: 'inflow',
-    activeSectorType: 'industry',
     flowList: [],
     rankingList: [],
   },
 
   onLoad() {
     this._loaded = false
+    const loggedIn = isLoggedIn()
+    this.setData({ loggedIn })
     this.loadIndices()
-    this.loadFlowData()
-    this.loadRanking()
+    if (loggedIn) {
+      this.loadFlowData()
+      this.loadRanking()
+    }
     this._loaded = true
   },
 
   onShow() {
     if (this._loaded) {
+      const loggedIn = isLoggedIn()
+      this.setData({ loggedIn })
       this.loadIndices()
-      this.loadFlowData()
-      this.loadRanking()
+      if (loggedIn) {
+        this.loadFlowData()
+        this.loadRanking()
+      } else {
+        this.setData({ flowList: [], rankingList: [] })
+      }
     }
   },
 
@@ -52,33 +63,22 @@ Page({
 
   async loadFlowData() {
     try {
-      const [industryRes, conceptRes] = await Promise.all([
-        get('/sector/', { type: 'industry', sort: 'flow', st: 'FLOW' }),
-        get('/sector/', { type: 'concept', sort: 'flow', st: 'FLOW' }),
-      ])
+      const res = await get('/sector/', { type: 'all', sort: 'flow', st: 'FLOW' })
 
       const formatFlow = v => {
         const yi = v / 100000000
         return (yi >= 0 ? '+' : '') + yi.toFixed(2) + '亿'
       }
 
-      const buildLists = items => {
-        const inflow = items.filter(i => i.value > 0).slice(0, 10)
-        const outflow = items.filter(i => i.value < 0).slice(-10).reverse()
-        return {
-          inflow: inflow.map((item, i) => ({
-            rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: true,
-          })),
-          outflow: outflow.map((item, i) => ({
-            rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: false,
-          })),
-        }
-      }
+      const items = res.data || []
+      const inflow = items.filter(i => i.value > 0).slice(0, 10).map((item, i) => ({
+        rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: true,
+      }))
+      const outflow = items.filter(i => i.value < 0).slice(-10).reverse().map((item, i) => ({
+        rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: false,
+      }))
 
-      this._flowData = {
-        industry: buildLists(industryRes.data || []),
-        concept: buildLists(conceptRes.data || []),
-      }
+      this._flowData = { inflow, outflow }
       this._applyFlowView()
     } catch (e) {
       console.error('加载资金流数据失败:', e)
@@ -86,22 +86,14 @@ Page({
   },
 
   _applyFlowView() {
-    const sector = this._flowData[this.data.activeSectorType]
-    if (!sector) return
-    this.setData({ flowList: sector[this.data.activeFlowTab] })
+    if (!this._flowData) return
+    this.setData({ flowList: this._flowData[this.data.activeFlowTab] })
   },
 
   onFlowTabChange(e) {
     const tab = e.currentTarget.dataset.tab
     if (tab === this.data.activeFlowTab) return
     this.setData({ activeFlowTab: tab })
-    this._applyFlowView()
-  },
-
-  onSectorTypeChange(e) {
-    const type = e.currentTarget.dataset.type
-    if (type === this.data.activeSectorType) return
-    this.setData({ activeSectorType: type })
     this._applyFlowView()
   },
 
@@ -130,6 +122,11 @@ Page({
 
   goToSector() {
     wx.navigateTo({ url: '/pages/sector/sector' })
+  },
+
+  goToLogin() {
+    const app = getApp()
+    app.goToLogin()
   },
 
   goToSectorDetail(e) {

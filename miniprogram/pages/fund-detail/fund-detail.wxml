@@ -99,8 +99,8 @@
         </view>
       </view>
       <view class="chart-info">
-        <text class="cost-price-label" wx:if="{{isHeld && fundInfo.cost_price}}">-- 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
-        <text class="cost-price-label" wx:else>-- 成本价: --</text>
+        <text class="cost-price-label" wx:if="{{isHeld && fundInfo.cost_price}}">— 成本价: {{hideAmount ? '****' : fundInfo.cost_price}}</text>
+        <text class="cost-price-label" wx:else>— 成本价: --</text>
         <text class="{{tooltip.show ? 'info-highlight' : ''}}">— 净值: {{tooltip.value}} ({{tooltip.date}})</text>
       </view>
       <loading wx:if="{{navLoading}}" text="加载走势图中..."></loading>

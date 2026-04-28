@@ -476,25 +476,12 @@ Page({
         format: (val) => val.toFixed(4)
       }]
 
-      let allValues = [...seriesData]
-      let minY
-      let maxY
-
-      if (costPrice) {
-        const costPriceData = new Array(categories.length).fill(costPrice)
-        series.push({
-          name: '成本价',
-          data: costPriceData,
-          format: (val) => val.toFixed(4),
-          dashed: true,
-          showPoints: false,
-          color: '#ff7a45'
-        })
-        allValues = [...allValues, costPrice]
-      }
-
-      minY = Math.min(...allValues) * 0.995
-      maxY = Math.max(...allValues) * 1.005
+      const allValues = [...seriesData]
+      const dataMin = Math.min(...allValues)
+      const dataMax = Math.max(...allValues)
+      const dataRange = dataMax - dataMin || dataMax * 0.1
+      const minY = dataMin - dataRange * 0.05
+      const maxY = dataMax + dataRange * 0.05
 
       new wxCharts({
         canvasId: 'fundChart',

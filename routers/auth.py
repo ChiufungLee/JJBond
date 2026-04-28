@@ -144,6 +144,7 @@ async def logout(
 
 @router.post("/refresh", response_model=schemas.RefreshTokenResponse)
 async def refresh_token(request: Request, response: Response):
+    """刷新 access token，通过 HttpOnly cookie 中的 refresh token 换取新的 access token"""
     refresh_token_value = request.cookies.get(settings.REFRESH_TOKEN_COOKIE_NAME)
     if not refresh_token_value:
         raise HTTPException(

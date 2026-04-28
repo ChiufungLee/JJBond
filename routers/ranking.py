@@ -68,11 +68,15 @@ async def get_ranking(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     desc: bool = Query(True, description="是否降序（涨幅从高到低）"),
 ):
+    """获取基金涨跌幅排行榜（分页）
+    数据源: 天天基金 conditionFund/fundSelect 接口
+    """
     return await _get_ranking_with_fallback(type, page, page_size, desc)
 
 
 @router.get("/{fund_code}")
 async def get_fund_ranking(fund_code: str):
+    """获取单只基金在排行榜中的信息（含各阶段涨幅）"""
     result = await fund_ranking_manager.get_fund_ranking_info(fund_code)
     if result is None:
         raise HTTPException(status_code=404, detail="基金未在排行榜中找到")
@@ -81,6 +85,7 @@ async def get_fund_ranking(fund_code: str):
 
 @router.get("/status/cache")
 async def get_cache_status():
+    """获取排行榜 Redis 缓存状态"""
     return await fund_ranking_manager.get_cache_status()
 
 
@@ -88,6 +93,7 @@ async def get_cache_status():
 async def sync_ranking(
     _: None = Depends(require_ranking_sync_token),
 ):
+    """手动同步排行榜数据（需 sync_token 鉴权）"""
     success = await fund_ranking_manager.sync_ranking_data()
     if success:
         return {"message": "排行榜数据同步成功"}

@@ -30,6 +30,7 @@ def create_fund(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """添加持仓基金"""
     result = user_crud.create_user_fund(db=db, fund=fund, user_id=current_user.id)
     if result is None:
         raise HTTPException(status_code=400, detail="该基金已在您的持仓中")
@@ -41,6 +42,7 @@ def get_funds(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """获取用户持仓列表"""
     return user_crud.get_user_funds(db=db, user_id=current_user.id)
 
 
@@ -49,6 +51,9 @@ async def get_fund_info(
     fund_code: str,
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """获取基金实时信息（名称、净值、涨幅、费率等）
+    数据源: 天天基金 FundCoreDiyNew 接口
+    """
     return await calculator.get_fund_info(fund_code)
 
 
@@ -129,6 +134,7 @@ def get_fund_transactions(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """获取指定基金的买入/卖出交易记录"""
     return user_crud.get_user_transactions(db=db, user_id=current_user.id, fund_code=fund_code)
 
 
@@ -139,6 +145,7 @@ async def calculate_portfolio(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """组合计算（含历史净值），计算每只基金的持仓收益和整体汇总"""
     funds = user_crud.get_user_funds(db=db, user_id=current_user.id)
     funds_data = [
         {
@@ -320,6 +327,7 @@ def get_fund(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """获取单个持仓详情"""
     fund = user_crud.get_user_fund(db=db, user_id=current_user.id, fund_id=fund_id)
     if not fund:
         raise HTTPException(status_code=404, detail="Fund not found")
@@ -333,6 +341,7 @@ def update_fund(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """更新持仓信息（成本价、份额等）"""
     fund = user_crud.update_user_fund(db=db, fund_id=fund_id, fund_update=fund_update, user_id=current_user.id)
     if not fund:
         raise HTTPException(status_code=404, detail="Fund not found")
@@ -345,6 +354,7 @@ def delete_fund(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(get_current_user)
 ):
+    """删除持仓"""
     success = user_crud.delete_user_fund(db=db, fund_id=fund_id, user_id=current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="Fund not found")

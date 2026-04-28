@@ -104,6 +104,10 @@ async def _fetch_indices(fs: str) -> list:
 
 @router.get("/indices")
 async def get_market_indices():
+    """获取股市指数行情（A股、港股、全球指数）
+    数据源: 东方财富 push2 指数接口
+    响应字段: price(最新价), change(涨跌额), change_pct(涨跌幅)
+    """
     # 尝试 Redis 缓存
     redis = get_redis()
     if redis is not None:

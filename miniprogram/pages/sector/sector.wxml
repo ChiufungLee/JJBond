@@ -11,17 +11,8 @@
     >{{item.name}}</view>
   </view>
 
-  <!-- 排序类别 + 时间范围 -->
+  <!-- 时间范围 -->
   <view class="filter-bar">
-    <view class="sort-tabs">
-      <view
-        wx:for="{{sortFields}}"
-        wx:key="key"
-        class="sort-tab {{currentSort === item.key ? 'active' : ''}}"
-        data-sort="{{item.key}}"
-        bindtap="onSortChange"
-      >{{item.name}}</view>
-    </view>
     <view class="time-tabs">
       <view
         wx:for="{{timeRanges}}"
@@ -56,7 +47,7 @@
   <!-- 板块列表 -->
   <view class="sector-list" wx:if="{{sectorList.length > 0}}">
     <view
-      class="sector-card {{item.isUp ? 'up' : 'down'}}"
+      class="sector-card {{item.isUp ? 'card-up' : 'card-down'}}"
       wx:for="{{sectorList}}"
       wx:key="code"
       bindtap="goToSectorFunds"
@@ -64,7 +55,8 @@
       data-name="{{item.name}}"
     >
       <text class="sector-name">{{item.name}}</text>
-      <text class="sector-value">{{item.valueText}}</text>
+      <text class="sector-flow {{item.isUp ? 'up' : 'down'}}">{{item.flowText}}</text>
+      <text class="sector-change {{item.isUp ? 'up' : 'down'}}">{{item.changeText}}</text>
     </view>
   </view>
 

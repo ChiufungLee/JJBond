@@ -4,27 +4,6 @@ const { checkLogin, isLoggedIn } = require('../../utils/auth')
 const { formatPortfolioSummary } = require('../../utils/portfolio-summary')
 const { formatMoney, formatPercent } = require('../../utils/util')
 
-// 示例基金数据（未登录时展示）
-const DEMO_SUMMARY = (() => {
-  const summary = {
-    fund_count: 3,
-    total_cost: 50000,
-    yesterday_holding_amount: 49800,
-    today_holding_amount: 50350,
-    today_holding_income: 0,
-    yesterday_holding_income: 0,
-    today_revenue: 350,
-    fund_details: [
-      { fund_code: '110011', fund_name: '易方达中小盘混合', cost: 20000, amount: 20100, today_revenue: 120, total_revenue: 100, profit_loss_ratio: 0.5, change_rate: '1.23%' },
-      { fund_code: '003834', fund_name: '华夏能源革新股票', cost: 15000, amount: 15150, today_revenue: 80, total_revenue: 150, profit_loss_ratio: 1.0, change_rate: '0.53%' },
-      { fund_code: '161725', fund_name: '招商中证白酒指数', cost: 15000, amount: 15100, today_revenue: 150, total_revenue: 100, profit_loss_ratio: 0.67, change_rate: '-0.89%' }
-    ],
-    high_fund_list: ['华夏能源革新 +0.53%', '易方达中小盘 +1.23%'],
-    low_fund_list: ['招商白酒 -0.89%']
-  }
-  return formatPortfolioSummary(summary)
-})()
-
 Page({
   data: {
     summary: null,
@@ -69,12 +48,9 @@ Page({
         this.loadData()
       }
     } else {
-      const now = new Date()
-      const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       this.setData({
         loading: false,
-        summary: DEMO_SUMMARY,
-        updateTime,
+        summary: null,
         error: false
       })
     }
@@ -123,23 +99,24 @@ Page({
   },
 
   // 排序基金列表
-  sortFunds(fundDetails) {
+  sortFunds(fundDetails, sortBy, sortOrder) {
     if (!fundDetails || fundDetails.length === 0) return fundDetails
 
-    const { sortBy, sortOrder } = this.data
+    const _sortBy = sortBy || this.data.sortBy
+    const _sortOrder = sortOrder || this.data.sortOrder
     const sorted = [...fundDetails].sort((a, b) => {
       let aVal, bVal
 
-      if (sortBy === 'change_rate') {
+      if (_sortBy === 'change_rate') {
         // 按当日收益金额排序，而非涨幅百分比
         aVal = a.today_revenue || 0
         bVal = b.today_revenue || 0
       } else {
-        aVal = a[sortBy] || 0
-        bVal = b[sortBy] || 0
+        aVal = a[_sortBy] || 0
+        bVal = b[_sortBy] || 0
       }
 
-      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
+      return _sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
     return sorted
@@ -172,7 +149,7 @@ Page({
       this.setData({
         sortBy,
         sortOrder,
-        'summary.fund_details': this.sortFunds(summary.fund_details)
+        'summary.fund_details': this.sortFunds(summary.fund_details, sortBy, sortOrder)
       })
     } else {
       this.setData({ sortBy, sortOrder })

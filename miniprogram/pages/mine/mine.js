@@ -19,10 +19,8 @@ Page({
     daysTogether: 0,
     loggedIn: false,
     menuList: [
-      { icon: 'chart', title: '我的持仓', path: '/pages/funds/funds' },
+      { icon: 'chart', title: '持仓管理', path: '/pages/funds/funds' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
-      { icon: 'sector', title: '板块详情', path: '/pages/sector/sector', noAuth: true },
-      { icon: 'market', title: '排行榜', path: '/pages/ranking/ranking', noAuth: true },
       { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]
   },

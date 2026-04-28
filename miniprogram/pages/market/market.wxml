@@ -26,20 +26,9 @@
     </view>
 
     <!-- 资金流入/流出榜 -->
-    <view class="section">
+    <view class="section" wx:if="{{loggedIn}}">
       <view class="flow-header">
-        <view class="flow-tabs">
-          <view
-            class="flow-tab {{activeSectorType === 'industry' ? 'flow-tab-active' : ''}}"
-            data-type="industry"
-            bindtap="onSectorTypeChange"
-          >行业板块</view>
-          <view
-            class="flow-tab {{activeSectorType === 'concept' ? 'flow-tab-active' : ''}}"
-            data-type="concept"
-            bindtap="onSectorTypeChange"
-          >概念板块</view>
-        </view>
+        <view class="section-title">板块资金流向</view>
         <view class="flow-tabs">
           <view
             class="flow-tab {{activeFlowTab === 'inflow' ? 'flow-tab-active' : ''}}"
@@ -69,7 +58,7 @@
     </view>
 
     <!-- 日涨幅排行榜 -->
-    <view class="section">
+    <view class="section" wx:if="{{loggedIn}}">
       <view class="rank-header">
         <text class="section-title">日涨幅榜</text>
         <view class="rank-more" bindtap="goToRanking">
@@ -90,6 +79,14 @@
       </view>
       <view class="rank-empty" wx:else>
         <text>暂无排行榜数据</text>
+      </view>
+    </view>
+
+    <!-- 未登录提示 -->
+    <view class="section login-hint" wx:if="{{!loggedIn}}">
+      <view class="login-hint-card" bindtap="goToLogin">
+        <text class="login-hint-text">登录后查看更多信息</text>
+        <text class="login-hint-btn">去登录 ›</text>
       </view>
     </view>
   </block>

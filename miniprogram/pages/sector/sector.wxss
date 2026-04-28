@@ -5,6 +5,10 @@
   padding-bottom: 40rpx;
 }
 
+/* 涨跌颜色 */
+.up { color: #ff4d4f; }
+.down { color: #52c41a; }
+
 /* 板块类型切换 */
 .type-tabs {
   display: flex;
@@ -36,38 +40,19 @@
 .filter-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background-color: #ffffff;
   padding: 16rpx 24rpx;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
-.sort-tabs {
-  display: flex;
-  gap: 8rpx;
-}
-
-.sort-tab {
-  font-size: 24rpx;
-  color: #999;
-  padding: 8rpx 20rpx;
-  border-radius: 24rpx;
-  background-color: #f5f5f5;
-}
-
-.sort-tab.active {
-  background-color: #f9f0ff;
-  color: #722ed1;
-  font-weight: 500;
-}
-
 .time-tabs {
   display: flex;
-  gap: 4rpx;
+  gap: 32rpx;
 }
 
 .time-tab {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #999;
   padding: 8rpx 16rpx;
   border-radius: 8rpx;
@@ -83,32 +68,36 @@
   padding: 20rpx;
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  justify-content: flex-start;
 }
 
+/* 板块卡片 - 参考行情页指数卡片样式 */
 .sector-card {
-  width: calc(25% - 9rpx);
+  width: calc(33.33% - 12rpx);
   border-radius: 12rpx;
-  padding: 20rpx 16rpx;
+  padding: 20rpx 10rpx;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
-  border: 4rpx solid #ffffff;
-  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  margin-right: 16rpx;
 }
 
-.sector-card.up {
-  background-color: #fff1f0;
+.sector-card:nth-child(3n) {
+  margin-right: 0;
 }
 
-.sector-card.down {
-  background-color: #f6ffed;
+.card-up {
+  background: linear-gradient(180deg, #ffccc7 0%, #fff1f0 100%);
+}
+
+.card-down {
+  background: linear-gradient(180deg, #b7eb8f 0%, #f6ffed 100%);
 }
 
 .sector-name {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #333;
   font-weight: 500;
   overflow: hidden;
@@ -116,17 +105,15 @@
   white-space: nowrap;
   max-width: 100%;
   text-align: center;
+  margin-bottom: 10rpx;
 }
 
-.sector-value {
+.sector-flow {
   font-size: 30rpx;
   font-weight: 600;
+  margin-bottom: 6rpx;
 }
 
-.sector-card.up .sector-value {
-  color: #ff4d4f;
-}
-
-.sector-card.down .sector-value {
-  color: #52c41a;
+.sector-change {
+  font-size: 20rpx;
 }

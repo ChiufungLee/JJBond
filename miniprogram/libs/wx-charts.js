@@ -6,8 +6,8 @@
 // 配置
 const config = {
   yAxisSplit: 5,
-  padding: 0,           // 减少内边距
-  yAxisWidth: 45,       // Y轴宽度
+  padding: 15,          // 上下留白，防止标签被截断
+  yAxisWidth: 35,       // Y轴宽度（净值标签如"1.23"约需25px）
   xAxisHeight: 30,
   fontSize: 10,
   colors: ['#722ed1', '#2fc25b', '#facc14', '#f04864', '#8543e0', '#13c2c2']
@@ -56,8 +56,8 @@ async function drawLineChart(opts) {
   // 清空画布
   ctx.clearRect(0, 0, width, height);
 
-  // 计算图表区域 - 右侧留出一点空间避免标签被截断
-  const chartWidth = width - config.padding * 2 - config.yAxisWidth - 10;
+  // 计算图表区域
+  const chartWidth = width - config.padding - config.yAxisWidth - 5;
   const chartHeight = height - config.padding * 2 - config.xAxisHeight;
 
   // 收集所有数据
@@ -78,8 +78,8 @@ async function drawLineChart(opts) {
   const range = max - min;
 
   // 绘制Y轴网格线和标签
-  ctx.strokeStyle = '#e8e8e8';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#f2f2f2';
+  ctx.lineWidth = 0.5;
   ctx.font = `${config.fontSize}px sans-serif`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';

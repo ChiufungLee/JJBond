@@ -24,7 +24,7 @@ CACHE_PREFIX = "sector:"
 CACHE_TTL = 300  # 5 分钟
 SECTOR_FUNDS_CACHE_TTL = 300
 
-SECTOR_TYPE_MAP = {"industry": "001002", "concept": "001003"}
+SECTOR_TYPE_MAP = {"industry": "001002", "concept": "001003", "all": "0"}
 SORT_FIELD_MAP = {"change": "syl", "flow": "zjlr"}
 
 CHANGE_TIME_RANGES = ["D", "W", "M"]
@@ -33,10 +33,17 @@ FLOW_TIME_RANGES = ["FLOW", "FLOW_W", "FLOW_M"]
 
 @router.get("/")
 async def get_sector_list(
-    type: str = Query("industry", description="板块类型: industry=行业板块, concept=概念板块"),
+    type: str = Query("industry", description="板块类型: industry=行业板块, concept=概念板块, all=全部"),
     sort: str = Query("change", description="排序字段: change=涨跌幅, flow=资金流入"),
     st: str = Query("D", description="时间范围: 涨跌幅时 D/W/M, 资金流入时 FLOW/FLOW_W/FLOW_M"),
 ):
+    """获取板块列表
+    数据源: 东方财富 GetZTJJListNew 接口
+    参数说明:
+      - type: 板块分类（all=全部, industry=行业板块, concept=概念板块）
+      - sort: 排序类别（change=按涨幅排序, flow=按资金流入排序）
+      - st: 时间范围（按涨幅时 D=日/W=周/M=月；按资金流入时 FLOW=实时/FLOW_W=周/FLOW_M=月）
+    """
     if type not in SECTOR_TYPE_MAP:
         raise HTTPException(status_code=400, detail=f"无效的板块类型，可选值: {list(SECTOR_TYPE_MAP.keys())}")
     if sort not in SORT_FIELD_MAP:

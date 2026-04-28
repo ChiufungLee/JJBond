@@ -6,32 +6,33 @@ const SECTOR_TYPES = [
   { key: 'concept', name: '概念板块' }
 ]
 
-const SORT_FIELDS = [
-  { key: 'change', name: '涨跌幅' },
-  { key: 'flow', name: '资金流入' }
+const TIME_RANGES = [
+  { key: 'D', name: '实时', changeSt: 'D', flowSt: 'FLOW' },
+  { key: 'W', name: '近一周', changeSt: 'W', flowSt: 'FLOW_W' },
+  { key: 'M', name: '近一月', changeSt: 'M', flowSt: 'FLOW_M' },
 ]
 
-const TIME_RANGES = {
-  change: [
-    { key: 'D', name: '日' },
-    { key: 'W', name: '周' },
-    { key: 'M', name: '月' }
-  ],
-  flow: [
-    { key: 'FLOW', name: '实时' },
-    { key: 'FLOW_W', name: '周' },
-    { key: 'FLOW_M', name: '月' }
-  ]
+function formatChange(value) {
+  if (value === null || value === undefined) return '--'
+  const num = parseFloat(value)
+  if (isNaN(num)) return '--'
+  return num >= 0 ? `+${num.toFixed(2)}%` : `${num.toFixed(2)}%`
+}
+
+function formatFlow(value) {
+  if (value === null || value === undefined) return '--'
+  const num = parseFloat(value)
+  if (isNaN(num)) return '--'
+  const yi = num / 100000000
+  return yi >= 0 ? `+${yi.toFixed(2)}亿` : `${yi.toFixed(2)}亿`
 }
 
 Page({
   data: {
     sectorTypes: SECTOR_TYPES,
-    sortFields: SORT_FIELDS,
     currentType: 'industry',
-    currentSort: 'change',
     currentTime: 'D',
-    timeRanges: TIME_RANGES.change,
+    timeRanges: TIME_RANGES,
     sectorList: [],
     loading: false,
     error: false,
@@ -47,22 +48,6 @@ Page({
     if (type === this.data.currentType) return
     this.setData({
       currentType: type,
-      sectorList: [],
-      loading: false,
-      error: false
-    })
-    this.loadSectors()
-  },
-
-  onSortChange(e) {
-    const sort = e.currentTarget.dataset.sort
-    if (sort === this.data.currentSort) return
-    const timeRanges = TIME_RANGES[sort]
-    const currentTime = timeRanges[0].key
-    this.setData({
-      currentSort: sort,
-      timeRanges,
-      currentTime,
       sectorList: [],
       loading: false,
       error: false
@@ -88,17 +73,29 @@ Page({
     this.setData({ loading: true, error: false, errorMessage: '' })
 
     try {
-      const result = await get('/sector/', {
-        type: this.data.currentType,
-        sort: this.data.currentSort,
-        st: this.data.currentTime
+      const type = this.data.currentType
+      const timeConfig = TIME_RANGES.find(t => t.key === this.data.currentTime)
+
+      const [changeRes, flowRes] = await Promise.all([
+        get('/sector/', { type, sort: 'change', st: timeConfig.changeSt }),
+        get('/sector/', { type, sort: 'flow', st: timeConfig.flowSt }),
+      ])
+
+      const flowMap = {}
+      ;(flowRes.data || []).forEach(item => {
+        flowMap[item.code] = item.value
       })
 
-      const sectorList = (result.data || []).map(item => ({
-        ...item,
-        valueText: this._formatValue(item.value),
-        isUp: item.value >= 0
-      }))
+      const sectorList = (changeRes.data || []).map(item => {
+        const flowValue = flowMap[item.code] !== undefined ? flowMap[item.code] : null
+        return {
+          ...item,
+          flowValue,
+          changeText: formatChange(item.value),
+          flowText: formatFlow(flowValue),
+          isUp: flowValue !== null ? flowValue >= 0 : item.value >= 0,
+        }
+      }).sort((a, b) => (b.flowValue || 0) - (a.flowValue || 0))
 
       this.setData({
         sectorList,
@@ -114,18 +111,6 @@ Page({
         errorMessage: error.message || '加载板块数据失败'
       })
     }
-  },
-
-  _formatValue(value) {
-    if (value === null || value === undefined) return '--'
-    const num = parseFloat(value)
-    if (isNaN(num)) return '--'
-    if (this.data.currentSort === 'change') {
-      return num >= 0 ? `+${num.toFixed(2)}%` : `${num.toFixed(2)}%`
-    }
-    // 资金流入，单位亿元
-    const yi = num / 100000000
-    return yi >= 0 ? `+${yi.toFixed(2)}亿` : `${yi.toFixed(2)}亿`
   },
 
   goToSectorFunds(e) {
