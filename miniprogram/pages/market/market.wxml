@@ -25,6 +25,14 @@
       </view>
     </view>
 
+    <!-- 指数加载失败空状态 -->
+    <view class="section" wx:if="{{indicesError && groups.length === 0}}">
+      <view class="section-title">股市指数</view>
+      <view class="indices-empty">
+        <text>暂无数据</text>
+      </view>
+    </view>
+
     <!-- 资金流入/流出榜 -->
     <view class="section" wx:if="{{loggedIn}}">
       <view class="flow-header">
@@ -46,6 +54,7 @@
           <text class="rank-arrow">›</text>
         </view>
       </view>
+      <text class="flow-time" wx:if="{{flowUpdateTime}}">更新于 {{flowUpdateTime}}</text>
 
       <view class="list-card">
         <view class="list-item" wx:for="{{flowList}}" wx:key="rank"
@@ -60,7 +69,10 @@
     <!-- 日涨幅排行榜 -->
     <view class="section" wx:if="{{loggedIn}}">
       <view class="rank-header">
-        <text class="section-title">日涨幅榜</text>
+        <view class="rank-title-row">
+          <text class="section-title">日涨幅榜</text>
+          <text class="rank-date" wx:if="{{rankingDate}}">{{rankingDate}}</text>
+        </view>
         <view class="rank-more" bindtap="goToRanking">
           <text>更多排行榜</text>
           <text class="rank-arrow">›</text>

@@ -22,15 +22,9 @@
 
   <!-- 未登录提示横幅 -->
   <view wx:if="{{!loggedIn}}" class="demo-banner" bindtap="goToLogin">
-    <text class="demo-banner-text">登录后查看您的持仓数据</text>
+    <text class="demo-banner-text">登录后管理您的持仓数据</text>
     <text class="demo-banner-btn">去登录 ›</text>
   </view>
-
-  <empty
-    wx:if="{{!loggedIn}}"
-    icon="📊"
-    text="暂无持仓信息"
-  ></empty>
 
   <!-- 数据展示 -->
   <block wx:if="{{summary && summary.fund_count > 0}}">

@@ -42,7 +42,7 @@ Page({
     } else {
       this.setData({
         loading: false,
-        watchlist: []
+        watchlist: this._getDemoWatchlist()
       })
     }
   },
@@ -156,6 +156,34 @@ Page({
       hideLoading()
       console.error('移除自选失败:', error)
     }
+  },
+
+  // 生成 demo 自选数据（未登录时展示）
+  _getDemoWatchlist() {
+    return [
+      {
+        id: 1,
+        fund_code: '005827',
+        fund_name: '易方达蓝筹精选混合',
+        change_rate: '+1.85%',
+        change_rate_class: 'up',
+        total_change_rate: 8.56,
+        total_change_formatted: '+8.56%',
+        nav_updated: true,
+        is_holding: true,
+      },
+      {
+        id: 2,
+        fund_code: '161725',
+        fund_name: '招商中证白酒指数',
+        change_rate: '-0.92%',
+        change_rate_class: 'down',
+        total_change_rate: -4.31,
+        total_change_formatted: '-4.31%',
+        nav_updated: false,
+        is_holding: false,
+      },
+    ]
   },
 
   // 跳转到添加持仓

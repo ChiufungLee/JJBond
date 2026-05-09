@@ -48,9 +48,10 @@ Page({
         this.loadData()
       }
     } else {
+      const summary = this._getDemoSummary()
       this.setData({
         loading: false,
-        summary: null,
+        summary: this.formatSummary(summary),
         error: false
       })
     }
@@ -200,6 +201,44 @@ Page({
     return {
       title: '泪水打湿猪脚饭，今年要赚100万！',
       imageUrl: '/icons/logo.png'
+    }
+  },
+
+  // 生成 demo 持仓数据（未登录时展示）
+  _getDemoSummary() {
+    return {
+      total_cost: 15000,
+      today_holding_amount: 15640.70,
+      yesterday_holding_amount: 15552.40,
+      yesterday_holding_income: 88.30,
+      today_revenue: 88.30,
+      fund_count: 2,
+      high_fund_list: ['易方达蓝筹精选混合'],
+      low_fund_list: [],
+      fund_details: [
+        {
+          fund_code: '005827',
+          fund_name: '易方达蓝筹精选混合',
+          cost: 10000,
+          amount: 10856.30,
+          today_revenue: 126.50,
+          total_revenue: 856.30,
+          profit_loss_ratio: 8.56,
+          change_rate: '+1.85%',
+          nav_updated: true,
+        },
+        {
+          fund_code: '161725',
+          fund_name: '招商中证白酒指数',
+          cost: 5000,
+          amount: 4784.40,
+          today_revenue: -38.20,
+          total_revenue: -215.60,
+          profit_loss_ratio: -4.31,
+          change_rate: '-0.92%',
+          nav_updated: false,
+        },
+      ],
     }
   },
 

@@ -76,11 +76,27 @@
 }
 
 /* ====== 资金流入/流出榜 ====== */
+.indices-empty {
+  text-align: center;
+  padding: 40rpx;
+  font-size: 26rpx;
+  color: #999;
+  background-color: #fff;
+  border-radius: 16rpx;
+}
+
 .flow-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.flow-time {
+  display: block;
+  font-size: 20rpx;
+  color: #999;
   margin-bottom: 16rpx;
+  text-align: right;
 }
 
 .flow-tabs {
@@ -167,6 +183,17 @@
   gap: 4rpx;
   font-size: 26rpx;
   color: #722ed1;
+}
+
+.rank-date {
+  font-size: 20rpx;
+  color: #999;
+  margin-left: 12rpx;
+}
+
+.rank-title-row {
+  display: flex;
+  align-items: baseline;
 }
 
 .rank-arrow {

@@ -7,8 +7,11 @@ Page({
     loading: true,
     loggedIn: false,
     groups: [],
+    indicesError: false,
     activeFlowTab: 'inflow',
     flowList: [],
+    flowUpdateTime: '',
+    rankingDate: '',
     rankingList: [],
   },
 
@@ -55,9 +58,9 @@ Page({
           isUp: idx.change >= 0,
         })),
       }))
-      this.setData({ groups, loading: false })
+      this.setData({ groups, indicesError: false, loading: false })
     } catch (e) {
-      this.setData({ loading: false })
+      this.setData({ groups: [], indicesError: true, loading: false })
     }
   },
 
@@ -80,6 +83,10 @@ Page({
 
       this._flowData = { inflow, outflow }
       this._applyFlowView()
+      const now = new Date()
+      const pad = n => String(n).padStart(2, '0')
+      const flowUpdateTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+      this.setData({ flowUpdateTime })
     } catch (e) {
       console.error('加载资金流数据失败:', e)
     }
@@ -105,7 +112,10 @@ Page({
         changeText: item.change >= 0 ? `+${item.change.toFixed(2)}%` : `${item.change.toFixed(2)}%`,
         isUp: item.change >= 0,
       }))
-      this.setData({ rankingList })
+      const now = new Date()
+      const pad = n => String(n).padStart(2, '0')
+      const rankingDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+      this.setData({ rankingList, rankingDate })
     } catch (e) {
       console.error('加载排行榜失败:', e)
     }
