@@ -139,6 +139,87 @@
   background-color: #fff;
 }
 
+/* 热搜基金 */
+.hot-search-section {
+  padding: 24rpx;
+}
+
+.hot-search-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+}
+
+.hot-search-header-rate {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.hot-search-list {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.hot-search-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.hot-search-item:last-child {
+  border-bottom: none;
+}
+
+.hot-item-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.hot-fund-name {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 360rpx;
+}
+
+.hot-fund-rate {
+  font-size: 26rpx;
+  font-weight: 500;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+.hot-fund-rate.up {
+  color: #ff4d4f;
+}
+
+.hot-fund-rate.down {
+  color: #52c41a;
+}
+
+.hot-item-action {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.hot-item-action .btn-add {
+  font-size: 48rpx;
+  color: #722ed1;
+  padding: 0 16rpx;
+  line-height: 1;
+}
+
 /* 自选区域 */
 .watchlist-section {
   padding: 24rpx;

@@ -12,7 +12,9 @@ Page({
     watchlist: [],
     searching: false,
     loading: true,
-    loggedIn: false
+    loggedIn: false,
+    hotFunds: [],
+    searchFocused: false
   },
 
   onLoad() {
@@ -26,6 +28,7 @@ Page({
         console.error('搜索失败:', error)
       }
     })
+    this.loadHotFunds()
   },
 
   onShow() {
@@ -49,6 +52,18 @@ Page({
 
   onUnload() {
     this.searchManager?.invalidate()
+  },
+
+  // 加载热搜基金
+  async loadHotFunds() {
+    try {
+      const res = await get('/hot-search/funds', {}, { cacheTTL: 3600, forceRefresh: true })
+      if (res && res.data) {
+        this.setData({ hotFunds: res.data })
+      }
+    } catch (error) {
+      console.error('获取热搜基金失败:', error)
+    }
   },
 
   // 加载自选列表
@@ -80,6 +95,16 @@ Page({
     if (!dateStr) return ''
     const date = new Date(dateStr)
     return `${date.getMonth() + 1}/${date.getDate()}`
+  },
+
+  // 搜索框获得焦点
+  onSearchFocus() {
+    this.setData({ searchFocused: true })
+  },
+
+  // 搜索框失去焦点
+  onSearchBlur() {
+    this.setData({ searchFocused: false })
   },
 
   // 搜索输入
@@ -128,7 +153,7 @@ Page({
       this.searchManager?.invalidate()
       this.searchManager?.clearResults()
       getApp().markWatchlistDirty()
-      this.setData({ searchKeyword: '' })
+      this.setData({ searchKeyword: '', searchFocused: false })
       this.loadWatchlist()
     } catch (error) {
       hideLoading()

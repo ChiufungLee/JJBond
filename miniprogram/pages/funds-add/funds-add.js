@@ -1,5 +1,5 @@
 // pages/funds-add/funds-add.js
-const { post } = require('../../utils/request')
+const { get, post } = require('../../utils/request')
 const { showLoading, hideLoading, showToast } = require('../../utils/util')
 const { createFundSearchManager } = require('../../utils/fund-search')
 const app = getApp()
@@ -12,7 +12,8 @@ Page({
     cost_price: '',
     shares: '',
     searching: false,
-    submitting: false
+    submitting: false,
+    hotFunds: []
   },
 
   onLoad() {
@@ -23,10 +24,23 @@ Page({
         console.error('搜索失败:', error)
       }
     })
+    this.loadHotFunds()
   },
 
   onUnload() {
     this.searchManager?.invalidate()
+  },
+
+  // 加载热搜基金
+  async loadHotFunds() {
+    try {
+      const res = await get('/hot-search/funds', {}, { cacheTTL: 3600 })
+      if (res && res.data) {
+        this.setData({ hotFunds: res.data })
+      }
+    } catch (error) {
+      console.error('获取热搜基金失败:', error)
+    }
   },
 
   // 搜索输入

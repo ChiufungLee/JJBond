@@ -46,6 +46,27 @@
     <view wx:if="{{searching}}" class="searching">
       <text>搜索中...</text>
     </view>
+
+    <!-- 热搜基金 -->
+    <view wx:if="{{!selectedFund && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
+      <view class="hot-search-title">
+        <text>🔥 热搜基金</text>
+        <text class="hot-search-header-rate">近一年收益</text>
+      </view>
+      <view class="hot-search-list">
+        <view
+          class="hot-search-item"
+          wx:for="{{hotFunds}}"
+          wx:key="fund_code"
+          bindtap="selectFund"
+          data-code="{{item.fund_code}}"
+          data-name="{{item.fund_name}}"
+        >
+          <text class="hot-fund-name">{{item.fund_name}}</text>
+          <text class="hot-fund-rate {{item.rate_class}}">{{item.return_rate}}</text>
+        </view>
+      </view>
+    </view>
   </view>
 
   <!-- 持仓信息 -->

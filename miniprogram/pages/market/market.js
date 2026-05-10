@@ -112,13 +112,21 @@ Page({
         changeText: item.change >= 0 ? `+${item.change.toFixed(2)}%` : `${item.change.toFixed(2)}%`,
         isUp: item.change >= 0,
       }))
-      const now = new Date()
+      const d = this._getLatestTradingDate()
       const pad = n => String(n).padStart(2, '0')
-      const rankingDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+      const rankingDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
       this.setData({ rankingList, rankingDate })
     } catch (e) {
       console.error('加载排行榜失败:', e)
     }
+  },
+
+  _getLatestTradingDate() {
+    const d = new Date()
+    const day = d.getDay()
+    if (day === 0) d.setDate(d.getDate() - 2)      // 周日 → 上周五
+    else if (day === 6) d.setDate(d.getDate() - 1)  // 周六 → 上周五
+    return d
   },
 
   goToFundDetail(e) {

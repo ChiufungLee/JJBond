@@ -10,6 +10,8 @@
         placeholder="搜索基金代码或名称添加自选"
         value="{{searchKeyword}}"
         bindinput="onSearchInput"
+        bindfocus="onSearchFocus"
+        bindblur="onSearchBlur"
       />
     </view>
   </view>
@@ -50,6 +52,34 @@
   <!-- 无搜索结果 -->
   <view wx:elif="{{searchKeyword && !searching && searchResults.length === 0}}" class="no-result-state">
     <text>未找到相关基金</text>
+  </view>
+
+  <!-- 热搜基金 -->
+  <view wx:if="{{searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
+    <view class="hot-search-title">
+      <text>🔥 热搜基金</text>
+      <text class="hot-search-header-rate">近一年收益</text>
+    </view>
+    <view class="hot-search-list">
+      <view
+        class="hot-search-item"
+        wx:for="{{hotFunds}}"
+        wx:key="fund_code"
+      >
+        <view class="hot-item-info" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text class="hot-fund-name">{{item.fund_name}}</text>
+          <text class="hot-fund-rate {{item.rate_class}}">{{item.return_rate}}</text>
+        </view>
+        <view class="hot-item-action">
+          <view
+            class="btn-add"
+            catchtap="addToWatchlist"
+            data-code="{{item.fund_code}}"
+            data-name="{{item.fund_name}}"
+          >+</view>
+        </view>
+      </view>
+    </view>
   </view>
 
   <!-- 未登录提示横幅 -->
