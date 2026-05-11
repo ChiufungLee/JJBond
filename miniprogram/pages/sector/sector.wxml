@@ -11,7 +11,7 @@
     >{{item.name}}</view>
   </view>
 
-  <!-- 时间范围 -->
+  <!-- 时间范围 & 排序 -->
   <view class="filter-bar">
     <view class="time-tabs">
       <view
@@ -21,6 +21,13 @@
         data-time="{{item.key}}"
         bindtap="onTimeChange"
       >{{item.name}}</view>
+    </view>
+    <view class="sort-btn" bindtap="onSortChange">
+      <text>排序</text>
+      <view class="sort-icons">
+        <text class="sort-icon {{sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+        <text class="sort-icon {{sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+      </view>
     </view>
   </view>
 

@@ -15,11 +15,52 @@ from utils.helpers import safe_float
 
 logger = logging.getLogger(__name__)
 
+# 出站并发限制，避免短时间大量请求打爆外部接口
+_outbound_semaphore = asyncio.Semaphore(20)
+
+
 class FundCalculator:
     """
     基金计算器，所有方法均为无状态操作（无实例变量）。
     通过模块级单例 `calculator` 在整个应用中共享，无需每次 new。
     """
+
+    @staticmethod
+    async def _throttled(coro):
+        """用出站信号量包裹协程，限制并发"""
+        async with _outbound_semaphore:
+            return await coro
+
+    async def _request_with_retry(
+        self,
+        method: str,
+        url: str,
+        callback,
+        headers: dict = None,
+        data: dict = None,
+        timeout: int = 10,
+        retries: int = 2,
+        backoff: float = 1.0,
+    ):
+        """
+        统一的 HTTP 请求方法，带指数退避重试。
+        callback: async (resp) -> T，在 context 内解析响应。
+        返回 callback 的结果，全部失败返回 None。
+        """
+        session = get_http_session()
+        for attempt in range(retries):
+            try:
+                async with session.request(
+                    method, url, headers=headers, data=data,
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ) as resp:
+                    resp.raise_for_status()
+                    return await callback(resp)
+            except Exception as e:
+                logger.warning(f"请求失败 {method} {url}, 重试 {attempt + 1}/{retries}: {e}")
+                if attempt < retries - 1:
+                    await asyncio.sleep(backoff * (2 ** attempt))
+        return None
 
     async def _cache_get(self, key: str) -> Optional[str]:
         """从 Redis 读取缓存，Redis 不可用时返回 None"""
@@ -77,25 +118,87 @@ class FundCalculator:
         """获取普通基金信息（异步，复用 ClientSession 重试）"""
         url = f"http://fundgz.1234567.com.cn/js/{fund_code}.js"
         headers = {'User-Agent': UA_DESKTOP, 'Referer': REFERER_EASTMONEY}
-        session = get_http_session()
-        for i in range(2):
+
+        async def _parse(resp):
+            text = await resp.text()
+            matched = re.findall(r'^jsonpgz\((.*)\)', text)
+            return json.loads(matched[0]) if matched else None
+
+        result = await self._request_with_retry("GET", url, _parse, headers=headers, timeout=5, retries=2, backoff=0.5)
+        if result:
+            return result
+
+        # 常规接口失败，尝试新浪财经接口
+        logger.info(f"常规接口获取失败，尝试新浪财经接口: {fund_code}")
+        result = await self._get_fund_info_sina(fund_code)
+        if result:
+            return result
+
+        # 新浪接口也失败，尝试天天基金备用接口
+        logger.info(f"新浪财经接口获取失败，尝试天天基金备用接口: {fund_code}")
+        return await self._get_fund_info_backup(fund_code)
+
+    async def _get_fund_info_sina(self, fund_code: str) -> Optional[Dict]:
+        """通过新浪财经行情接口获取基金估值信息（JSONP）"""
+        url = f"https://hq.sinajs.cn/?list=fu_{fund_code},f_{fund_code}"
+        headers = {'User-Agent': UA_DESKTOP, 'Referer': 'https://finance.sina.com.cn/'}
+
+        async def _parse(resp):
+            raw = await resp.read()
+            # 新浪接口返回 gb2312 编码
             try:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    resp.raise_for_status()
-                    text = await resp.text()
-                    matched = re.findall(r'^jsonpgz\((.*)\)', text)
-                    if matched:
-                        return json.loads(matched[0])
-            except Exception as e:
-                logger.warning(f"获取基金信息失败 {fund_code}, 重试 {i+1}/2: {str(e)}")
-                if i < 1:
-                    await asyncio.sleep(0.5)
+                text = raw.decode('gb2312')
+            except UnicodeDecodeError:
+                text = raw.decode('gbk', errors='replace')
 
-        # 常规接口失败，尝试备用接口（使用同一个 session）
-        logger.info(f"常规接口获取失败，尝试备用接口: {fund_code}")
-        return await self._get_fund_info_backup(session, fund_code)
+            # 解析 fu_ 行（估值）: 名称,时间,估值,昨日净值,单位净值,涨跌额,涨跌幅%,日期,,
+            fu_match = re.search(r'hq_str_fu_\d+="(.+?)"', text)
+            # 解析 f_ 行（净值）: 名称,单位净值,累计净值,昨日净值,日期,规模(亿)
+            f_match = re.search(r'hq_str_f_\d+="(.+?)"', text)
 
-    async def _get_fund_info_backup(self, session, fund_code: str) -> Optional[Dict]:
+            if not fu_match and not f_match:
+                return None
+
+            fund_name = ''
+            gsz = None
+            gszzl = None
+            dwjz = None
+            gztime = ''
+
+            if fu_match:
+                fu_fields = fu_match.group(1).split(',')
+                if len(fu_fields) >= 8:
+                    fund_name = fu_fields[0]
+                    gztime = f"{fu_fields[7]} {fu_fields[1]}" if len(fu_fields) > 7 and fu_fields[7] else fu_fields[1]
+                    gsz = fu_fields[2] if fu_fields[2] else None
+                    dwjz = fu_fields[3] if fu_fields[3] else None
+                    gszzl = fu_fields[6] if fu_fields[6] else None
+
+            # f_ 行补充净值信息
+            if f_match:
+                f_fields = f_match.group(1).split(',')
+                if len(f_fields) >= 4:
+                    if not fund_name:
+                        fund_name = f_fields[0]
+                    if not dwjz:
+                        dwjz = f_fields[1]
+
+            if not gsz and not dwjz:
+                return None
+
+            return {
+                'fundcode': fund_code,
+                'name': fund_name,
+                'jzrq': gztime.split(' ')[0] if ' ' in gztime else gztime,
+                'dwjz': str(dwjz) if dwjz else '0',
+                'gsz': str(gsz) if gsz else str(dwjz),
+                'gszzl': str(gszzl) if gszzl else '0',
+                'gztime': gztime,
+            }
+
+        return await self._request_with_retry("GET", url, _parse, headers=headers, timeout=10, retries=2)
+
+    async def _get_fund_info_backup(self, fund_code: str) -> Optional[Dict]:
         """备用接口获取基金信息（天天基金 API）"""
         url = "https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew"
         headers = {
@@ -103,7 +206,6 @@ class FundCalculator:
             'Content-Type': 'application/x-www-form-urlencoded',
             'Referer': REFERER_EASTMONEY,
         }
-        # 请求参数
         fields = 'SHORTNAME,RZDF,DWJZ,FSRQ,FCODE'
         data = {
             'deviceid': '1234567.py.service',
@@ -114,32 +216,25 @@ class FundCalculator:
             'FCODES': fund_code,
             'FIELDS': fields
         }
-        try:
-            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                result = await resp.json()
 
-                if result.get('success') and result.get('data'):
-                    item = result['data'][0]
-                    # 转换为统一格式
-                    gsz = item.get('DWJZ')  # 估算值使用单位净值
-                    lastday = gsz/ (1 + item.get('RZDF', 0) / 100) if item.get('RZDF', 0) != 0 else gsz  # 昨日净值
-                    fund_info = {
-                        'fundcode': item.get('FCODE', fund_code),
-                        'name': item.get('SHORTNAME', ''),
-                        'jzrq': item.get('FSRQ', ''),  # 净值日期
-                        'dwjz': str(lastday),
-                        'gsz': str(item.get('DWJZ', '0')),  # 使用单位净值作为估算值
-                        'gszzl': str(item.get('RZDF', '0')),  # 日涨跌幅
-                        'gztime': item.get('FSRQ', ''),
-                        # 'ftype': item.get('FTYPE', ''),  # 基金类型
-                    }
-                    logger.info(f"备用接口获取成功: {fund_code}")
-                    return fund_info
-        except Exception as e:
-            logger.error(f"备用接口获取失败: {fund_code}, 错误: {str(e)}")
+        async def _parse(resp):
+            result = await resp.json()
+            if result.get('success') and result.get('data'):
+                item = result['data'][0]
+                gsz = item.get('DWJZ')
+                lastday = gsz / (1 + item.get('RZDF', 0) / 100) if item.get('RZDF', 0) != 0 else gsz
+                return {
+                    'fundcode': item.get('FCODE', fund_code),
+                    'name': item.get('SHORTNAME', ''),
+                    'jzrq': item.get('FSRQ', ''),
+                    'dwjz': str(lastday),
+                    'gsz': str(item.get('DWJZ', '0')),
+                    'gszzl': str(item.get('RZDF', '0')),
+                    'gztime': item.get('FSRQ', ''),
+                }
+            return None
 
-        return None
+        return await self._request_with_retry("POST", url, _parse, headers=headers, data=data, timeout=10, retries=1)
 
     async def _get_lof_fund_info(self, fund_code: str) -> Optional[Dict]:
         """获取LOF基金信息（异步，复用 ClientSession 重试）"""
@@ -148,27 +243,19 @@ class FundCalculator:
             'User-Agent': UA_DESKTOP,
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
-        session = get_http_session()
-        for i in range(3):
-            try:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    resp.raise_for_status()
-                    body = await resp.read()
-                    soup = await asyncio.to_thread(BeautifulSoup, body, 'html.parser')
-                    name_element = soup.find('a', href=url, target="_self")
-                    name = name_element.getText() if name_element else "未知基金"
 
-                    value_element = soup.find_all('dd', {'class': 'dataNums'})[1].find('span')
-                    value = value_element.getText() if value_element else "0.00"
+        async def _parse(resp):
+            body = await resp.read()
+            soup = await asyncio.to_thread(BeautifulSoup, body, 'html.parser')
+            name_element = soup.find('a', href=url, target="_self")
+            name = name_element.getText() if name_element else "未知基金"
+            value_element = soup.find_all('dd', {'class': 'dataNums'})[1].find('span')
+            value = value_element.getText() if value_element else "0.00"
+            date_element = soup.find('dl', {'class': "dataItem01"}).find('p')
+            date_str = date_element.getText() if date_element else "未知日期"
+            return {'name': name, 'value': value, 'data': date_str}
 
-                    date_element = soup.find('dl', {'class': "dataItem01"}).find('p')
-                    date_str = date_element.getText() if date_element else "未知日期"
-                    return {'name': name, 'value': value, 'data': date_str}
-            except Exception as e:
-                logger.warning(f"获取LOF基金信息失败 {fund_code}, 重试 {i+1}/3: {str(e)}")
-                if i < 2:
-                    await asyncio.sleep(1)
-        return None
+        return await self._request_with_retry("GET", url, _parse, headers=headers, timeout=10, retries=3, backoff=1.0)
 
     async def get_change_recent_days(self, fund_code: str) -> str:
         """获取基金最近涨跌情况（异步）"""
@@ -186,26 +273,22 @@ class FundCalculator:
             'User-Agent': UA_DESKTOP,
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
-        try:
-            session = get_http_session()
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                text = await resp.text()
-
+        async def _parse(resp):
+            text = await resp.text()
             matched = re.findall(r'content:"(.*?)",records:', text)
             if not matched:
                 return "无数据"
-
             html = await asyncio.to_thread(etree.HTML, matched[0])
             html_data = html.xpath('//tr/td/text()')
             rise_fall_list = [num for num in html_data if num.endswith('%')]
             rise_fall_list.reverse()
-            result = ' , '.join(rise_fall_list)
-            await self._cache_set(cache_key, result, 600)
-            return result
-        except Exception as e:
-            logger.error(f"获取近期涨跌失败: {fund_code}, 错误: {str(e)}")
+            return ' , '.join(rise_fall_list)
+
+        result = await self._request_with_retry("GET", url, _parse, headers=headers, retries=2)
+        if result is None:
             return "获取失败"
+        await self._cache_set(cache_key, result, 3600)
+        return result
 
     async def get_fund_period_returns(self, fund_code: str) -> Optional[Dict[str, Any]]:
         """
@@ -242,58 +325,53 @@ class FundCalculator:
             'Referer': REFERER_EASTMONEY,
         }
 
+        data = {
+            'FCODE': fund_code,
+            'RANGE': ','.join(period_codes),
+            'deviceid': '1234567.py.service',
+            'version': '6.5.5',
+            'product': 'EFund',
+            'plat': 'Iphone',
+        }
+
         result = {
             'fund_code': fund_code,
             'periods': []
         }
 
-        session = get_http_session()
-        try:
-            # 一次性请求所有阶段数据
-            data = {
-                'FCODE': fund_code,
-                'RANGE': ','.join(period_codes),
-                'deviceid': '1234567.py.service',
-                'version': '6.5.5',
-                'product': 'EFund',
-                'plat': 'Iphone',
-            }
+        async def _parse(resp):
+            response = await resp.json()
+            periods = []
+            if response.get('Datas'):
+                for item in response['Datas']:
+                    period_code = item.get('title', '')
+                    if period_code in period_names:
+                        syl = item.get('syl')
+                        try:
+                            syl_value = float(syl) if syl else None
+                        except (ValueError, TypeError):
+                            syl_value = None
+                        periods.append({
+                            'period_code': period_code,
+                            'period_name': period_names[period_code],
+                            'return_rate': syl_value,
+                            'return_rate_str': f"{syl_value}%" if syl_value is not None else '--',
+                            'avg': item.get('avg'),
+                            'rank': item.get('rank'),
+                            'sc': item.get('sc'),
+                        })
+                order_map = {code: i for i, code in enumerate(period_codes)}
+                periods.sort(key=lambda x: order_map.get(x['period_code'], 999))
+            return periods
 
-            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                response = await resp.json()
-
-                if response.get('Datas'):
-                    for item in response['Datas']:
-                        period_code = item.get('title', '')
-                        if period_code in period_names:
-                            syl = item.get('syl')
-                            try:
-                                syl_value = float(syl) if syl else None
-                            except (ValueError, TypeError):
-                                syl_value = None
-
-                            result['periods'].append({
-                                'period_code': period_code,
-                                'period_name': period_names[period_code],
-                                'return_rate': syl_value,
-                                'return_rate_str': f"{syl_value}%" if syl_value is not None else '--',
-                                'avg': item.get('avg'),  # 同类平均
-                                'rank': item.get('rank'),  # 同类排名
-                                'sc': item.get('sc'),  # 同类数量
-                            })
-
-                    # 按预定义顺序排序
-                    order_map = {code: i for i, code in enumerate(period_codes)}
-                    result['periods'].sort(key=lambda x: order_map.get(x['period_code'], 999))
-
-            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)  # 缓存15分钟
+        periods = await self._request_with_retry("POST", url, _parse, headers=headers, data=data, retries=2)
+        if periods is not None:
+            result['periods'] = periods
+            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 3600)
             logger.info(f"获取基金阶段涨幅成功: {fund_code}")
-            return result
-
-        except Exception as e:
-            logger.error(f"获取基金阶段涨幅失败: {fund_code}, 错误: {str(e)}")
-            return result
+        else:
+            logger.error(f"获取基金阶段涨幅失败: {fund_code}")
+        return result
 
     async def get_fund_nav_history_simple(self, fund_code: str, days: int = 30) -> List[Dict[str, Any]]:
         """获取基金历史净值数据（异步，仅提取日期、单位净值、增长率）"""
@@ -316,7 +394,6 @@ class FundCalculator:
         }
         result = []
         try:
-            session = get_http_session()
             page = 1
             seen_dates = set()
             reached_start_date = False
@@ -326,9 +403,9 @@ class FundCalculator:
                     f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
                     f"?type=lsjz&code={fund_code}&page={page}&sdate={sdate}&edate={edate}&per=50"
                 )
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    resp.raise_for_status()
-                    text = await resp.text()
+                text = await self._request_with_retry("GET", url, lambda r: r.text(), headers=headers)
+                if text is None:
+                    break
 
                 match = re.search(r'content:"(.*?)",records:(\d+),pages:(\d+)', text, re.DOTALL)
                 if not match:
@@ -381,7 +458,7 @@ class FundCalculator:
                 page += 1
 
             result.sort(key=lambda x: x["date"], reverse=True)
-            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
+            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 3600)
             logger.info(f"获取基金净值历史成功: {fund_code}, 记录数: {len(result)}")
             return result
 
@@ -434,23 +511,21 @@ class FundCalculator:
             'FCODES': fund_code,
             'FIELDS': fields
         }
-        try:
-            session = get_http_session()
-            async with session.post(url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                result = await resp.json()
-                if result.get('success') and result.get('data'):
-                    item = result['data'][0]
-                    nav_info = {
-                        'dwjz': item.get('DWJZ'),
-                        'rzdf': item.get('RZDF'),
-                        'fsrq': item.get('FSRQ'),
-                    }
-                    await self._cache_set(cache_key, json.dumps(nav_info), 300)
-                    return nav_info
-        except Exception as e:
-            logger.warning(f"获取实际净值失败: {fund_code}, 错误: {str(e)}")
-        return None
+        async def _parse(resp):
+            result = await resp.json()
+            if result.get('success') and result.get('data'):
+                item = result['data'][0]
+                return {
+                    'dwjz': item.get('DWJZ'),
+                    'rzdf': item.get('RZDF'),
+                    'fsrq': item.get('FSRQ'),
+                }
+            return None
+
+        nav_info = await self._request_with_retry("POST", url, _parse, headers=headers, data=data, retries=2)
+        if nav_info:
+            await self._cache_set(cache_key, json.dumps(nav_info), 300)
+        return nav_info
 
     def _resolve_market_values(
         self,
@@ -553,7 +628,7 @@ class FundCalculator:
             rzdf = self._parse_float(real_nav_info.get('rzdf'))
             if rzdf is not None:
                 gszzl = rzdf
-        change_rate = f"{gszzl}%" if gszzl is not None else "--"
+        change_rate = f"{round(gszzl, 2)}%" if gszzl is not None else "--"
 
         return {
             'id': fund_id,
@@ -642,10 +717,10 @@ class FundCalculator:
 
         if gszzl_raw is not None:
             gszzl = gszzl_raw
-            change_rate = f"{gszzl}%"
+            change_rate = f"{round(gszzl, 2)}%"
         elif daily_growth_value is not None:
             gszzl = daily_growth_value
-            change_rate = f"{gszzl}%"
+            change_rate = f"{round(gszzl, 2)}%"
         else:
             gszzl = 0
             change_rate = "--"
@@ -730,14 +805,14 @@ class FundCalculator:
 
         # 第一步：只并发获取 fund_info（N 个请求，通常有 Redis 缓存）
         fund_infos = await asyncio.gather(
-            *[self.get_fund_info(code) for code in fund_codes]
+            *[self._throttled(self.get_fund_info(code)) for code in fund_codes]
         )
 
         # 3点后并发获取实际净值
         real_nav_map: Dict[str, Optional[Dict]] = {}
         if datetime.now().hour >= 15:
             real_nav_results = await asyncio.gather(
-                *[self._get_real_nav_info(code) for code in fund_codes]
+                *[self._throttled(self._get_real_nav_info(code)) for code in fund_codes]
             )
             for code, real_nav in zip(fund_codes, real_nav_results):
                 if real_nav and self._is_nav_updated_today(real_nav):
@@ -755,7 +830,7 @@ class FundCalculator:
         nav_histories: Dict[int, List] = {}
         if fallback_indices:
             nav_results = await asyncio.gather(
-                *[self.get_fund_nav_history_simple(fund_codes[i], days=3) for i in fallback_indices]
+                *[self._throttled(self.get_fund_nav_history_simple(fund_codes[i], days=3)) for i in fallback_indices]
             )
             for idx, nav_list in zip(fallback_indices, nav_results):
                 nav_histories[idx] = nav_list
@@ -788,14 +863,14 @@ class FundCalculator:
 
         # 第一步：只并发获取 fund_info（N 个请求，通常有 Redis 缓存）
         fund_infos = await asyncio.gather(
-            *[self.get_fund_info(code) for code in fund_codes]
+            *[self._throttled(self.get_fund_info(code)) for code in fund_codes]
         )
 
         # 3点后并发获取实际净值
         real_nav_map: Dict[str, Optional[Dict]] = {}
         if datetime.now().hour >= 15:
             real_nav_results = await asyncio.gather(
-                *[self._get_real_nav_info(code) for code in fund_codes]
+                *[self._throttled(self._get_real_nav_info(code)) for code in fund_codes]
             )
             for code, real_nav in zip(fund_codes, real_nav_results):
                 if real_nav and self._is_nav_updated_today(real_nav):
@@ -812,7 +887,7 @@ class FundCalculator:
         nav_histories: Dict[int, List] = {}
         if fallback_indices:
             nav_results = await asyncio.gather(
-                *[self.get_fund_nav_history_simple(fund_codes[i], days=3) for i in fallback_indices]
+                *[self._throttled(self.get_fund_nav_history_simple(fund_codes[i], days=3)) for i in fallback_indices]
             )
             for idx, nav_list in zip(fallback_indices, nav_results):
                 nav_histories[idx] = nav_list
@@ -855,20 +930,14 @@ class FundCalculator:
             'User-Agent': UA_DESKTOP,
             'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
         }
-        result = []
-        try:
-            session = get_http_session()
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                resp.raise_for_status()
-                text = await resp.text()
-
+        async def _parse(resp):
+            text = await resp.text()
             match = re.search(r'content:"(.*?)",records:', text, re.DOTALL)
             if not match:
-                logger.warning(f"未匹配到基金净值数据: {fund_code}")
-                return result
-
+                return []
             raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
             html = await asyncio.to_thread(etree.HTML, raw_html)
+            rows = []
             for row in html.xpath('//tr')[1:]:
                 cells = row.xpath('./td')
                 if len(cells) < 4:
@@ -878,20 +947,18 @@ class FundCalculator:
                     unit_nav_str = cells[1].xpath('string(.)').strip()
                     unit_nav = float(unit_nav_str) if unit_nav_str and unit_nav_str != '-' else None
                     if unit_nav is not None:
-                        result.append({
-                            "date": nav_date,
-                            "unit_nav": unit_nav,
-                        })
+                        rows.append({"date": nav_date, "unit_nav": unit_nav})
                 except Exception as e:
                     logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
+            rows.sort(key=lambda x: x["date"])
+            return rows
 
-            result.sort(key=lambda x: x["date"])
-            await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 900)
-            return result
-
-        except Exception as e:
-            logger.error(f"获取基金净值历史失败: {fund_code}, 错误: {str(e)}")
+        result = await self._request_with_retry("GET", url, _parse, headers=headers, retries=2)
+        if result is None:
+            logger.error(f"获取基金净值历史失败: {fund_code}")
             return []
+        await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 3600)
+        return result
 
     def _build_daily_shares_snapshot(
         self, transactions: List, fund_codes: set, year: int, month: int
@@ -1014,7 +1081,7 @@ class FundCalculator:
         nav_data = {}
         nav_results = await asyncio.gather(
             *[
-                self.get_fund_nav_history_by_month(code, year, month, include_prev_trading_day=True)
+                self._throttled(self.get_fund_nav_history_by_month(code, year, month, include_prev_trading_day=True))
                 for code in fund_codes
             ]
         )

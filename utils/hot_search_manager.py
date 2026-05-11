@@ -14,7 +14,7 @@ from utils.http_headers import UA_DESKTOP, REFERER_EASTMONEY
 logger = logging.getLogger(__name__)
 
 CACHE_KEY = "hot_search:funds"
-CACHE_TTL = 43200  # 12 小时
+CACHE_TTL = 900  # 15 分钟
 
 
 class HotSearchManager:

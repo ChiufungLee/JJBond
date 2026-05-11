@@ -55,9 +55,6 @@
       wx:if="{{fundList.length === 0 && !loading}}"
       icon="📊"
       text="暂无基金数据"
-      showButton="{{true}}"
-      buttonText="重新加载"
-      bind:buttonTap="loadFunds"
     ></empty>
 
     <!-- 基金列表 -->

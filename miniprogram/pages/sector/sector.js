@@ -6,6 +6,13 @@ const SECTOR_TYPES = [
   { key: 'concept', name: '概念板块' }
 ]
 
+function getNowTime() {
+  const now = new Date()
+  const h = String(now.getHours()).padStart(2, '0')
+  const m = String(now.getMinutes()).padStart(2, '0')
+  return `${h}:${m}`
+}
+
 const TIME_RANGES = [
   { key: 'D', name: '实时', changeSt: 'D', flowSt: 'FLOW' },
   { key: 'W', name: '近一周', changeSt: 'W', flowSt: 'FLOW_W' },
@@ -36,11 +43,27 @@ Page({
     sectorList: [],
     loading: false,
     error: false,
-    errorMessage: ''
+    errorMessage: '',
+    sortOrder: 'desc'
   },
 
   onLoad() {
+    this.updateRealTimeName()
+    this._timer = setInterval(() => this.updateRealTimeName(), 60000)
     this.loadSectors()
+  },
+
+  onUnload() {
+    if (this._timer) clearInterval(this._timer)
+  },
+
+  updateRealTimeName() {
+    const time = getNowTime()
+    const timeRanges = this.data.timeRanges.map(item => {
+      if (item.key === 'D') return { ...item, name: `实时(${time})` }
+      return item
+    })
+    this.setData({ timeRanges })
   },
 
   onTypeChange(e) {
@@ -67,6 +90,15 @@ Page({
     this.loadSectors()
   },
 
+  onSortChange() {
+    const sortOrder = this.data.sortOrder === 'desc' ? 'asc' : 'desc'
+    const sectorList = [...this.data.sectorList].sort((a, b) => {
+      const diff = (a.flowValue || 0) - (b.flowValue || 0)
+      return sortOrder === 'asc' ? diff : -diff
+    })
+    this.setData({ sortOrder, sectorList })
+  },
+
   async loadSectors() {
     if (this.data.loading) return
 
@@ -86,6 +118,7 @@ Page({
         flowMap[item.code] = item.value
       })
 
+      const sortOrder = this.data.sortOrder
       const sectorList = (changeRes.data || []).map(item => {
         const flowValue = flowMap[item.code] !== undefined ? flowMap[item.code] : null
         return {
@@ -95,7 +128,10 @@ Page({
           flowText: formatFlow(flowValue),
           isUp: flowValue !== null ? flowValue >= 0 : item.value >= 0,
         }
-      }).sort((a, b) => (b.flowValue || 0) - (a.flowValue || 0))
+      }).sort((a, b) => {
+        const diff = (a.flowValue || 0) - (b.flowValue || 0)
+        return sortOrder === 'asc' ? diff : -diff
+      })
 
       this.setData({
         sectorList,

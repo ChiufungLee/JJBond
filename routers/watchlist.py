@@ -72,7 +72,7 @@ async def get_watchlist(
                 gszzl = None
 
             watchlist_item.current_nav = current_nav
-            watchlist_item.change_rate = f"{gszzl}%" if gszzl is not None else "--"
+            watchlist_item.change_rate = f"{round(gszzl, 2)}%" if gszzl is not None else "--"
 
             if item.cost_nav and item.cost_nav > 0:
                 total_change = ((current_nav - item.cost_nav) / item.cost_nav) * 100

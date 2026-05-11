@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/market", tags=["股市行情"])
 
 CACHE_KEY = "market:indices"
-CACHE_TTL = 60
+CACHE_TTL = 300
 
 # 展示分组定义：(腾讯代码, 东方财富 fs 代码, 输出代码)
 INDEX_GROUPS = [
