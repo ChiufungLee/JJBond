@@ -151,4 +151,19 @@ Page({
     const { code, name } = e.currentTarget.dataset
     wx.navigateTo({ url: `/pages/sector/sector?code=${code}&name=${encodeURIComponent(name)}` })
   },
+
+  onShareAppMessage() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      path: '/pages/ranking/ranking',
+      imageUrl: '/icons/logo.png'
+    }
+  },
+
+  onShareTimeline() {
+    return {
+      title: '泪水打湿猪脚饭，今年要赚100万！',
+      imageUrl: '/icons/logo.png'
+    }
+  },
 })

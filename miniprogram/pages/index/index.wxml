@@ -101,7 +101,7 @@
             bindtap="handleSort"
             data-field="change_rate"
           >
-            <text>今日涨幅</text>
+            <text>当日涨幅</text>
             <view class="sort-icons">
               <text class="sort-icon sort-asc {{sortBy === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
               <text class="sort-icon sort-desc {{sortBy === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>

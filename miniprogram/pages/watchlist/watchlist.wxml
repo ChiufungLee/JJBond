@@ -111,7 +111,7 @@
       <!-- 表头 -->
       <view class="list-header">
         <text class="col-info">基金信息</text>
-        <text class="col-today">今日涨幅</text>
+        <text class="col-today">当日涨幅</text>
         <text class="col-total">自选以来</text>
         <text class="col-action" wx:if="{{loggedIn}}">移除</text>
       </view>
