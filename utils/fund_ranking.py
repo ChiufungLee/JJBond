@@ -269,6 +269,12 @@ class FundRankingManager:
                 "totalCount": str(len(all_fund_details)),
             })
 
+            # 设置 48 小时过期，防止同步失败后旧数据永不过期
+            expire_seconds = 48 * 3600
+            for ranking_type in RANKING_FIELD_MAP.keys():
+                pipe.expire(self._get_ranking_key(ranking_type), expire_seconds)
+            pipe.expire(META_KEY, expire_seconds)
+
             await pipe.execute()  # 一次性提交所有命令
 
             logger.info(f"排行榜数据同步成功，共 {len(all_fund_details)} 只基金")

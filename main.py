@@ -110,10 +110,26 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
+def _is_ranking_stale(last_update_str: str) -> bool:
+    """判断排行榜数据是否过期（超过 24 小时未更新）"""
+    if not last_update_str:
+        return True
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        last_update = datetime.strptime(last_update_str, "%Y-%m-%d %H:%M:%S").replace(
+            tzinfo=ZoneInfo("Asia/Shanghai")
+        )
+        now = datetime.now(ZoneInfo("Asia/Shanghai"))
+        return (now - last_update).total_seconds() > 24 * 3600
+    except Exception:
+        return True
+
+
 async def _warmup_ranking() -> None:
     """
     启动时预热排行榜数据。
-    - Redis 中已有数据则跳过，避免每次重启都触发耗时的全量同步
+    - 数据不存在或超过 24 小时未更新时触发全量同步
     - Redis 不可用时静默跳过，不影响应用启动
     """
     try:
@@ -122,13 +138,17 @@ async def _warmup_ranking() -> None:
             logger.warning("排行榜预热跳过：Redis 不可用")
             return
 
-        # 检查是否已有数据（任意一个维度有数据即视为已预热）
         counts = status.get("rankingCounts", {})
-        if any(v > 0 for v in counts.values()):
-            logger.info(f"排行榜数据已存在（{status.get('totalCount', 0)} 只基金），跳过预热")
+        has_data = any(v > 0 for v in counts.values())
+        last_update = status.get("lastUpdate", "")
+        is_stale = _is_ranking_stale(last_update)
+
+        if has_data and not is_stale:
+            logger.info(f"排行榜数据最新（{last_update}，{status.get('totalCount', 0)} 只基金），跳过预热")
             return
 
-        logger.info("排行榜缓存为空，开始预热...")
+        reason = "缓存为空" if not has_data else f"数据过期（上次更新: {last_update}）"
+        logger.info(f"排行榜{reason}，开始预热...")
         success = await fund_ranking_manager.sync_ranking_data()
         if success:
             logger.info("排行榜预热完成")

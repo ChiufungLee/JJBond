@@ -75,7 +75,7 @@ def setup_scheduler():
     # 每个工作日（周一到周五）15:30 执行同步
     scheduler.add_job(
         sync_ranking_job,
-        trigger=CronTrigger(day_of_week="mon-fri", hour=15, minute=30, timezone=SHANGHAI_TZ),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=30, timezone=SHANGHAI_TZ),
         id="sync_ranking_data",
         name="同步排行榜数据",
         replace_existing=True,
@@ -110,7 +110,7 @@ def setup_scheduler():
         misfire_grace_time=3600,
     )
 
-    logger.info("定时任务调度器已配置: 周一至周五 15:30 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据, 每周一 02:00 同步基金板块")
+    logger.info("定时任务调度器已配置: 周一至周五 17:30 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据, 每周一 02:00 同步基金板块")
 
 
 def start_scheduler():
