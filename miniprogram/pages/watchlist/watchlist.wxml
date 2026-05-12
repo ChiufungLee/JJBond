@@ -57,10 +57,20 @@
   <!-- 热搜基金 -->
   <view wx:if="{{loggedIn && searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
     <view class="hot-search-title">
-      <text>🔥 热搜基金</text>
-      <text class="hot-search-header-rate">近一年收益</text>
+      <text class="hot-search-header-name">🔥 热搜基金</text>
+      <text class="hot-search-header-rate">近一年涨幅</text>
+      <text class="hot-search-header-action">添加自选</text>
     </view>
-    <view class="hot-search-list">
+    <scroll-view
+      class="hot-search-list"
+      scroll-y
+      enhanced
+      show-scrollbar="{{false}}"
+      style="max-height: 60vh;"
+      bindscroll="onHotListScroll"
+      bindtouchstart="onHotListTouchStart"
+      bindtouchend="onHotListTouchEnd"
+    >
       <view
         class="hot-search-item"
         wx:for="{{hotFunds}}"
@@ -79,7 +89,7 @@
           >+</view>
         </view>
       </view>
-    </view>
+    </scroll-view>
   </view>
 
   <!-- 未登录提示 -->
@@ -93,6 +103,12 @@
   <view wx:if="{{loggedIn && !searchKeyword}}" class="watchlist-section">
     <view class="section-header">
       <text class="section-title">我的自选 ({{watchlist.length}})</text>
+    </view>
+
+    <!-- demo 数据提示 -->
+    <view wx:if="{{isDemo}}" class="demo-tip" bindtap="goToSearch">
+      <text class="demo-tip-text">以下为示例数据，添加自选后展示真实基金</text>
+      <text class="demo-tip-btn">去添加 ›</text>
     </view>
 
     <!-- 加载状态 -->
@@ -113,7 +129,7 @@
       <view class="list-header">
         <text class="col-info">基金信息</text>
         <view class="col-today col-sortable {{sortField === 'change_rate' ? 'active' : ''}}" bindtap="sortByToday">
-          <text>当日涨幅</text>
+          <text>今日涨幅</text>
           <view class="sort-icons">
             <text class="sort-icon sort-asc {{sortField === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
             <text class="sort-icon sort-desc {{sortField === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>
@@ -137,13 +153,14 @@
             <text class="item-name">{{item.fund_name}}</text>
             <view class="item-meta">
               <text class="item-code">{{item.fund_code}}</text>
+              <text wx:if="{{item.nav_updated}}" class="item-holding">已更新</text>
               <text class="item-holding" wx:if="{{item.is_holding}}">已持有</text>
             </view>
           </view>
 
           <!-- 今日涨幅 -->
           <view class="col-today {{item.change_rate_class}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-            <text class="rate-value">{{item.change_rate || '--'}}<text wx:if="{{item.nav_updated}}" class="nav-updated-tag">已更新</text></text>
+            <text class="rate-value">{{item.change_rate || '--'}}</text>
           </view>
 
           <!-- 自选以来涨幅 -->

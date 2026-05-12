@@ -5,10 +5,8 @@
     <!-- 未登录状态 -->
     <block wx:if="{{!loggedIn}}">
       <view class="user-header">
-        <view class="avatar">
-          <view class="avatar-shield">
-            <text class="avatar-yen">¥</text>
-          </view>
+        <view class="avatar-wrapper">
+          <image class="avatar" src="/icons/dog.svg" mode="aspectFill"></image>
         </view>
         <view class="user-info">
           <view class="username-row" bindtap="goToLogin">
@@ -23,15 +21,30 @@
     <!-- 已登录状态 -->
     <block wx:else>
       <view class="user-header">
-        <view class="avatar">
-          <view class="avatar-shield">
-            <text class="avatar-yen">¥</text>
-          </view>
+        <!-- 头像：静态展示，暂不开放修改 -->
+        <view class="avatar-wrapper">
+          <image
+            class="avatar"
+            src="/icons/dog.svg"
+            mode="aspectFill"
+          ></image>
         </view>
         <view class="user-info">
-          <view class="username-row" bindtap="goToEditProfile">
-            <text class="username">{{userInfo.nickname || userInfo.username || '用户'}}</text>
-            <image class="edit-icon" src="/icons/edit.svg" mode="aspectFit"></image>
+          <view class="username-row" bindtap="startEditNickname">
+            <input
+              wx:if="{{editingNickname}}"
+              class="nickname-input"
+              value="{{nickname}}"
+              focus="{{editingNickname}}"
+              placeholder="请输入昵称"
+              bindblur="onNicknameBlur"
+              bindinput="onNicknameInput"
+              bindconfirm="onNicknameBlur"
+            />
+            <block wx:else>
+              <text class="username">{{userInfo.nickname || userInfo.username || '用户'}}</text>
+              <image class="edit-icon" src="/icons/edit.svg" mode="aspectFit"></image>
+            </block>
           </view>
           <text class="user-days">已陪伴你 {{daysTogether}} 天</text>
         </view>
@@ -41,9 +54,28 @@
 
   <!-- 功能菜单 -->
   <view class="menu-section">
-    <view class="section-title">功能</view>
     <view class="menu-list">
       <block wx:for="{{menuList}}" wx:key="title">
+        <view
+          class="menu-item"
+          bindtap="goToMenu"
+          data-path="{{item.path}}"
+          data-noauth="{{item.noAuth}}"
+        >
+          <view class="menu-left">
+            <image class="menu-icon" src="/icons/{{item.icon}}.svg" mode="aspectFit"></image>
+            <text class="menu-title">{{item.title}}</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 更多 -->
+  <view class="menu-section">
+    <view class="menu-list">
+      <block wx:for="{{moreList}}" wx:key="title">
         <!-- 普通菜单项 -->
         <view
           wx:if="{{!item.openType}}"
@@ -59,7 +91,7 @@
           <text class="menu-arrow">›</text>
         </view>
 
-        <!-- 特殊菜单项（使用微信官方功能） -->
+        <!-- 联系客服（微信官方功能） -->
         <button
           wx:else
           class="menu-item menu-btn"
@@ -72,17 +104,6 @@
           <text class="menu-arrow">›</text>
         </button>
       </block>
-    </view>
-  </view>
-
-  <!-- 退出登录 -->
-  <view class="menu-section" wx:if="{{loggedIn}}">
-    <view class="menu-list">
-      <view class="menu-item logout-item" bindtap="handleLogout">
-        <view class="menu-left">
-          <text class="menu-title logout-text">退出登录</text>
-        </view>
-      </view>
     </view>
   </view>
 

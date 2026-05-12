@@ -22,37 +22,47 @@
 .avatar {
   width: 100rpx;
   height: 100rpx;
-  background-color: rgba(255, 255, 255, 0.15);
   border-radius: 50%;
+}
+
+/* CSS 默认头像：人物剪影 */
+.avatar-default {
+  background-color: rgba(255, 255, 255, 0.25);
+  position: relative;
+}
+
+.avatar-default::before {
+  content: '';
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36%;
+  height: 36%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.avatar-default::after {
+  content: '';
+  position: absolute;
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 40%;
+  border-radius: 48% 48% 0 0;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* 头像静态展示 */
+.avatar-wrapper {
+  width: 100rpx;
+  height: 100rpx;
   margin-right: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* 盾牌图标 */
-.avatar-shield {
-  width: 54rpx;
-  height: 60rpx;
-  background: rgba(255, 255, 255, 0.9);
-  clip-path: polygon(
-    50% 0%,
-    100% 12%,
-    100% 55%,
-    50% 100%,
-    0% 55%,
-    0% 12%
-  );
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-yen {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #722ed1;
-  margin-top: 8rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .user-info {
@@ -79,6 +89,17 @@
   height: 32rpx;
   margin-left: 20rpx;
   opacity: 0.5;
+}
+
+/* 昵称行内编辑输入框 */
+.nickname-input {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  max-width: 400rpx;
 }
 
 .user-days {

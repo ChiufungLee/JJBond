@@ -16,7 +16,9 @@ Page({
     hotFunds: [],
     searchFocused: false,
     sortField: 'change_rate',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    isDemo: false,
+    hotListScrolling: false
   },
 
   onLoad() {
@@ -35,21 +37,23 @@ Page({
 
   onShow() {
     const loggedIn = isLoggedIn()
-    this.setData({ loggedIn })
+    this.setData({ loggedIn, hotListScrolling: false })
     if (loggedIn) {
       const app = getApp()
       const cached = app.getWatchlistCache()
       if (cached) {
-        const displayList = cached.length > 0 ? cached : this._getDemoWatchlist()
+        const useDemo = cached.length === 0
+        const displayList = useDemo ? this._getDemoWatchlist() : cached
         const sorted = this._sortWatchlist(displayList, this.data.sortField, this.data.sortOrder)
-        this.setData({ watchlist: sorted, loading: false })
+        this.setData({ watchlist: sorted, loading: false, isDemo: useDemo })
       } else {
         this.loadWatchlist()
       }
     } else {
       this.setData({
         loading: false,
-        watchlist: []
+        watchlist: [],
+        isDemo: false
       })
     }
   },
@@ -85,10 +89,11 @@ Page({
         change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
       }))
       // 如果已登录但无自选数据，使用 demo 数据展示
-      const displayList = formatted.length > 0 ? formatted : this._getDemoWatchlist()
+      const useDemo = formatted.length === 0
+      const displayList = useDemo ? this._getDemoWatchlist() : formatted
       getApp().setWatchlistCache(displayList)
       const sorted = this._sortWatchlist(displayList, this.data.sortField, this.data.sortOrder)
-      this.setData({ watchlist: sorted, loading: false })
+      this.setData({ watchlist: sorted, loading: false, isDemo: useDemo })
       hideLoading()
     } catch (error) {
       hideLoading()
@@ -109,9 +114,41 @@ Page({
     this.setData({ searchFocused: true })
   },
 
+  // 跳转到搜索（聚焦搜索框）
+  goToSearch() {
+    this.setData({ searchFocused: true })
+  },
+
   // 搜索框失去焦点
   onSearchBlur() {
+    // 如果正在滚动热搜列表，延迟处理避免列表消失
+    if (this.data.hotListScrolling) {
+      this._blurTimer && clearTimeout(this._blurTimer)
+      this._blurTimer = setTimeout(() => {
+        this.setData({ searchFocused: false, hotListScrolling: false })
+      }, 300)
+      return
+    }
     this.setData({ searchFocused: false })
+  },
+
+  // 热搜列表开始滚动
+  onHotListScroll() {
+    if (!this.data.hotListScrolling) {
+      this.setData({ hotListScrolling: true })
+    }
+  },
+
+  // 热搜列表触摸开始
+  onHotListTouchStart() {
+    this.setData({ hotListScrolling: true })
+  },
+
+  // 热搜列表触摸结束
+  onHotListTouchEnd() {
+    setTimeout(() => {
+      this.setData({ hotListScrolling: false })
+    }, 200)
   },
 
   // 搜索输入

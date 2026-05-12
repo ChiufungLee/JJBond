@@ -51,7 +51,7 @@
     <view wx:if="{{!selectedFund && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
       <view class="hot-search-title">
         <text>🔥 热搜基金</text>
-        <text class="hot-search-header-rate">近一年收益</text>
+        <text class="hot-search-header-rate">近一年涨幅</text>
       </view>
       <view class="hot-search-list">
         <view

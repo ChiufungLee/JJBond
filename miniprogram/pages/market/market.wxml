@@ -4,24 +4,27 @@
 
   <block wx:else>
     <!-- 指数分组 -->
-    <view class="section" wx:for="{{groups}}" wx:key="name">
-      <view class="section-title">{{item.name}}</view>
+    <view class="section" wx:if="{{groups.length > 0}}">
       <view class="card-wrap">
-        <view class="card-row">
-          <view
-            wx:for="{{item.items}}"
-            wx:for-item="idx"
-            wx:key="code"
-            class="index-card {{idx.isUp ? 'card-up' : 'card-down'}}"
-          >
-            <text class="idx-name">{{idx.name}}</text>
-            <text class="idx-price {{idx.isUp ? 'up' : 'down'}}">{{idx.priceStr}}</text>
-            <view class="idx-change-row">
-              <text class="idx-change {{idx.isUp ? 'up' : 'down'}}">{{idx.changeStr}}</text>
-              <text class="idx-pct {{idx.isUp ? 'up' : 'down'}}">{{idx.pctStr}}</text>
+        <block wx:for="{{groups}}" wx:key="name">
+          <view class="group-title">{{item.name}}</view>
+          <view class="card-row">
+            <view
+              wx:for="{{item.items}}"
+              wx:for-item="idx"
+              wx:key="code"
+              class="index-card {{idx.isUp ? 'card-up' : 'card-down'}}"
+            >
+              <text class="idx-name">{{idx.name}}</text>
+              <text class="idx-price {{idx.isUp ? 'up' : 'down'}}">{{idx.priceStr}}</text>
+              <view class="idx-change-row">
+                <text class="idx-change {{idx.isUp ? 'up' : 'down'}}">{{idx.changeStr}}</text>
+                <text class="idx-pct {{idx.isUp ? 'up' : 'down'}}">{{idx.pctStr}}</text>
+              </view>
             </view>
           </view>
-        </view>
+          <view class="group-divider" wx:if="{{index < groups.length - 1}}"></view>
+        </block>
       </view>
     </view>
 
@@ -35,50 +38,69 @@
 
     <!-- 资金流入/流出榜 -->
     <view class="section" wx:if="{{loggedIn}}">
-      <view class="flow-header">
-        <view class="section-title">板块资金流向 <text class="flow-time" wx:if="{{flowUpdateTime}}">({{flowUpdateTime}})</text></view>
-        <view class="flow-tabs">
-          <view
-            class="flow-tab {{activeFlowTab === 'inflow' ? 'flow-tab-active' : ''}}"
-            data-tab="inflow"
-            bindtap="onFlowTabChange"
-          >资金流入</view>
-          <view
-            class="flow-tab {{activeFlowTab === 'outflow' ? 'flow-tab-active' : ''}}"
-            data-tab="outflow"
-            bindtap="onFlowTabChange"
-          >资金流出</view>
+      <view class="list-card flow-card">
+        <!-- 表头 -->
+        <view class="flow-header">
+          <view class="flow-title" bindtap="goToSector">板块资金 <text class="rank-arrow">›</text></view>
+          <view class="flow-tabs">
+            <view class="flow-tabs-inner">
+              <view
+                class="flow-tab {{activeFlowTab === 'inflow' ? 'flow-tab-active' : ''}}"
+                data-tab="inflow"
+                bindtap="onFlowTabChange"
+              >流入</view>
+              <view
+                class="flow-tab {{activeFlowTab === 'outflow' ? 'flow-tab-active' : ''}}"
+                data-tab="outflow"
+                bindtap="onFlowTabChange"
+              >流出</view>
+            </view>
+          </view>
         </view>
-        <view class="rank-more" bindtap="goToSector">
-          <text>更多</text>
-          <text class="rank-arrow">›</text>
-        </view>
-      </view>
 
-      <view class="list-card">
-        <view class="list-item" wx:for="{{flowList}}" wx:key="rank"
-          bindtap="goToSectorDetail" data-code="{{item.code}}" data-name="{{item.name}}">
-          <text class="item-rank">{{item.rank}}</text>
-          <text class="item-name">{{item.name}}</text>
-          <text class="item-value {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>
+        <!-- 前三名卡片 -->
+        <view class="card-row" wx:if="{{flowTop3.length > 0}}">
+          <view
+            wx:for="{{flowTop3}}"
+            wx:key="rank"
+            class="index-card {{item.isUp ? 'card-up' : 'card-down'}}"
+            bindtap="goToSectorDetail"
+            data-code="{{item.code}}"
+            data-name="{{item.name}}"
+          >
+            <text class="idx-name">{{item.name}}</text>
+            <text class="idx-price {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>
+            <text class="idx-change">{{item.changeRateStr}}</text>
+          </view>
+        </view>
+
+        <!-- 其余列表 -->
+        <view wx:if="{{flowRest.length > 0}}">
+          <view class="list-item" wx:for="{{flowRest}}" wx:key="rank"
+            bindtap="goToSectorDetail" data-code="{{item.code}}" data-name="{{item.name}}">
+            <text class="item-rank">{{item.rank}}</text>
+            <view class="item-name">
+              <text>{{item.name}}</text>
+              <text class="item-sub">{{item.changeRateStr}}</text>
+            </view>
+            <text class="item-value {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>
+          </view>
         </view>
       </view>
     </view>
 
     <!-- 日涨幅排行榜 -->
     <view class="section" wx:if="{{loggedIn}}">
-      <view class="rank-header">
-        <view class="rank-title-row">
-          <text class="section-title">日涨幅榜</text>
-          <text class="rank-date" wx:if="{{rankingDate}}">{{rankingDate}}</text>
+      <view class="list-card rank-card" wx:if="{{rankingList.length > 0}}">
+        <view class="rank-header">
+          <view class="rank-title-row">
+            <text class="rank-title">日涨幅榜</text>
+          </view>
+          <view class="rank-more" bindtap="goToRanking">
+            <text>更多排行榜</text>
+            <text class="rank-arrow">›</text>
+          </view>
         </view>
-        <view class="rank-more" bindtap="goToRanking">
-          <text>更多排行榜</text>
-          <text class="rank-arrow">›</text>
-        </view>
-      </view>
-
-      <view class="list-card" wx:if="{{rankingList.length > 0}}">
         <view class="list-item" wx:for="{{rankingList}}" wx:key="fundCode">
           <text class="item-rank">{{item.rank}}</text>
           <view class="item-name" bindtap="goToFundDetail" data-code="{{item.fundCode}}">

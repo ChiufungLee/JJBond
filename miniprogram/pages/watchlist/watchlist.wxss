@@ -27,6 +27,30 @@
   font-weight: 500;
 }
 
+/* demo 数据提示 */
+.demo-tip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding: 16rpx 24rpx;
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  border-radius: 12rpx;
+}
+
+.demo-tip-text {
+  font-size: 24rpx;
+  color: #d48806;
+}
+
+.demo-tip-btn {
+  font-size: 24rpx;
+  color: #722ed1;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
 /* 搜索区域 */
 .search-section {
   padding: 24rpx;
@@ -146,16 +170,35 @@
 
 .hot-search-title {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   font-size: 26rpx;
   color: #666;
   margin-bottom: 16rpx;
+  padding: 0 24rpx;
+}
+
+.hot-search-header-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hot-search-header-rate {
   font-size: 24rpx;
   color: #999;
+  width: 180rpx;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.hot-search-header-action {
+  font-size: 24rpx;
+  color: #999;
+  width: 80rpx;
+  text-align: center;
+  flex-shrink: 0;
+  margin-left: 16rpx;
 }
 
 .hot-search-list {
@@ -179,7 +222,6 @@
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   overflow: hidden;
 }
 
@@ -190,13 +232,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 360rpx;
 }
 
 .hot-fund-rate {
   font-size: 26rpx;
   font-weight: 500;
-  margin-left: 16rpx;
+  width: 180rpx;
+  text-align: right;
   flex-shrink: 0;
 }
 
@@ -211,6 +253,8 @@
 .hot-item-action {
   flex-shrink: 0;
   margin-left: 16rpx;
+  width: 80rpx;
+  text-align: center;
 }
 
 .hot-item-action .btn-add {

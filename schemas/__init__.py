@@ -9,3 +9,4 @@ from .user import (
     FundSectorItem, FundSectorResponse,
     SectorDistributionItem, SectorDistribution
 )
+from .feedback import FeedbackCreate, Feedback

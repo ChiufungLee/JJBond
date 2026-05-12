@@ -10,6 +10,8 @@ Page({
     indicesError: false,
     activeFlowTab: 'inflow',
     flowList: [],
+    flowTop3: [],
+    flowRest: [],
     flowUpdateTime: '',
     rankingDate: '',
     rankingList: [],
@@ -73,12 +75,19 @@ Page({
         return (yi >= 0 ? '+' : '') + yi.toFixed(2) + '亿'
       }
 
+      const formatRate = v => {
+        if (v == null) return ''
+        return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+      }
+
       const items = res.data || []
       const inflow = items.filter(i => i.value > 0).slice(0, 10).map((item, i) => ({
         rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: true,
+        changeRateStr: formatRate(item.change_rate), changeRateUp: (item.change_rate || 0) >= 0,
       }))
       const outflow = items.filter(i => i.value < 0).slice(-10).reverse().map((item, i) => ({
         rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: false,
+        changeRateStr: formatRate(item.change_rate), changeRateUp: (item.change_rate || 0) >= 0,
       }))
 
       this._flowData = { inflow, outflow }
@@ -94,7 +103,12 @@ Page({
 
   _applyFlowView() {
     if (!this._flowData) return
-    this.setData({ flowList: this._flowData[this.data.activeFlowTab] })
+    const list = this._flowData[this.data.activeFlowTab]
+    this.setData({
+      flowList: list,
+      flowTop3: list.slice(0, 3),
+      flowRest: list.slice(3),
+    })
   },
 
   onFlowTabChange(e) {

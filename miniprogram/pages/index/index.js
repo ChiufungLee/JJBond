@@ -18,7 +18,8 @@ Page({
     hideAmount: false,
     // 统计时间
     updateTime: '',
-    loggedIn: false
+    loggedIn: false,
+    isDemo: false
   },
 
   onLoad() {
@@ -39,12 +40,14 @@ Page({
       const cached = app.getPortfolioCache()
       if (cached) {
         const formatted = this.formatSummary(cached)
-        const displaySummary = (formatted && formatted.fund_count > 0) ? formatted : this.formatSummary(this._getDemoSummary())
+        const useDemo = !(formatted && formatted.fund_count > 0)
+        const displaySummary = useDemo ? this.formatSummary(this._getDemoSummary()) : formatted
         this.setData({
           summary: displaySummary,
           loading: false,
           error: false,
-          errorMessage: ''
+          errorMessage: '',
+          isDemo: useDemo
         })
       } else {
         this.loadData()
@@ -53,7 +56,8 @@ Page({
       this.setData({
         loading: false,
         summary: null,
-        error: false
+        error: false,
+        isDemo: false
       })
     }
   },
@@ -69,14 +73,16 @@ Page({
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       const formatted = this.formatSummary(summary)
       // 如果用户已登录但无持仓数据，使用 demo 数据展示
-      const displaySummary = (formatted && formatted.fund_count > 0) ? formatted : this.formatSummary(this._getDemoSummary())
+      const useDemo = !(formatted && formatted.fund_count > 0)
+      const displaySummary = useDemo ? this.formatSummary(this._getDemoSummary()) : formatted
       this.setData({
         loading: false,
         refreshing: false,
         summary: displaySummary,
         updateTime,
         error: false,
-        errorMessage: ''
+        errorMessage: '',
+        isDemo: useDemo
       })
     } catch (error) {
       console.error('加载数据失败:', error)

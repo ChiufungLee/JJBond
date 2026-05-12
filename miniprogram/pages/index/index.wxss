@@ -27,6 +27,30 @@
   font-weight: 500;
 }
 
+/* demo 数据提示 */
+.demo-tip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  padding: 16rpx 24rpx;
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  border-radius: 12rpx;
+}
+
+.demo-tip-text {
+  font-size: 24rpx;
+  color: #d48806;
+}
+
+.demo-tip-btn {
+  font-size: 24rpx;
+  color: #722ed1;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
 /* 加载状态 */
 .loading-state {
   display: flex;

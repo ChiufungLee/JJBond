@@ -102,10 +102,14 @@ async def get_sector_list(
         value = item.get(st)
         if value is not None:
             value = float(value)
+        change_rate = item.get("CHANGE_RATE")
+        if change_rate is not None:
+            change_rate = float(change_rate)
         result.append({
             "code": item.get("INDEXCODE", ""),
             "name": item.get("INDEXNAME", ""),
             "value": value,
+            "change_rate": change_rate,
         })
 
     response = {

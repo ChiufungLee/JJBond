@@ -24,6 +24,21 @@
 .up { color: #ff4d4f; }
 .down { color: #52c41a; }
 
+/* 指数分组标题 */
+.group-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+/* 分组分割线 */
+.group-divider {
+  height: 1rpx;
+  background-color: #f0f0f0;
+  margin: 16rpx 0;
+}
+
 /* ====== 指数卡片 ====== */
 .card-wrap {
   background-color: #ffffff;
@@ -75,6 +90,10 @@
   font-size: 22rpx;
 }
 
+.idx-change {
+  color: #999;
+}
+
 /* ====== 资金流入/流出榜 ====== */
 .indices-empty {
   text-align: center;
@@ -89,6 +108,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 24rpx 24rpx 16rpx;
+}
+
+.flow-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
 }
 
 .flow-time {
@@ -99,19 +125,27 @@
 
 .flow-tabs {
   display: flex;
-  gap: 24rpx;
+  align-items: center;
+}
+
+.flow-tabs-inner {
+  display: flex;
+  background-color: #f0f0f0;
+  border-radius: 32rpx;
+  padding: 4rpx;
 }
 
 .flow-tab {
-  font-size: 28rpx;
-  color: #999;
-  padding-bottom: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+  padding: 10rpx 28rpx;
+  border-radius: 28rpx;
 }
 
 .flow-tab-active {
   color: #333;
   font-weight: 600;
-  border-bottom: 4rpx solid #722ed1;
+  background-color: #ffffff;
 }
 
 /* ====== 通用列表 ====== */
@@ -144,6 +178,14 @@
   flex-shrink: 0;
 }
 
+.flow-card .item-rank {
+  background-color: transparent;
+  color: #999;
+  height: auto;
+  line-height: normal;
+  border-radius: 0;
+}
+
 .item-name {
   flex: 1;
   margin-left: 16rpx;
@@ -167,12 +209,37 @@
   margin-top: 4rpx;
 }
 
+.item-sub {
+  display: block;
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.flow-card .card-row {
+  padding: 0 16rpx 16rpx;
+}
+
 /* ====== 日涨幅排行榜 ====== */
 .rank-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16rpx;
+  padding: 24rpx 24rpx 16rpx;
+}
+
+.rank-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.rank-card .item-rank {
+  background-color: transparent;
+  color: #999;
+  height: auto;
+  line-height: normal;
+  border-radius: 0;
 }
 
 .rank-more {

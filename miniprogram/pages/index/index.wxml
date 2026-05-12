@@ -29,6 +29,11 @@
 
   <!-- 数据展示 -->
   <block wx:if="{{summary && summary.fund_count > 0}}">
+    <!-- demo 数据提示 -->
+    <view wx:if="{{isDemo}}" class="demo-tip" bindtap="goToAddFund">
+      <text class="demo-tip-text">以下为示例数据，添加基金后展示真实持仓</text>
+      <text class="demo-tip-btn">去添加 ›</text>
+    </view>
     <!-- 收益概览卡片 -->
     <view class="summary-card">
       <view class="summary-header">
@@ -86,11 +91,8 @@
     <!-- 持仓列表 -->
     <view class="fund-list-section">
       <view class="section-header">
-        <view class="section-title-row">
-          <text class="section-title">持仓基金 ({{summary.fund_count}})</text>
-          <text class="section-time">更新于 {{updateTime}}</text>
-        </view>
-        <text class="section-more" bindtap="goToAddFund">+ 添加</text>
+        <text class="section-title">持仓基金 ({{summary.fund_count}})</text>
+        <text class="section-more" bindtap="goToAddFund">+ 添加基金</text>
       </view>
 
       <view class="fund-list">
@@ -102,7 +104,7 @@
             bindtap="handleSort"
             data-field="change_rate"
           >
-            <text>当日涨幅</text>
+            <text>今日涨幅</text>
             <view class="sort-icons">
               <text class="sort-icon sort-asc {{sortBy === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
               <text class="sort-icon sort-desc {{sortBy === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>

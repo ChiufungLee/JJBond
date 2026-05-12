@@ -17,7 +17,9 @@
     "pages/sector/sector",
     "pages/sector-funds/sector-funds",
     "pages/market/market",
-    "pages/fund-manage/fund-manage"
+    "pages/fund-manage/fund-manage",
+    "pages/reward/reward",
+    "pages/suggest/suggest"
   ],
   "window": {
     "backgroundTextStyle": "light",
