@@ -116,6 +116,11 @@
   margin-right: 0;
 }
 
+.sector-card.highlight {
+  background: linear-gradient(180deg, #d3adf7 0%, #f0e6ff 100%) !important;
+  box-shadow: 0 0 0 4rpx #722ed1;
+}
+
 .card-up {
   background: linear-gradient(180deg, #ffccc7 0%, #fff1f0 100%);
 }

@@ -84,6 +84,17 @@
       </view>
     </view>
 
+    <!-- 关联板块 -->
+    <view class="section sector-card" wx:if="{{sectors.length > 0}}" bindtap="goToSectorFunds" data-code="{{sectors[0].sector_code}}" data-name="{{sectors[0].sector_name}}">
+      <view class="sector-row">
+        <text class="sector-label">关联板块</text>
+        <view class="sector-tags">
+          <text wx:for="{{sectors}}" wx:key="sector_code" class="sector-tag">{{item.sector_name}}</text>
+        </view>
+        <text class="sector-arrow">></text>
+      </view>
+    </view>
+
     <!-- 净值走势图 -->
     <view class="section">
       <view class="section-title">近期净值走势</view>

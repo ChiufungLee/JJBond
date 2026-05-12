@@ -19,8 +19,13 @@ from core.scheduler import setup_scheduler, start_scheduler, shutdown_scheduler
 from routers import auth, user, funds, watchlist, ranking, sector, market, hot_search
 from utils.fund_data_manager import init_fund_lib
 from utils.fund_ranking import fund_ranking_manager
+from utils.fund_sector_sync import sync_fund_sectors
+from models.fund import FundSector
 
 logger = logging.getLogger(__name__)
+
+# 数据库相关启动步骤的超时时间（秒）
+_STARTUP_DB_TIMEOUT = 15
 
 
 @asynccontextmanager
@@ -29,29 +34,73 @@ async def lifespan(app: FastAPI):
     应用生命周期
     启动顺序：建表 → 初始化基金库 → HTTP session → 调度器 → 排行榜预热
     关闭顺序：调度器 → HTTP session
+
+    数据库不可用时，步骤 1/3/7 会超时跳过，服务降级启动。
     """
-    # 1. 创建数据库表（已存在则跳过）
-    models.Base.metadata.create_all(bind=engine)
+    # 1. 创建数据库表（已存在则跳过，超时则降级跳过）
+    logger.info("[startup] 1/7 创建数据库表...")
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(models.Base.metadata.create_all, bind=engine),
+            timeout=_STARTUP_DB_TIMEOUT,
+        )
+        logger.info("[startup] 1/7 数据库表完成")
+    except Exception as e:
+        logger.warning(f"[startup] 1/7 建表失败（跳过，降级启动）: {e}")
 
     # 2. 初始化 async Redis
+    logger.info("[startup] 2/7 初始化 Redis...")
     await init_redis()
+    logger.info("[startup] 2/7 Redis 完成")
 
-    # 3. 初始化基金库（首次启动写入数据，已有则跳过）
+    # 3. 初始化基金库（首次启动写入数据，已有则跳过，超时则降级跳过）
+    logger.info("[startup] 3/7 初始化基金库...")
     db = SessionLocal()
     try:
-        await init_fund_lib(db)
+        await asyncio.wait_for(init_fund_lib(db), timeout=_STARTUP_DB_TIMEOUT)
+        logger.info("[startup] 3/7 基金库完成")
+    except Exception as e:
+        logger.warning(f"[startup] 3/7 基金库初始化失败（跳过）: {e}")
     finally:
         db.close()
 
     # 4. 初始化全局 HTTP session（复用 TCP 连接）
+    logger.info("[startup] 4/7 初始化 HTTP session...")
     await init_http_session()
+    logger.info("[startup] 4/7 HTTP session 完成")
 
     # 5. 配置并启动定时任务调度器
+    logger.info("[startup] 5/7 启动调度器...")
     setup_scheduler()
     start_scheduler()
+    logger.info("[startup] 5/7 调度器完成")
 
     # 6. 排行榜数据预热：检查 Redis 是否已有数据，没有则同步一次
+    logger.info("[startup] 6/7 排行榜预热...")
     await _warmup_ranking()
+    logger.info("[startup] 6/7 排行榜预热完成")
+
+    # 7. 基金-板块关联：表为空时后台触发首次同步（同步 DB 查询，加超时保护）
+    logger.info("[startup] 7/7 板块同步检查...")
+    try:
+        db_sector = SessionLocal()
+
+        def _check_sector_count():
+            try:
+                return db_sector.query(FundSector).count()
+            finally:
+                db_sector.close()
+
+        count = await asyncio.wait_for(
+            asyncio.to_thread(_check_sector_count),
+            timeout=_STARTUP_DB_TIMEOUT,
+        )
+        if count == 0:
+            logger.info("fund_sectors 表为空，后台触发首次板块同步...")
+            asyncio.create_task(_first_sector_sync())
+    except Exception as e:
+        logger.warning(f"[startup] 7/7 板块同步检查失败（跳过）: {e}")
+    logger.info("[startup] 启动完成")
 
     yield  # 应用正常运行阶段
 
@@ -87,6 +136,24 @@ async def _warmup_ranking() -> None:
             logger.warning("排行榜预热失败（网络错误或数据源不可用）")
     except Exception as e:
         logger.error(f"排行榜预热异常: {e}")
+
+
+async def _first_sector_sync() -> None:
+    """首次启动时后台同步基金-板块关联数据"""
+    db = SessionLocal()
+    try:
+        result = await sync_fund_sectors(db)
+        if "error" in result:
+            logger.warning(f"首次板块同步部分失败: {result['error']}")
+        else:
+            logger.info(
+                f"首次板块同步完成: {result['sectors']} 个板块, "
+                f"{result['mappings']} 条映射, 耗时 {result['elapsed']}s"
+            )
+    except Exception as e:
+        logger.error(f"首次板块同步异常: {e}")
+    finally:
+        db.close()
 
 
 # 创建 FastAPI 应用

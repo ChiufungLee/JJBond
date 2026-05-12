@@ -38,8 +38,10 @@ Page({
       const app = getApp()
       const cached = app.getPortfolioCache()
       if (cached) {
+        const formatted = this.formatSummary(cached)
+        const displaySummary = (formatted && formatted.fund_count > 0) ? formatted : this.formatSummary(this._getDemoSummary())
         this.setData({
-          summary: this.formatSummary(cached),
+          summary: displaySummary,
           loading: false,
           error: false,
           errorMessage: ''
@@ -48,10 +50,9 @@ Page({
         this.loadData()
       }
     } else {
-      const summary = this._getDemoSummary()
       this.setData({
         loading: false,
-        summary: this.formatSummary(summary),
+        summary: null,
         error: false
       })
     }
@@ -66,10 +67,13 @@ Page({
       getApp().setPortfolioCache(summary)
       const now = new Date()
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+      const formatted = this.formatSummary(summary)
+      // 如果用户已登录但无持仓数据，使用 demo 数据展示
+      const displaySummary = (formatted && formatted.fund_count > 0) ? formatted : this.formatSummary(this._getDemoSummary())
       this.setData({
         loading: false,
         refreshing: false,
-        summary: this.formatSummary(summary),
+        summary: displaySummary,
         updateTime,
         error: false,
         errorMessage: ''
@@ -204,7 +208,7 @@ Page({
     }
   },
 
-  // 生成 demo 持仓数据（未登录时展示）
+  // 生成 demo 持仓数据（已登录但无持仓时展示）
   _getDemoSummary() {
     return {
       total_cost: 15000,

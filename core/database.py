@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import OperationalError, DBAPIError
+from fastapi import HTTPException
 from core.config import settings
 import redis
 import redis.asyncio as aioredis
@@ -9,9 +11,16 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# 数据库连接 URL 附加超时参数（PyMySQL 识别 connect_timeout / read_timeout / write_timeout）
+_db_url = settings.DATABASE_URL
+if "connect_timeout" not in _db_url:
+    _db_url += ("&" if "?" in _db_url else "?") + "connect_timeout=10"
+if "read_timeout" not in _db_url:
+    _db_url += "&read_timeout=10&write_timeout=10"
+
 # 创建数据库引擎
 engine = create_engine(
-    settings.DATABASE_URL,
+    _db_url,
     pool_pre_ping=True,
     pool_recycle=3600,
     pool_size=10,
@@ -33,6 +42,7 @@ try:
         db=_redis_db,
         decode_responses=True,
         socket_connect_timeout=5,
+        socket_timeout=5,
     )
     redis_client.ping()
 except Exception:
@@ -51,7 +61,8 @@ async def init_redis() -> None:
             port=_redis_port,
             db=_redis_db,
             decode_responses=True,
-            socket_connect_timeout=20,
+            socket_connect_timeout=10,
+            socket_timeout=10,
         )
         await _async_redis.ping()
         logger.info("Async Redis 连接成功")
@@ -81,5 +92,9 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except OperationalError:
+        raise HTTPException(status_code=503, detail="数据库连接失败，请稍后重试")
+    except DBAPIError as e:
+        raise HTTPException(status_code=503, detail=f"数据库错误: {e.orig}")
     finally:
         db.close()

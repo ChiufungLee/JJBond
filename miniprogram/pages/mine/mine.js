@@ -19,7 +19,8 @@ Page({
     daysTogether: 0,
     loggedIn: false,
     menuList: [
-      { icon: 'chart', title: '持仓管理', path: '/pages/funds/funds' },
+      { icon: 'sector', title: '持仓分布', path: '/pages/funds/funds' },
+      { icon: 'chart', title: '基金管理', path: '/pages/fund-manage/fund-manage' },
       { icon: 'calendar', title: '收益日历', path: '/pages/calendar/calendar' },
       { icon: 'mail', title: '建议反馈', openType: 'contact' }
     ]

@@ -143,6 +143,45 @@
   margin-bottom: 20rpx;
 }
 
+/* 关联板块卡片 */
+.sector-card {
+  padding: 24rpx 28rpx;
+}
+
+.sector-row {
+  display: flex;
+  align-items: center;
+}
+
+.sector-label {
+  font-size: 28rpx;
+  color: #666;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.sector-tags {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.sector-tag {
+  font-size: 24rpx;
+  color: #722ed1;
+  background: #f3f0ff;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+}
+
+.sector-arrow {
+  font-size: 28rpx;
+  color: #bbb;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
 /* 信息列表 */
 .info-list {
   display: flex;

@@ -47,8 +47,13 @@
     <!-- 基金列表表头 -->
     <view class="list-header" wx:if="{{fundList.length > 0}}">
       <text class="header-info">基金信息</text>
-      <text class="header-relation">关联度</text>
-      <text class="header-change">日涨幅</text>
+      <view class="header-month col-sortable" bindtap="sortByMonth">
+        <text>近一月</text>
+        <view class="sort-icons">
+          <text class="sort-icon sort-asc {{sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+          <text class="sort-icon sort-desc {{sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+        </view>
+      </view>
     </view>
 
     <empty
@@ -60,7 +65,8 @@
     <!-- 基金列表 -->
     <view class="fund-list" wx:if="{{fundList.length > 0}}">
       <view
-        class="fund-item"
+        id="fund-{{item.fundCode}}"
+        class="fund-item {{highlightFundCode === item.fundCode ? 'highlight' : ''}}"
         wx:for="{{fundList}}"
         wx:key="fundCode"
       >
@@ -77,13 +83,8 @@
           </view>
         </view>
 
-        <view class="item-relation" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
-          <text class="relation-value">{{item.relationText}}</text>
-        </view>
-
-        <view class="item-change {{item.isUp ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
-          <text class="change-value">{{item.changeText}}</text>
-          <text class="nav-value">净值 {{item.nav}}</text>
+        <view class="item-month {{item.isMonthUp ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fundCode}}">
+          <text class="month-value">{{item.monthChangeText}}</text>
         </view>
       </view>
     </view>

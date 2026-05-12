@@ -36,3 +36,22 @@ class FundLib(Base):
         default=lambda: datetime.now(SHANGHAI_TZ),
         onupdate=lambda: datetime.now(SHANGHAI_TZ),
     )
+
+
+class FundSector(Base):
+    """基金-板块关联表"""
+    __tablename__ = "fund_sectors"
+    __table_args__ = (
+        UniqueConstraint("fund_code", "sector_code", name="uq_fund_sectors_code"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    fund_code = Column(String(20), nullable=False, index=True)
+    sector_code = Column(String(20), nullable=False, index=True)
+    sector_name = Column(String(50), nullable=False)
+    relation = Column(Float, nullable=False, default=0)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(SHANGHAI_TZ),
+        onupdate=lambda: datetime.now(SHANGHAI_TZ),
+    )

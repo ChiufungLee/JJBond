@@ -36,7 +36,7 @@
     <!-- 资金流入/流出榜 -->
     <view class="section" wx:if="{{loggedIn}}">
       <view class="flow-header">
-        <view class="section-title">板块资金流向</view>
+        <view class="section-title">板块资金流向 <text class="flow-time" wx:if="{{flowUpdateTime}}">({{flowUpdateTime}})</text></view>
         <view class="flow-tabs">
           <view
             class="flow-tab {{activeFlowTab === 'inflow' ? 'flow-tab-active' : ''}}"
@@ -54,7 +54,6 @@
           <text class="rank-arrow">›</text>
         </view>
       </view>
-      <text class="flow-time" wx:if="{{flowUpdateTime}}">更新于 {{flowUpdateTime}}</text>
 
       <view class="list-card">
         <view class="list-item" wx:for="{{flowList}}" wx:key="rank"

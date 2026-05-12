@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "持仓分布",
+  "navigationBarTitleText": "基金管理",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {

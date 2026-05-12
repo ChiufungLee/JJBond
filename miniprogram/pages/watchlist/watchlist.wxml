@@ -1,7 +1,7 @@
 <!--pages/watchlist/watchlist.wxml-->
 <view class="watchlist-container">
   <!-- 搜索框 -->
-  <view class="search-section">
+  <view wx:if="{{loggedIn}}" class="search-section">
     <view class="search-box">
       <image class="search-icon" src="/icons/search.svg" mode="aspectFit"></image>
       <input
@@ -55,7 +55,7 @@
   </view>
 
   <!-- 热搜基金 -->
-  <view wx:if="{{searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
+  <view wx:if="{{loggedIn && searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
     <view class="hot-search-title">
       <text>🔥 热搜基金</text>
       <text class="hot-search-header-rate">近一年收益</text>
@@ -82,14 +82,15 @@
     </view>
   </view>
 
-  <!-- 未登录提示横幅 -->
-  <view wx:if="{{!searchKeyword && !loggedIn}}" class="demo-banner" bindtap="goToLogin">
-    <text class="demo-banner-text">登录后管理您的自选基金</text>
-    <text class="demo-banner-btn">去登录 ›</text>
+  <!-- 未登录提示 -->
+  <view wx:if="{{!searchKeyword && !loggedIn}}" class="empty-state" bindtap="goToLogin">
+    <text class="empty-icon">⭐</text>
+    <text class="empty-text">暂无基金</text>
+    <text class="empty-hint">登录后查看您的自选基金</text>
   </view>
 
   <!-- 自选列表 -->
-  <view wx:if="{{!searchKeyword}}" class="watchlist-section">
+  <view wx:if="{{loggedIn && !searchKeyword}}" class="watchlist-section">
     <view class="section-header">
       <text class="section-title">我的自选 ({{watchlist.length}})</text>
     </view>
@@ -100,7 +101,7 @@
     </view>
 
     <!-- 空状态 -->
-    <view wx:elif="{{watchlist.length === 0}}" class="empty-state">
+    <view wx:elif="{{loggedIn && watchlist.length === 0}}" class="empty-state">
       <text class="empty-icon">⭐</text>
       <text class="empty-text">暂无自选基金</text>
       <text class="empty-hint">搜索或从排行榜页面添加</text>
@@ -111,8 +112,20 @@
       <!-- 表头 -->
       <view class="list-header">
         <text class="col-info">基金信息</text>
-        <text class="col-today">当日涨幅</text>
-        <text class="col-total">自选以来</text>
+        <view class="col-today col-sortable {{sortField === 'change_rate' ? 'active' : ''}}" bindtap="sortByToday">
+          <text>当日涨幅</text>
+          <view class="sort-icons">
+            <text class="sort-icon sort-asc {{sortField === 'change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+            <text class="sort-icon sort-desc {{sortField === 'change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+          </view>
+        </view>
+        <view class="col-total col-sortable {{sortField === 'total_change_rate' ? 'active' : ''}}" bindtap="sortByTotal">
+          <text>自选以来</text>
+          <view class="sort-icons">
+            <text class="sort-icon sort-asc {{sortField === 'total_change_rate' && sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+            <text class="sort-icon sort-desc {{sortField === 'total_change_rate' && sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+          </view>
+        </view>
         <text class="col-action" wx:if="{{loggedIn}}">移除</text>
       </view>
 
@@ -130,12 +143,12 @@
 
           <!-- 今日涨幅 -->
           <view class="col-today {{item.change_rate_class}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-            <text>{{item.change_rate || '--'}}<text wx:if="{{item.nav_updated}}" class="nav-updated-tag">已更新</text></text>
+            <text class="rate-value">{{item.change_rate || '--'}}<text wx:if="{{item.nav_updated}}" class="nav-updated-tag">已更新</text></text>
           </view>
 
           <!-- 自选以来涨幅 -->
           <view class="col-total {{item.total_change_rate >= 0 ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
-            <text>{{item.total_change_formatted || '--'}}</text>
+            <text class="rate-value">{{item.total_change_formatted || '--'}}</text>
           </view>
 
           <!-- 移除按钮 -->

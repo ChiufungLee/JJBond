@@ -14,7 +14,9 @@ Page({
     loading: true,
     loggedIn: false,
     hotFunds: [],
-    searchFocused: false
+    searchFocused: false,
+    sortField: 'change_rate',
+    sortOrder: 'desc'
   },
 
   onLoad() {
@@ -38,14 +40,16 @@ Page({
       const app = getApp()
       const cached = app.getWatchlistCache()
       if (cached) {
-        this.setData({ watchlist: cached, loading: false })
+        const displayList = cached.length > 0 ? cached : this._getDemoWatchlist()
+        const sorted = this._sortWatchlist(displayList, this.data.sortField, this.data.sortOrder)
+        this.setData({ watchlist: sorted, loading: false })
       } else {
         this.loadWatchlist()
       }
     } else {
       this.setData({
         loading: false,
-        watchlist: this._getDemoWatchlist()
+        watchlist: []
       })
     }
   },
@@ -80,8 +84,11 @@ Page({
         nav_updated: !!item.nav_updated,
         change_rate_class: isDownChangeRate(item.change_rate) ? 'down' : 'up'
       }))
-      getApp().setWatchlistCache(formatted)
-      this.setData({ watchlist: formatted, loading: false })
+      // 如果已登录但无自选数据，使用 demo 数据展示
+      const displayList = formatted.length > 0 ? formatted : this._getDemoWatchlist()
+      getApp().setWatchlistCache(displayList)
+      const sorted = this._sortWatchlist(displayList, this.data.sortField, this.data.sortOrder)
+      this.setData({ watchlist: sorted, loading: false })
       hideLoading()
     } catch (error) {
       hideLoading()
@@ -183,7 +190,7 @@ Page({
     }
   },
 
-  // 生成 demo 自选数据（未登录时展示）
+  // 生成 demo 自选数据（已登录但无自选时展示）
   _getDemoWatchlist() {
     return [
       {
@@ -235,6 +242,45 @@ Page({
       title: 'JJBond基金管家 - 发现好基金',
       imageUrl: '/icons/logo.png'
     }
+  },
+
+  // 按当日涨幅排序
+  sortByToday() {
+    this._toggleSort('change_rate')
+  },
+
+  // 按自选以来涨幅排序
+  sortByTotal() {
+    this._toggleSort('total_change_rate')
+  },
+
+  _toggleSort(field) {
+    let order = 'desc'
+    if (this.data.sortField === field) {
+      order = this.data.sortOrder === 'desc' ? 'asc' : 'desc'
+    }
+    const sorted = this._sortWatchlist(this.data.watchlist, field, order)
+    this.setData({ watchlist: sorted, sortField: field, sortOrder: order })
+  },
+
+  _sortWatchlist(list, field, order) {
+    return [...list].sort((a, b) => {
+      let va, vb
+      if (field === 'change_rate') {
+        va = this._parseRate(a.change_rate)
+        vb = this._parseRate(b.change_rate)
+      } else {
+        va = a[field] ?? -Infinity
+        vb = b[field] ?? -Infinity
+      }
+      return order === 'desc' ? vb - va : va - vb
+    })
+  },
+
+  _parseRate(rateStr) {
+    if (!rateStr) return -Infinity
+    const num = parseFloat(rateStr.replace('%', ''))
+    return isNaN(num) ? -Infinity : num
   },
 
   // 下拉刷新

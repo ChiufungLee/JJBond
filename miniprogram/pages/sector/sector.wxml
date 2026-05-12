@@ -54,7 +54,8 @@
   <!-- 板块列表 -->
   <view class="sector-list" wx:if="{{sectorList.length > 0}}">
     <view
-      class="sector-card {{item.isUp ? 'card-up' : 'card-down'}}"
+      id="sector-{{item.code}}"
+      class="sector-card {{item.isUp ? 'card-up' : 'card-down'}} {{highlightCode === item.code ? 'highlight' : ''}}"
       wx:for="{{sectorList}}"
       wx:key="code"
       bindtap="goToSectorFunds"

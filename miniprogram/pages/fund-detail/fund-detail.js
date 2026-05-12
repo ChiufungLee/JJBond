@@ -38,6 +38,7 @@ Page({
     navLoadingMore: false,
     navError: false,
     navErrorMessage: '',
+    sectors: [],
     transactions: [],
     chartMarkers: [],
     tooltip: {
@@ -185,6 +186,27 @@ Page({
     }
   },
 
+  // 加载关联板块（只取关联度最高的一个）
+  async loadSectors(fundCode) {
+    try {
+      const res = await get(`/sector/fund/${fundCode}`, {}, { cacheTTL: 300000, skipErrorToast: true })
+      const all = Array.isArray(res.sectors) ? res.sectors : []
+      const top = all.length > 0 ? [all[0]] : []
+      this.setData({ sectors: top })
+    } catch (error) {
+      console.warn('加载关联板块失败:', error)
+      this.setData({ sectors: [] })
+    }
+  },
+
+  goToSectorFunds(e) {
+    const { code, name } = e.currentTarget.dataset
+    if (!code) return
+    wx.navigateTo({
+      url: `/pages/sector-funds/sector-funds?code=${code}&name=${encodeURIComponent(name || '')}&fundCode=${this.data.fundCode}`
+    })
+  },
+
   // 加载基金详情
   async loadFundDetail({ forceRefresh = false } = {}) {
     const { fundCode } = this.data
@@ -212,6 +234,7 @@ Page({
             navError: false,
             navErrorMessage: '',
             transactions: [],
+            sectors: [],
             chartMarkers: [],
             'tooltip.show': false,
             'tooltip.date': '今日',
@@ -245,7 +268,7 @@ Page({
         errorMessage: ''
       })
 
-      // 并行加载交易记录和净值历史（两者互相独立）
+      // 并行加载交易记录、净值历史、关联板块
       if (shouldResetRelatedData) {
         await Promise.all([
           this.ensureTransactionsLoaded(fundCode),
@@ -254,7 +277,8 @@ Page({
             rangeKey: this.data.currentNavRange,
             costPrice: isHeld ? formattedInfo.cost_price : null,
             forceRefresh
-          })
+          }),
+          this.loadSectors(fundCode)
         ])
       } else {
         await this.ensureTransactionsLoaded(fundCode)

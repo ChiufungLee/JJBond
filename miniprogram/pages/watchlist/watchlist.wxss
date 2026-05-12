@@ -328,6 +328,49 @@
   text-align: center;
 }
 
+.col-sortable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.col-sortable.active {
+  font-weight: 500;
+}
+
+.col-sortable.active > text {
+  color: #722ed1;
+}
+
+.list-header .col-sortable.active .sort-icon.active {
+  color: #722ed1;
+}
+
+.list-header .col-sortable.active .sort-icon:not(.active) {
+  color: #999;
+}
+
+.sort-icons {
+  display: flex;
+  flex-direction: column;
+  margin-left: 4rpx;
+  line-height: 1;
+}
+
+.list-header .sort-icon {
+  font-size: 16rpx;
+  color: #999;
+  line-height: 16rpx;
+}
+
+.list-header .sort-icon.sort-asc {
+  margin-bottom: 2rpx;
+}
+
+.list-header .sort-icon.active {
+  color: #722ed1;
+}
+
 .col-action {
   width: 80rpx;
   text-align: center;
@@ -366,8 +409,7 @@
 }
 
 /* 涨跌幅 */
-.col-today text,
-.col-total text {
+.rate-value {
   font-size: 28rpx;
   font-weight: 500;
 }

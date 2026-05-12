@@ -1,0 +1,81 @@
+<!--pages/fund-manage/fund-manage.wxml-->
+<view class="funds-container">
+  <loading wx:if="{{loading}}" text="加载中..."></loading>
+
+  <empty
+    wx:elif="{{error}}"
+    icon="⚠️"
+    text="{{errorMessage || '加载持仓列表失败，请稍后重试'}}"
+    showButton="{{true}}"
+    buttonText="重新加载"
+    bind:buttonTap="loadFunds"
+  ></empty>
+
+  <empty
+    wx:elif="{{!loggedIn}}"
+    icon="🔐"
+    text="登录后查看您的持仓"
+    showButton="{{true}}"
+    buttonText="去登录"
+    bind:buttonTap="goToLogin"
+  ></empty>
+
+  <empty
+    wx:elif="{{funds.length === 0}}"
+    icon="📊"
+    text="暂无持仓基金"
+    showButton="{{true}}"
+    buttonText="添加基金"
+    bind:buttonTap="goToAddFund"
+  ></empty>
+
+  <!-- 基金表格 -->
+  <view wx:else class="fund-table">
+    <!-- 表头 -->
+    <view class="table-header">
+      <text class="col-info">基金信息</text>
+      <view class="col-total col-sortable" bindtap="sortByTotal">
+        <text>持有收益</text>
+        <view class="sort-icons">
+          <text class="sort-icon sort-asc {{sortOrder === 'asc' ? 'active' : ''}}">▲</text>
+          <text class="sort-icon sort-desc {{sortOrder === 'desc' ? 'active' : ''}}">▼</text>
+        </view>
+      </view>
+      <text class="col-action">操作</text>
+    </view>
+
+    <!-- 表格内容 -->
+    <view class="table-body">
+      <view class="table-row" wx:for="{{funds}}" wx:key="fund_code">
+        <!-- 基金信息 -->
+        <view class="col-info" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text class="fund-name">{{item.fund_name}}</text>
+          <view class="fund-meta">
+            <text class="fund-cost">{{hideAmount ? '￥****' : '￥' + item.cost_formatted}}</text>
+          </view>
+        </view>
+
+        <!-- 持有收益 -->
+        <view class="col-total {{item.total_revenue >= 0 ? 'up' : 'down'}}" bindtap="goToFundDetail" data-code="{{item.fund_code}}">
+          <text>{{hideAmount ? '****' : item.total_revenue_formatted}}</text>
+          <text class="profit-rate">{{item.profit_loss_ratio_formatted}}</text>
+        </view>
+
+        <!-- 操作 -->
+        <view class="col-action">
+          <text class="action-btn" catchtap="goToEditFund" data-id="{{item.id}}">编辑</text>
+          <text class="action-btn" catchtap="deleteFund" data-id="{{item.id}}" data-name="{{item.fund_name}}">删除</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar" wx:if="{{loggedIn && !loading && funds.length > 0}}">
+    <view class="hide-btn" bindtap="toggleHideAmount">
+      <image class="eye-icon" src="{{hideAmount ? '/icons/eyes_display.svg' : '/icons/eyes_hidden.svg'}}" mode="aspectFit"></image>
+      <text>{{hideAmount ? '显示金额' : '隐藏金额'}}</text>
+    </view>
+    <button class="add-btn" bindtap="goToAddFund">+ 添加基金</button>
+  </view>
+</view>

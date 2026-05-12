@@ -213,3 +213,31 @@ class UserInfoUpdate(BaseModel):
     """更新用户信息"""
     username: Optional[str] = Field(None, min_length=2, max_length=20, description="用户名")
     nickname: Optional[str] = Field(None, max_length=50, description="昵称")
+
+
+# 基金板块关联
+class FundSectorItem(BaseModel):
+    """单个板块关联项"""
+    sector_code: str
+    sector_name: str
+    relation: float
+
+
+class FundSectorResponse(BaseModel):
+    """基金所属板块响应"""
+    fund_code: str
+    sectors: List[FundSectorItem]
+
+
+class SectorDistributionItem(BaseModel):
+    """板块分布项"""
+    sector_code: str
+    sector_name: str
+    value: float
+    percentage: float
+
+
+class SectorDistribution(BaseModel):
+    """持仓板块分布响应"""
+    total_value: float
+    sectors: List[SectorDistributionItem]

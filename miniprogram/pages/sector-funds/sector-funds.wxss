@@ -65,16 +65,33 @@
   padding-left: 68rpx;
 }
 
-.header-change {
+.header-month {
   width: 140rpx;
-  text-align: right;
+  text-align: center;
   flex-shrink: 0;
 }
 
-.header-relation {
-  width: 100rpx;
-  text-align: center;
-  flex-shrink: 0;
+.col-sortable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+}
+
+.sort-icons {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.sort-icon {
+  font-size: 16rpx;
+  color: #ccc;
+  line-height: 16rpx;
+}
+
+.sort-icon.active {
+  color: #722ed1;
 }
 
 /* 基金列表 */
@@ -97,6 +114,11 @@
 
 .fund-item:first-of-type {
   border-radius: 0;
+}
+
+.fund-item.highlight {
+  background-color: #efdbff;
+  border-left: 6rpx solid #722ed1;
 }
 
 .item-rank {
@@ -152,34 +174,14 @@
   color: #999;
 }
 
-.item-change {
-  text-align: right;
-  flex-shrink: 0;
+.item-month {
   width: 140rpx;
-}
-
-.item-change .change-value {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 600;
-}
-
-.item-change .nav-value {
-  display: block;
-  font-size: 22rpx;
-  color: #999;
-  margin-top: 6rpx;
-}
-
-.item-relation {
-  width: 100rpx;
   text-align: center;
   flex-shrink: 0;
 }
 
-.relation-value {
+.month-value {
   font-size: 28rpx;
-  color: #722ed1;
   font-weight: 500;
 }
 

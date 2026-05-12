@@ -44,13 +44,29 @@ Page({
     loading: false,
     error: false,
     errorMessage: '',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    highlightCode: '',
   },
 
-  onLoad() {
+  onLoad(options) {
+    this._curScrollTop = 0
+    if (options.code) {
+      this.setData({ highlightCode: options.code })
+    }
+    if (options.type && (options.type === 'industry' || options.type === 'concept')) {
+      this.setData({ currentType: options.type })
+    }
     this.updateRealTimeName()
     this._timer = setInterval(() => this.updateRealTimeName(), 60000)
     this.loadSectors()
+  },
+
+  onPageScroll(e) {
+    this._curScrollTop = e.scrollTop || 0
+    if (this._scrollingToTarget) return
+    if (this.data.highlightCode) {
+      this.setData({ highlightCode: '' })
+    }
   },
 
   onUnload() {
@@ -138,6 +154,7 @@ Page({
         loading: false,
         error: false
       })
+      this._tryScrollToSector()
     } catch (error) {
       console.error('加载板块数据失败:', error)
       this.setData({
@@ -147,6 +164,42 @@ Page({
         errorMessage: error.message || '加载板块数据失败'
       })
     }
+  },
+
+  _tryScrollToSector() {
+    const code = this.data.highlightCode
+    if (!code) return
+    const found = this.data.sectorList.some(s => s.code === code)
+    if (found) {
+      this._scrollToSector()
+    } else if (!this._typeSwitched) {
+      this._typeSwitched = true
+      const nextType = this.data.currentType === 'industry' ? 'concept' : 'industry'
+      this.setData({ currentType: nextType, sectorList: [], loading: false, error: false })
+      this.loadSectors()
+    }
+  },
+
+  _scrollToSector() {
+    const code = this.data.highlightCode
+    if (!code) return
+    setTimeout(() => {
+      const query = wx.createSelectorQuery()
+      query.select('.type-tabs').boundingClientRect()
+      query.select('.filter-bar').boundingClientRect()
+      query.select(`#sector-${code}`).boundingClientRect()
+      query.exec(res => {
+        if (!res || !res[0] || !res[2]) return
+        const headerH = (res[0].height || 0) + (res[1].height || 0)
+        const elTop = res[2].top
+        const elH = res[2].height
+        const scrollTop = this._curScrollTop || 0
+        const target = scrollTop + elTop - headerH - elH / 2
+        this._scrollingToTarget = true
+        wx.pageScrollTo({ scrollTop: Math.max(0, target), duration: 300 })
+        setTimeout(() => { this._scrollingToTarget = false }, 500)
+      })
+    }, 200)
   },
 
   goToSectorFunds(e) {

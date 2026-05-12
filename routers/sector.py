@@ -6,10 +6,16 @@ import re
 import json
 import logging
 import time
+import asyncio
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
+from sqlalchemy.orm import Session
 
 from core.database import get_redis
+from core.database import get_db
+from models.fund import FundSector
+from schemas.user import FundSectorResponse, FundSectorItem
+from utils.fund_sector_sync import sync_fund_sectors, REDIS_CACHE_PREFIX
 from core.http_client import get_http_session
 from utils.http_headers import eastmoney_fund_headers
 
@@ -267,3 +273,73 @@ async def get_sector_funds(
             pass
 
     return response
+
+
+@router.get("/fund/{fund_code}", response_model=FundSectorResponse)
+async def get_fund_sectors(fund_code: str, db: Session = Depends(get_db)):
+    """查询基金所属板块"""
+    cache_key = f"{REDIS_CACHE_PREFIX}{fund_code}"
+    redis = get_redis()
+
+    # 尝试 Redis 缓存
+    if redis is not None:
+        try:
+            cached = await redis.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
+    # 查询数据库
+    rows = (
+        db.query(FundSector)
+        .filter(FundSector.fund_code == fund_code)
+        .order_by(FundSector.relation.desc())
+        .all()
+    )
+
+    response = FundSectorResponse(
+        fund_code=fund_code,
+        sectors=[
+            FundSectorItem(
+                sector_code=r.sector_code,
+                sector_name=r.sector_name,
+                relation=r.relation,
+            )
+            for r in rows
+        ],
+    )
+
+    # 写入 Redis 缓存
+    if redis is not None:
+        try:
+            await redis.setex(
+                cache_key,
+                300,
+                response.model_dump_json(),
+            )
+        except Exception:
+            pass
+
+    return response
+
+
+@router.post("/sync")
+async def trigger_sector_sync():
+    """手动触发基金-板块关联同步"""
+    from core.database import SessionLocal
+    asyncio.create_task(_run_sector_sync())
+    return {"message": "板块同步任务已启动", "status": "started"}
+
+
+async def _run_sector_sync():
+    """后台执行板块同步"""
+    from core.database import SessionLocal
+    db = SessionLocal()
+    try:
+        result = await sync_fund_sectors(db)
+        logger.info(f"手动板块同步完成: {result}")
+    except Exception as e:
+        logger.error(f"手动板块同步失败: {e}")
+    finally:
+        db.close()

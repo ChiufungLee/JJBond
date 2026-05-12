@@ -5,5 +5,5 @@
 
 from .base import Base
 from .user import User
-from .fund import UserFund, FundLib
+from .fund import UserFund, FundLib, FundSector
 from .watchlist import WatchlistFund, FundTransaction

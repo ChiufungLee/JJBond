@@ -18,6 +18,7 @@ from crud import user as user_crud
 from utils.fund_calculator import calculator
 from utils.fund_data_manager import search_funds, upsert_fund
 from utils.fund_ranking import fund_ranking_manager
+from models.fund import FundSector
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,84 @@ async def calculate_portfolio_simple(
         for fund in funds
     ]
     return await calculator.calculate_portfolio_simple(funds_data)
+
+
+@router.get("/sector-distribution", response_model=schemas.SectorDistribution)
+@limiter.limit("10/minute")
+async def get_sector_distribution(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """获取持仓的板块分布"""
+    funds = user_crud.get_user_funds(db=db, user_id=current_user.id)
+    if not funds:
+        return schemas.SectorDistribution(total_value=0, sectors=[])
+
+    # 获取每只基金的实时市值
+    funds_data = [
+        {
+            'id': fund.id,
+            'fund_code': fund.fund_code,
+            'fund_name': fund.fund_name or fund.fund_code,
+            'cost_price': fund.cost_price,
+            'shares': fund.shares,
+        }
+        for fund in funds
+    ]
+    portfolio = await calculator.calculate_portfolio_simple(funds_data)
+
+    # 构建 fund_code -> amount 映射
+    fund_value_map = {}
+    for detail in portfolio.get('fund_details', []):
+        code = detail.get('fund_code')
+        amount = detail.get('amount')
+        if code and amount:
+            fund_value_map[code] = amount
+
+    # 批量查询这些基金的板块关联
+    fund_codes = [f.fund_code for f in funds]
+    sector_rows = (
+        db.query(FundSector)
+        .filter(FundSector.fund_code.in_(fund_codes))
+        .all()
+    )
+
+    # 每只基金只取关联度最高的板块
+    fund_top_sector: dict[str, FundSector] = {}
+    for row in sector_rows:
+        cur = fund_top_sector.get(row.fund_code)
+        if cur is None or row.relation > cur.relation:
+            fund_top_sector[row.fund_code] = row
+
+    # 按板块聚合市值
+    sector_values: dict[str, dict] = {}
+    for fund_code, row in fund_top_sector.items():
+        fund_amount = fund_value_map.get(fund_code, 0)
+        if fund_amount <= 0:
+            continue
+        if row.sector_name not in sector_values:
+            sector_values[row.sector_name] = {
+                'sector_code': row.sector_code,
+                'sector_name': row.sector_name,
+                'value': 0,
+            }
+        sector_values[row.sector_name]['value'] += fund_amount
+
+    total_value = sum(s['value'] for s in sector_values.values())
+
+    sectors = []
+    if total_value > 0:
+        for item in sector_values.values():
+            sectors.append(schemas.SectorDistributionItem(
+                sector_code=item['sector_code'],
+                sector_name=item['sector_name'],
+                value=round(item['value'], 2),
+                percentage=round(item['value'] / total_value * 100, 1),
+            ))
+        sectors.sort(key=lambda x: x.value, reverse=True)
+
+    return schemas.SectorDistribution(total_value=round(total_value, 2), sectors=sectors)
 
 
 @router.get("/revenue-calendar", response_model=schemas.RevenueCalendar)

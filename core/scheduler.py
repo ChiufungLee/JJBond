@@ -8,7 +8,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from utils.fund_ranking import fund_ranking_manager
 from utils.hot_search_manager import hot_search_manager
-from core.database import get_redis
+from utils.fund_sector_sync import sync_fund_sectors
+from core.database import get_redis, SessionLocal
 
 logger = logging.getLogger(__name__)
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
@@ -42,6 +43,25 @@ async def sync_hot_search_job():
             logger.warning("热搜基金数据同步失败：未获取到数据")
     except Exception as e:
         logger.error(f"热搜基金数据同步任务执行出错: {e}")
+
+
+async def sync_fund_sectors_job():
+    """定时同步基金-板块关联数据"""
+    logger.info("开始执行基金-板块关联同步任务...")
+    db = SessionLocal()
+    try:
+        result = await sync_fund_sectors(db)
+        if "error" in result:
+            logger.warning(f"基金-板块同步部分失败: {result['error']}")
+        else:
+            logger.info(
+                f"基金-板块同步完成: {result['sectors']} 个板块, "
+                f"{result['mappings']} 条映射, 耗时 {result['elapsed']}s"
+            )
+    except Exception as e:
+        logger.error(f"基金-板块同步任务执行出错: {e}")
+    finally:
+        db.close()
 
 
 def setup_scheduler():
@@ -80,7 +100,17 @@ def setup_scheduler():
         misfire_grace_time=3600,
     )
 
-    logger.info("定时任务调度器已配置: 周一至周五 15:30 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据")
+    # 每周一凌晨 2:00 同步基金-板块关联数据
+    scheduler.add_job(
+        sync_fund_sectors_job,
+        trigger=CronTrigger(day_of_week="mon", hour=2, minute=0, timezone=SHANGHAI_TZ),
+        id="sync_fund_sectors",
+        name="同步基金-板块关联数据",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    logger.info("定时任务调度器已配置: 周一至周五 15:30 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据, 每周一 02:00 同步基金板块")
 
 
 def start_scheduler():

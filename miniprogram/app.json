@@ -16,7 +16,8 @@
     "pages/profile-edit/profile-edit",
     "pages/sector/sector",
     "pages/sector-funds/sector-funds",
-    "pages/market/market"
+    "pages/market/market",
+    "pages/fund-manage/fund-manage"
   ],
   "window": {
     "backgroundTextStyle": "light",

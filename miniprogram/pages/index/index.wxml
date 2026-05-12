@@ -20,10 +20,11 @@
     bind:buttonTap="goToAddFund"
   ></empty>
 
-  <!-- 未登录提示横幅 -->
-  <view wx:if="{{!loggedIn}}" class="demo-banner" bindtap="goToLogin">
-    <text class="demo-banner-text">登录后管理您的持仓数据</text>
-    <text class="demo-banner-btn">去登录 ›</text>
+  <!-- 未登录提示 -->
+  <view wx:if="{{!loggedIn}}" class="empty-state" bindtap="goToLogin">
+    <text class="empty-icon">📊</text>
+    <text class="empty-text">暂无基金</text>
+    <text class="empty-hint">登录后查看您的持仓数据</text>
   </view>
 
   <!-- 数据展示 -->
@@ -86,7 +87,7 @@
     <view class="fund-list-section">
       <view class="section-header">
         <view class="section-title-row">
-          <text class="section-title">持仓信息 ({{summary.fund_count}})</text>
+          <text class="section-title">持仓基金 ({{summary.fund_count}})</text>
           <text class="section-time">更新于 {{updateTime}}</text>
         </view>
         <text class="section-more" bindtap="goToAddFund">+ 添加</text>
