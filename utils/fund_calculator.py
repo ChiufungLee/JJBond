@@ -618,7 +618,9 @@ class FundCalculator:
         nav_updated = resolved.get('nav_updated', nav_updated)
         amount = round(shangrijingzhi * shares, 2)
         today_revenue = round((today_value - shangrijingzhi) * shares, 2)
-        total_revenue = round((shangrijingzhi - cost_price) * shares, 2)
+        # 净值已更新时，持有收益包含今日收益
+        base_value = today_value if nav_updated else shangrijingzhi
+        total_revenue = round((base_value - cost_price) * shares, 2)
         profit_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
 
         name = fund_info.get('name', fund_name) if fund_info else fund_name
@@ -705,7 +707,9 @@ class FundCalculator:
         today_revenue = round((today_value - shangrijingzhi) * share, 2)
         name = fund_info.get('name', fund_name) if fund_info else fund_name
 
-        total_revenue = round((shangrijingzhi - cost_price) * share, 2)
+        # 净值已更新时，持有收益包含今日收益
+        base_value = today_value if nav_updated else shangrijingzhi
+        total_revenue = round((base_value - cost_price) * share, 2)
         profit_and_loss_ratio = round((total_revenue / count) * 100, 2) if count > 0 else 0
 
         gszzl_raw = self._parse_float(fund_info.get('gszzl')) if fund_info else None
