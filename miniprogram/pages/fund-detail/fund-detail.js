@@ -458,7 +458,7 @@ Page({
 
     // 已更新实际净值时，dwjz 已被后端替换为实际净值
     const todayValue = navUpdated ? info.dwjz : (info.gsz || '--')
-    const changeRate = info.gszzl ? `${info.gszzl}%` : '--'
+    const changeRate = info.gszzl ? `${parseFloat(info.gszzl).toFixed(2)}%` : '--'
 
     return {
       fund_code: info.fundcode || info.fund_code,

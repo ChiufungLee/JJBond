@@ -81,7 +81,7 @@
             <text class="item-rank">{{item.rank}}</text>
             <view class="item-name">
               <text>{{item.name}}</text>
-              <text class="item-sub">{{item.changeRateStr}}</text>
+              <text class="item-sub">涨幅:{{item.changeRateStr}}</text>
             </view>
             <text class="item-value {{item.isUp ? 'up' : 'down'}}">{{item.valueStr}}</text>
           </view>

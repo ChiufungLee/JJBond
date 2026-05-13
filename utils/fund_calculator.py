@@ -767,9 +767,9 @@ class FundCalculator:
             full_today_revenue = round(full_today_revenue + today_revenue, 2)
             full_today_holding_amount = yesterday_holding_amount + full_today_revenue
             if gszzl <= -3:
-                low_fund_list.append(f"{d['fund_name']} 跌幅为: {gszzl}%")
+                low_fund_list.append(f"{d['fund_name']} 跌幅为: {round(gszzl, 2)}%")
             if gszzl >= 3:
-                high_fund_list.append(f"{d['fund_name']} 涨幅为: +{gszzl}%")
+                high_fund_list.append(f"{d['fund_name']} 涨幅为: +{round(gszzl, 2)}%")
 
         # 降级记录的临时字段也清除
         for d in fund_details:
