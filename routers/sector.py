@@ -72,6 +72,33 @@ async def get_sector_list(
 
     # 缓存未命中，请求外部 API
     session = get_http_session()
+
+    # 当按资金流入排序时，需要额外请求涨跌幅数据
+    # 因为东方财富 API 在资金流入模式下不返回 CHANGE_RATE 字段
+    change_rate_map = {}
+    if sort == "flow":
+        change_st = "D" if st == "FLOW" else ("W" if st == "FLOW_W" else "M")
+        change_params = {
+            "callback": "jQuerycb",
+            "tt": SECTOR_TYPE_MAP[type],
+            "dt": "syl",
+            "st": change_st,
+            "_": str(int(time.time() * 1000)),
+        }
+        try:
+            async with session.get(EASTMONEY_SECTOR_URL, params=change_params, headers=eastmoney_fund_headers()) as resp:
+                change_text = await resp.text()
+            change_match = re.match(r"jQuerycb\((.*)\);?$", change_text, re.DOTALL)
+            if change_match:
+                change_data = json.loads(change_match.group(1))
+                for item in (change_data.get("Data") or []):
+                    code = item.get("INDEXCODE", "")
+                    value = item.get(change_st)
+                    if code and value is not None:
+                        change_rate_map[code] = float(value)
+        except Exception as e:
+            logger.warning(f"请求涨跌幅数据失败（降级处理）: {e}")
+
     params = {
         "callback": "jQuerycb",
         "tt": SECTOR_TYPE_MAP[type],
@@ -102,11 +129,15 @@ async def get_sector_list(
         value = item.get(st)
         if value is not None:
             value = float(value)
+        code = item.get("INDEXCODE", "")
+        # 优先使用 API 返回的 CHANGE_RATE，否则从涨跌幅映射中获取
         change_rate = item.get("CHANGE_RATE")
         if change_rate is not None:
             change_rate = float(change_rate)
+        elif code in change_rate_map:
+            change_rate = change_rate_map[code]
         result.append({
-            "code": item.get("INDEXCODE", ""),
+            "code": code,
             "name": item.get("INDEXNAME", ""),
             "value": value,
             "change_rate": change_rate,

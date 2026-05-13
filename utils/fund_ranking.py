@@ -275,6 +275,10 @@ class FundRankingManager:
                 pipe.expire(self._get_ranking_key(ranking_type), expire_seconds)
             pipe.expire(META_KEY, expire_seconds)
 
+            # 基金详情也设置过期时间，避免旧数据残留
+            for fund_code in all_fund_details:
+                pipe.expire(self._get_fund_detail_key(fund_code), expire_seconds)
+
             await pipe.execute()  # 一次性提交所有命令
 
             logger.info(f"排行榜数据同步成功，共 {len(all_fund_details)} 只基金")
