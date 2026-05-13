@@ -11,8 +11,9 @@ logging.basicConfig(
 )
 
 async def main():
-    # 先初始化 Redis 连接
+    # 初始化 Redis 和 HTTP session
     from core.database import init_redis, get_redis, close_redis
+    from core.http_client import init_http_session, close_http_session
     from utils.fund_ranking import fund_ranking_manager
 
     print("正在连接 Redis...")
@@ -24,7 +25,12 @@ async def main():
         print("检查环境变量: REDIS_HOST, REDIS_PORT, REDIS_DB")
         return
 
-    print("Redis 连接成功，开始同步排行榜数据...")
+    print("Redis 连接成功")
+
+    print("正在初始化 HTTP session...")
+    await init_http_session()
+
+    print("开始同步排行榜数据...")
 
     try:
         result = await fund_ranking_manager.sync_ranking_data()
@@ -46,6 +52,7 @@ async def main():
         import traceback
         traceback.print_exc()
     finally:
+        await close_http_session()
         await close_redis()
 
 if __name__ == "__main__":
