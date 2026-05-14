@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     AVATAR_UPLOAD_DIR: str = "uploads/avatars"
 
     # 功能开关
-    SECTOR_DETAIL_ENABLED: bool = True  # 板块详情功能（审核期间设为 false）
+    SECTOR_FEATURE_ENABLED: bool = True  # 板块功能（审核期间设为 false）
 
     # 微信小程序配置
     WECHAT_APPID: str = ""  # 微信小程序 AppID

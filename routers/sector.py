@@ -50,6 +50,9 @@ async def get_sector_list(
       - sort: 排序类别（change=按涨幅排序, flow=按资金流入排序）
       - st: 时间范围（按涨幅时 D=日/W=周/M=月；按资金流入时 FLOW=实时/FLOW_W=周/FLOW_M=月）
     """
+    if not settings.SECTOR_FEATURE_ENABLED:
+        return {"type": type, "sort": sort, "time_range": st, "total": 0, "data": []}
+
     if type not in SECTOR_TYPE_MAP:
         raise HTTPException(status_code=400, detail=f"无效的板块类型，可选值: {list(SECTOR_TYPE_MAP.keys())}")
     if sort not in SORT_FIELD_MAP:
@@ -164,7 +167,7 @@ async def get_sector_list(
 @router.get("/{code}/detail")
 async def get_sector_detail(code: str):
     """获取单个板块的涨跌详情（日/周/月/季/年/今年来涨幅）"""
-    if not settings.SECTOR_DETAIL_ENABLED:
+    if not settings.SECTOR_FEATURE_ENABLED:
         return {"code": code, "name": "", "change_d": None, "change_w": None,
                 "change_m": None, "change_q": None, "change_y": None, "change_ytd": None}
 
@@ -232,7 +235,7 @@ async def get_sector_funds(
     sorttype: str = Query("DESC", description="排序方向: ASC/DESC"),
 ):
     """获取板块对应的基金列表"""
-    if not settings.SECTOR_DETAIL_ENABLED:
+    if not settings.SECTOR_FEATURE_ENABLED:
         return {"sector_code": code, "total": 0, "page": page, "page_size": page_size, "data": []}
 
     cache_key = f"{CACHE_PREFIX}funds:{code}:{page}:{page_size}:{sort}:{sorttype}"
