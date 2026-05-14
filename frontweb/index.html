@@ -2,91 +2,82 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基金管理后台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>基金管理</title>
     <link rel="stylesheet" href="app.css">
-    <script src="chart.js"></script>
 </head>
 <body>
     <div id="app">
-        <!-- 导航栏 -->
-        <nav class="navbar">
-            <div class="nav-container">
-                <h1 class="nav-logo">基金管理平台</h1>
-                <div class="nav-links" id="navLinks">
-                    <span id="userInfo" class="user-info"></span>
-                    <button id="logoutBtn" class="btn btn-secondary">退出登录</button>
-                </div>
+        <!-- Top Navbar -->
+        <div class="navbar" id="navbar">
+            <div class="nav-left" id="navLeft"></div>
+            <span id="navTitle">基金管理</span>
+            <div class="nav-right" id="navRight"></div>
+        </div>
+
+        <!-- Tab Pages -->
+        <div class="page-container" id="pageContainer">
+            <div id="page-index"></div>
+            <div id="page-watchlist" class="hidden"></div>
+            <div id="page-market" class="hidden"></div>
+            <div id="page-mine" class="hidden"></div>
+        </div>
+
+        <!-- Sub Pages (slides in from right) -->
+        <div class="sub-page" id="subPage">
+            <div class="navbar" id="subNavbar">
+                <div class="nav-left"><button class="nav-btn" id="subBackBtn">&larr; 返回</button></div>
+                <span id="subNavTitle"></span>
+                <div class="nav-right" id="subNavRight"></div>
             </div>
-        </nav>
+            <div id="subPageContent" style="overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
+        </div>
 
-        <!-- 主要内容区域 -->
-        <main class="main-content">
-            <!-- 未登录状态 -->
-            <div id="loggedOutSection" class="logged-out">
-                <div class="logged-out-content">
-                    <h2>欢迎使用基金管理平台</h2>
-                    <p>请登录以管理您的基金投资组合</p>
-                    <div class="auth-buttons">
-                        <button id="loginRedirectBtn" class="btn btn-primary">登录</button>
-                        <button id="registerRedirectBtn" class="btn btn-outline">注册</button>
-                    </div>
-                </div>
+        <!-- Bottom Tab Bar -->
+        <div class="tab-bar" id="tabBar">
+            <div class="tab-item active" data-tab="index">
+                <span class="tab-icon">&#128200;</span>
+                <span>持有</span>
             </div>
-
-            <!-- 登录后的基金管理页面 -->
-            <div id="fundsPage" class="funds-page hidden">
-                <div class="page-header">
-                    <div class="page-title">
-                        <h2>基金概览</h2>
-                        <p class="page-subtitle">管理您的基金投资</p>
-                    </div>
-                    <div class="page-actions">
-                        <button id="viewWatchlistBtn" class="btn btn-outline">自选基金</button>
-                        <button id="viewFundsBtn" class="btn btn-outline">基金列表</button>
-                        <button id="refreshPortfolioBtn" class="btn btn-outline">刷新收益</button>
-                        <button id="addFundBtn" class="btn btn-primary">添加基金</button>
-                        <button id="backToPortfolioBtn" class="btn btn-outline">返回概览</button>
-                        <button id="addToWatchlistBtn" class="btn btn-primary">添加自选</button>
-                        <button id="backToPortfolioFromWatchlistBtn" class="btn btn-outline">返回概览</button>
-                    </div>
-                </div>
-                
-                <!-- 投资组合概览页面 -->
-                <div id="portfolioPage" class="portfolio-page">
-                    <div id="portfolioSummaryContainer">
-                        <!-- 投资组合概览内容将在这里动态生成 -->
-                    </div>
-                </div>
-                
-                <!-- 基金列表页面 -->
-                <div id="fundsListPage" class="funds-list-page hidden">
-                    <!-- <div class="page-subheader">
-                        <h3>基金列表</h3>
-
-                    </div> -->
-                    <div class="funds-list" id="fundsList">
-                        <!-- 基金列表将在这里动态生成 -->
-                    </div>
-                </div>
-
-                <!-- 自选基金页面 -->
-                <div id="watchlistPage" class="watchlist-page hidden">
-                    <div id="watchlistContainer">
-                        <!-- 自选基金列表将在这里动态生成 -->
-                    </div>
-                </div>
+            <div class="tab-item" data-tab="watchlist">
+                <span class="tab-icon">&#11088;</span>
+                <span>自选</span>
             </div>
-        </main>
-
-        <!-- 消息提示 -->
-        <div id="message" class="message hidden"></div>
+            <div class="tab-item" data-tab="market">
+                <span class="tab-icon">&#128202;</span>
+                <span>行情</span>
+            </div>
+            <div class="tab-item" data-tab="mine">
+                <span class="tab-icon">&#128100;</span>
+                <span>我的</span>
+            </div>
+        </div>
     </div>
 
-    <!-- 模态框容器 -->
-    <div id="modalContainer" class="hidden"></div>
-    <div id="chartModalContainer" class="hidden"></div>
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
 
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box" id="modalBox"></div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="chart.js"></script>
+    <!-- App Core -->
     <script src="app.js"></script>
+    <!-- Pages -->
+    <script src="pages/index.js"></script>
+    <script src="pages/watchlist.js"></script>
+    <script src="pages/market.js"></script>
+    <script src="pages/mine.js"></script>
+    <script src="pages/fund-detail.js"></script>
+    <script src="pages/search.js"></script>
+    <script src="pages/calendar.js"></script>
+    <script src="pages/ranking.js"></script>
+    <script src="pages/sector.js"></script>
+    <script src="pages/sector-funds.js"></script>
+    <script src="pages/funds.js"></script>
+    <script src="pages/fund-manage.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "板块详情",
+  "navigationBarTitleText": "主题详情",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {

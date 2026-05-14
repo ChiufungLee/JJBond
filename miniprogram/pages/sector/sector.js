@@ -2,8 +2,8 @@
 const { get } = require('../../utils/request')
 
 const SECTOR_TYPES = [
-  { key: 'industry', name: '行业板块' },
-  { key: 'concept', name: '概念板块' }
+  { key: 'industry', name: '行业主题' },
+  { key: 'concept', name: '概念主题' }
 ]
 
 function getNowTime() {

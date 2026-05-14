@@ -164,6 +164,10 @@ async def get_sector_list(
 @router.get("/{code}/detail")
 async def get_sector_detail(code: str):
     """获取单个板块的涨跌详情（日/周/月/季/年/今年来涨幅）"""
+    if not settings.SECTOR_DETAIL_ENABLED:
+        return {"code": code, "name": "", "change_d": None, "change_w": None,
+                "change_m": None, "change_q": None, "change_y": None, "change_ytd": None}
+
     cache_key = f"{CACHE_PREFIX}detail:v2:{code}"
     redis = get_redis()
     if redis is not None:
@@ -228,6 +232,9 @@ async def get_sector_funds(
     sorttype: str = Query("DESC", description="排序方向: ASC/DESC"),
 ):
     """获取板块对应的基金列表"""
+    if not settings.SECTOR_DETAIL_ENABLED:
+        return {"sector_code": code, "total": 0, "page": page, "page_size": page_size, "data": []}
+
     cache_key = f"{CACHE_PREFIX}funds:{code}:{page}:{page_size}:{sort}:{sorttype}"
     redis = get_redis()
     if redis is not None:

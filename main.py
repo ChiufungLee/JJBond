@@ -216,6 +216,9 @@ app.include_router(feedback.router, prefix="/api")
 os.makedirs(settings.AVATAR_UPLOAD_DIR, exist_ok=True)
 app.mount("/static/avatars", StaticFiles(directory=settings.AVATAR_UPLOAD_DIR), name="avatars")
 
+# 挂载前端静态文件
+app.mount("/frontweb", StaticFiles(directory="frontweb", html=True), name="frontweb")
+
 
 @app.get("/")
 async def root():

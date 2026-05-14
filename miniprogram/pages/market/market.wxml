@@ -41,7 +41,7 @@
       <view class="list-card flow-card">
         <!-- 表头 -->
         <view class="flow-header">
-          <view class="flow-title" bindtap="goToSector">板块资金 <text class="rank-arrow">›</text></view>
+          <view class="flow-title" bindtap="goToSector">主题板块 <text class="rank-arrow">›</text></view>
           <view class="flow-tabs">
             <view class="flow-tabs-inner">
               <view

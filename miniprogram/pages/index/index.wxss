@@ -390,14 +390,12 @@
 }
 
 .nav-updated-tag {
-  font-size: 16rpx;
-  font-weight: 400;
-  color: #fff;
-  background-color: #722ed1;
-  padding: 2rpx 8rpx;
-  border-radius: 6rpx;
+  font-size: 20rpx;
+  color: #722ed1;
+  background-color: #f9f0ff;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
   margin-left: 8rpx;
-  vertical-align: middle;
 }
 
 /* 涨跌颜色 */

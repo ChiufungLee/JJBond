@@ -196,7 +196,11 @@ class LoginManager {
                 return;
             }
 
-            this.storeAuthSession(data.access_token, { username });
+            this.storeAuthSession(data.access_token, {
+                username: data.username || username,
+                created_at: data.created_at,
+                last_login_at: data.last_login_at
+            });
 
             if (rememberMe) {
                 localStorage.setItem('saved_credentials', JSON.stringify({ username }));
