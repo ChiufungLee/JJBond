@@ -37,7 +37,7 @@
     </view>
 
     <!-- 资金流入/流出榜 -->
-    <view class="section" wx:if="{{loggedIn}}">
+    <view class="section" wx:if="{{loggedIn && hasFlowData}}">
       <view class="list-card flow-card">
         <!-- 表头 -->
         <view class="flow-header">

@@ -11,6 +11,7 @@ import asyncio
 from fastapi import APIRouter, Query, HTTPException, Depends
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.database import get_redis
 from core.database import get_db
 from models.fund import FundSector

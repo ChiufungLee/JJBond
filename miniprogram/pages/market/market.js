@@ -9,6 +9,7 @@ Page({
     groups: [],
     indicesError: false,
     activeFlowTab: 'inflow',
+    hasFlowData: false,
     flowList: [],
     flowTop3: [],
     flowRest: [],
@@ -81,6 +82,11 @@ Page({
       }
 
       const items = res.data || []
+      if (items.length === 0) {
+        this.setData({ hasFlowData: false })
+        return
+      }
+
       const inflow = items.filter(i => i.value > 0).slice(0, 10).map((item, i) => ({
         rank: i + 1, name: item.name, code: item.code, valueStr: formatFlow(item.value), isUp: true,
         changeRateStr: formatRate(item.change_rate), changeRateUp: (item.change_rate || 0) >= 0,
@@ -95,7 +101,7 @@ Page({
       const now = new Date()
       const pad = n => String(n).padStart(2, '0')
       const flowUpdateTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`
-      this.setData({ flowUpdateTime })
+      this.setData({ hasFlowData: true, flowUpdateTime })
     } catch (e) {
       console.error('加载资金流数据失败:', e)
     }
