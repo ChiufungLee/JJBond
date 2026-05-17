@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Optional
 from core.dependencies import require_ranking_sync_token
+from core.config import settings
 from core.limiter import limiter
 from utils.fund_ranking import fund_ranking_manager, RankingType, RANKING_FIELD_MAP
 
@@ -71,12 +72,17 @@ async def get_ranking(
     """获取基金涨跌幅排行榜（分页）
     数据源: 天天基金 conditionFund/fundSelect 接口
     """
+    if not settings.RANKING_FEATURE_ENABLED:
+        return {"rankingType": type, "page": page, "pageSize": page_size, "total": 0, "lastUpdate": "", "data": []}
+
     return await _get_ranking_with_fallback(type, page, page_size, desc)
 
 
 @router.get("/{fund_code}")
 async def get_fund_ranking(fund_code: str):
     """获取单只基金在排行榜中的信息（含各阶段涨幅）"""
+    if not settings.RANKING_FEATURE_ENABLED:
+        raise HTTPException(status_code=404, detail="基金未在排行榜中找到")
     result = await fund_ranking_manager.get_fund_ranking_info(fund_code)
     if result is None:
         raise HTTPException(status_code=404, detail="基金未在排行榜中找到")

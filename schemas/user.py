@@ -44,7 +44,7 @@ class User(UserBase):
     id: int
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
-    login_type: str = "password"
+    login_type: Optional[str] = "password"
     last_login_at: Optional[datetime] = None
     created_at: datetime
 

@@ -1067,8 +1067,8 @@ class FundCalculator:
         # 获取该月的天数
         _, days_in_month = monthrange(year, month)
 
-        # 获取所有涉及的基金代码
-        fund_codes = set(tx.fund_code for tx in transactions)
+        # 获取所有涉及的基金代码（用 list 保证顺序与 asyncio.gather 结果一致）
+        fund_codes = list(set(tx.fund_code for tx in transactions))
 
         if not fund_codes:
             return {

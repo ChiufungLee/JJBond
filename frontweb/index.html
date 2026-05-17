@@ -1,83 +1,95 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>基金管理</title>
-    <link rel="stylesheet" href="app.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>JJBond - 基金投资组合管理</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
 </head>
 <body>
-    <div id="app">
-        <!-- Top Navbar -->
-        <div class="navbar" id="navbar">
-            <div class="nav-left" id="navLeft"></div>
-            <span id="navTitle">基金管理</span>
-            <div class="nav-right" id="navRight"></div>
-        </div>
 
-        <!-- Tab Pages -->
-        <div class="page-container" id="pageContainer">
-            <div id="page-index"></div>
-            <div id="page-watchlist" class="hidden"></div>
-            <div id="page-market" class="hidden"></div>
-            <div id="page-mine" class="hidden"></div>
-        </div>
+<!-- ===== Desktop Navbar ===== -->
+<nav class="navbar">
+  <a href="#/home" class="navbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+    </svg>
+    JJBond
+  </a>
+  <div class="navbar-nav">
+    <a href="#/home">持仓</a>
+    <a href="#/watchlist">自选</a>
+    <a href="#/market">行情</a>
+    <a href="#/ranking">排行榜</a>
+  </div>
+  <div id="nav-user"></div>
+</nav>
 
-        <!-- Sub Pages (slides in from right) -->
-        <div class="sub-page" id="subPage">
-            <div class="navbar" id="subNavbar">
-                <div class="nav-left"><button class="nav-btn" id="subBackBtn">&larr; 返回</button></div>
-                <span id="subNavTitle"></span>
-                <div class="nav-right" id="subNavRight"></div>
-            </div>
-            <div id="subPageContent" style="overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
-        </div>
+<!-- ===== Mobile Header ===== -->
+<header class="mobile-header">
+  <span class="mobile-header-logo">JJBond</span>
+  <div id="mobile-user"></div>
+</header>
 
-        <!-- Bottom Tab Bar -->
-        <div class="tab-bar" id="tabBar">
-            <div class="tab-item active" data-tab="index">
-                <span class="tab-icon">&#128200;</span>
-                <span>持有</span>
-            </div>
-            <div class="tab-item" data-tab="watchlist">
-                <span class="tab-icon">&#11088;</span>
-                <span>自选</span>
-            </div>
-            <div class="tab-item" data-tab="market">
-                <span class="tab-icon">&#128202;</span>
-                <span>行情</span>
-            </div>
-            <div class="tab-item" data-tab="mine">
-                <span class="tab-icon">&#128100;</span>
-                <span>我的</span>
-            </div>
-        </div>
-    </div>
+<!-- ===== Mobile Tab Bar ===== -->
+<nav class="tab-bar">
+  <div class="tab-bar-inner">
+    <a class="tab-item active" href="#/home" data-path="/home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>首页</span>
+    </a>
+    <a class="tab-item" href="#/watchlist" data-path="/watchlist">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      <span>自选</span>
+    </a>
+    <a class="tab-item" href="#/market" data-path="/market">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span>行情</span>
+    </a>
+    <a class="tab-item" href="#/ranking" data-path="/ranking">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>排行</span>
+    </a>
+    <a class="tab-item" href="#/mine" data-path="/mine">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span>我的</span>
+    </a>
+  </div>
+</nav>
 
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
+<!-- ===== Page Content ===== -->
+<main class="main-content">
+  <div id="page-content"></div>
+</main>
 
-    <!-- Modal Overlay -->
-    <div class="modal-overlay" id="modalOverlay">
-        <div class="modal-box" id="modalBox"></div>
-    </div>
+<!-- ===== Scripts ===== -->
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/router.js"></script>
+<script src="js/pages/login.js"></script>
+<script src="js/pages/register.js"></script>
+<script src="js/pages/home.js"></script>
+<script src="js/pages/watchlist.js"></script>
+<script src="js/pages/market.js"></script>
+<script src="js/pages/ranking.js"></script>
+<script src="js/pages/calendar.js"></script>
+<script src="js/pages/distribution.js"></script>
+<script src="js/pages/mine.js"></script>
+<script src="js/app.js"></script>
 
-    <!-- Chart.js -->
-    <script src="chart.js"></script>
-    <!-- App Core -->
-    <script src="app.js"></script>
-    <!-- Pages -->
-    <script src="pages/index.js"></script>
-    <script src="pages/watchlist.js"></script>
-    <script src="pages/market.js"></script>
-    <script src="pages/mine.js"></script>
-    <script src="pages/fund-detail.js"></script>
-    <script src="pages/search.js"></script>
-    <script src="pages/calendar.js"></script>
-    <script src="pages/ranking.js"></script>
-    <script src="pages/sector.js"></script>
-    <script src="pages/sector-funds.js"></script>
-    <script src="pages/funds.js"></script>
-    <script src="pages/fund-manage.js"></script>
 </body>
 </html>
