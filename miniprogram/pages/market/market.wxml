@@ -90,7 +90,7 @@
     </view>
 
     <!-- 日涨幅排行榜 -->
-    <view class="section" wx:if="{{loggedIn}}">
+    <view class="section" wx:if="{{loggedIn && rankingEnabled}}">
       <view class="list-card rank-card" wx:if="{{rankingList.length > 0}}">
         <view class="rank-header">
           <view class="rank-title-row">

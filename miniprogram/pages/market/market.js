@@ -16,6 +16,7 @@ Page({
     flowUpdateTime: '',
     rankingDate: '',
     rankingList: [],
+    rankingEnabled: true,
   },
 
   onLoad() {
@@ -127,6 +128,10 @@ Page({
   async loadRanking() {
     try {
       const res = await get('/ranking/', { type: 'day', page: 1, page_size: 10, desc: true })
+      if (res.feature_enabled === false) {
+        this.setData({ rankingEnabled: false, rankingList: [] })
+        return
+      }
       const rankingList = (res.data || []).map(item => ({
         ...item,
         changeText: item.change >= 0 ? `+${item.change.toFixed(2)}%` : `${item.change.toFixed(2)}%`,
@@ -135,7 +140,7 @@ Page({
       const d = this._getLatestTradingDate()
       const pad = n => String(n).padStart(2, '0')
       const rankingDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-      this.setData({ rankingList, rankingDate })
+      this.setData({ rankingEnabled: true, rankingList, rankingDate })
     } catch (e) {
       console.error('加载排行榜失败:', e)
     }

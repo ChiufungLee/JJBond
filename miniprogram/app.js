@@ -16,8 +16,8 @@ App({
     watchlistCacheTime: 0,
     watchlistDirty: false,
     // 后端API地址，开发时使用本地地址，生产环境需要修改为正式域名
-    // baseUrl: 'https://fund.awesomeme.cloud/api'
-    baseUrl: 'http://127.0.0.1:8888/api'
+    baseUrl: 'https://fund.awesomeme.cloud/api'
+    // baseUrl: 'http://127.0.0.1:8888/api'
   },
 
   onLaunch() {

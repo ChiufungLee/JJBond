@@ -73,7 +73,7 @@ async def get_ranking(
     数据源: 天天基金 conditionFund/fundSelect 接口
     """
     if not settings.RANKING_FEATURE_ENABLED:
-        return {"rankingType": type, "page": page, "pageSize": page_size, "total": 0, "lastUpdate": "", "data": []}
+        return {"rankingType": type, "page": page, "pageSize": page_size, "total": 0, "lastUpdate": "", "data": [], "feature_enabled": False}
 
     return await _get_ranking_with_fallback(type, page, page_size, desc)
 
