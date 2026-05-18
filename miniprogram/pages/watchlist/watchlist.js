@@ -14,6 +14,7 @@ Page({
     loading: true,
     loggedIn: false,
     hotFunds: [],
+    hotSearchEnabled: true,
     searchFocused: false,
     sortField: 'change_rate',
     sortOrder: 'desc',
@@ -66,6 +67,10 @@ Page({
   async loadHotFunds() {
     try {
       const res = await get('/hot-search/funds', {}, { cacheTTL: 3600, forceRefresh: true })
+      if (res && res.feature_enabled === false) {
+        this.setData({ hotSearchEnabled: false, hotFunds: [] })
+        return
+      }
       if (res && res.data) {
         this.setData({ hotFunds: res.data })
       }

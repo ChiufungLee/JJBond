@@ -13,7 +13,8 @@ Page({
     shares: '',
     searching: false,
     submitting: false,
-    hotFunds: []
+    hotFunds: [],
+    hotSearchEnabled: true,
   },
 
   onLoad() {
@@ -35,6 +36,10 @@ Page({
   async loadHotFunds() {
     try {
       const res = await get('/hot-search/funds', {}, { cacheTTL: 3600 })
+      if (res && res.feature_enabled === false) {
+        this.setData({ hotSearchEnabled: false, hotFunds: [] })
+        return
+      }
       if (res && res.data) {
         this.setData({ hotFunds: res.data })
       }

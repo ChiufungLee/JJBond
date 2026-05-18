@@ -55,7 +55,7 @@
   </view>
 
   <!-- 热搜基金 -->
-  <view wx:if="{{loggedIn && searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
+  <view wx:if="{{hotSearchEnabled && loggedIn && searchFocused && !searchKeyword && hotFunds.length > 0}}" class="hot-search-section">
     <view class="hot-search-title">
       <text class="hot-search-header-name">🔥 热搜基金</text>
       <text class="hot-search-header-rate">近一年涨幅</text>
