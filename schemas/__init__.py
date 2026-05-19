@@ -10,3 +10,4 @@ from .user import (
     SectorDistributionItem, SectorDistribution
 )
 from .feedback import FeedbackCreate, Feedback
+from .announcement import AnnouncementOut

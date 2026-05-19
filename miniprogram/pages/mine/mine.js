@@ -29,7 +29,8 @@ Page({
     ],
     moreList: [
       { icon: 'chat', title: '功能建议', path: '/pages/suggest/suggest' },
-      { icon: 'IM', title: '联系客服', openType: 'contact' }
+      { icon: 'IM', title: '联系客服', openType: 'contact' },
+      { icon: 'info', title: '关于我们', path: '/pages/reward/reward', noAuth: true }
     ]
   },
 

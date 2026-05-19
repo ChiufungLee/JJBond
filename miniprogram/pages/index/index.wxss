@@ -1,4 +1,44 @@
 /* pages/index/index.wxss */
+
+/* 公告滚动条 */
+.announcement-bar {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 24rpx 0;
+  padding: 16rpx 24rpx;
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.announcement-tag {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #fff;
+  background-color: #fa8c16;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  margin-right: 16rpx;
+}
+
+.announcement-scroll {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.announcement-text {
+  display: inline-block;
+  font-size: 26rpx;
+  color: #d48806;
+  animation: announcement-scroll 10s linear infinite;
+}
+
+@keyframes announcement-scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
 .index-container {
   min-height: 100vh;
   background-color: #f5f5f5;

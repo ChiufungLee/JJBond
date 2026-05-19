@@ -1,5 +1,13 @@
 <!--pages/index/index.wxml-->
 <view class="index-container">
+  <!-- 置顶公告滚动条 -->
+  <view class="announcement-bar" wx:if="{{loggedIn && pinnedAnnouncement}}">
+    <text class="announcement-tag">公告</text>
+    <view class="announcement-scroll">
+      <text class="announcement-text">{{pinnedAnnouncement.content}}</text>
+    </view>
+  </view>
+
   <loading wx:if="{{loading}}" text="加载中..."></loading>
 
   <empty
@@ -91,7 +99,10 @@
     <!-- 持仓列表 -->
     <view class="fund-list-section">
       <view class="section-header">
-        <text class="section-title">持仓基金 ({{summary.fund_count}})</text>
+        <view class="section-title-row">
+          <text class="section-title">持仓基金 ({{summary.fund_count}})</text>
+          <text class="section-time">更新于: {{currentTime}}</text>
+        </view>
         <text class="section-more" bindtap="goToAddFund">+ 添加基金</text>
       </view>
 

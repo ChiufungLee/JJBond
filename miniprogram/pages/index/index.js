@@ -19,7 +19,8 @@ Page({
     // 统计时间
     updateTime: '',
     loggedIn: false,
-    isDemo: false
+    isDemo: false,
+    pinnedAnnouncement: null
   },
 
   onLoad() {
@@ -29,6 +30,7 @@ Page({
       const hideAmount = wx.getStorageSync('hideAmount') || false
       this.setData({ hideAmount })
     }
+    this._loadPinnedAnnouncement()
   },
 
   onShow() {
@@ -71,6 +73,7 @@ Page({
       getApp().setPortfolioCache(summary)
       const now = new Date()
       const updateTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
       const formatted = this.formatSummary(summary)
       // 如果用户已登录但无持仓数据，使用 demo 数据展示
       const useDemo = !(formatted && formatted.fund_count > 0)
@@ -80,6 +83,7 @@ Page({
         refreshing: false,
         summary: displaySummary,
         updateTime,
+        currentTime,
         error: false,
         errorMessage: '',
         isDemo: useDemo
@@ -170,7 +174,7 @@ Page({
   // 下拉刷新
   onPullDownRefresh() {
     this.setData({ refreshing: true })
-    this.loadData().then(() => {
+    Promise.all([this.loadData(), this._loadPinnedAnnouncement()]).then(() => {
       wx.stopPullDownRefresh()
     })
   },
@@ -257,5 +261,19 @@ Page({
     const hideAmount = !this.data.hideAmount
     this.setData({ hideAmount })
     wx.setStorageSync('hideAmount', hideAmount)
+  },
+
+  // 加载置顶公告
+  async _loadPinnedAnnouncement() {
+    try {
+      const list = await get('/announcements/', { position: 0, pinned: true }, { skipAuth: true, forceRefresh: true })
+      if (list && list.length > 0) {
+        this.setData({ pinnedAnnouncement: list[0] })
+      } else {
+        this.setData({ pinnedAnnouncement: null })
+      }
+    } catch (e) {
+      // 公告加载失败不影响主流程
+    }
   }
 })

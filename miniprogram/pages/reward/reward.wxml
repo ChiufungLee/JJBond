@@ -1,12 +1,16 @@
 <view class="reward-container">
-  <view class="thank-card">
-    <text class="thank-line thank-title">感谢你愿意支持这个小程序。</text>
-    <text class="thank-line thank-sub">如果这个小程序对你有帮助，欢迎请作者喝杯咖啡。</text>
-    <text class="thank-line thank-sub">你的支持将会用于服务器的维护和后续功能的体验优化。</text>
-  </view>
-  <view class="qrcode-card">
-    <image class="qrcode" src="/images/wechat_m.png" mode="widthFix"></image>
-    <text class="qrcode-hint">扫码支持作者</text>
-    <text class="qrcode-tip">若无法识别，可长按保存图片后再扫码</text>
-  </view>
+  <loading wx:if="{{loading}}" text="加载中..."></loading>
+
+  <block wx:elif="{{announcements.length === 0}}">
+    <view class="empty-tip">
+      <text class="empty-text">暂无公告</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="announcement-card" wx:for="{{announcements}}" wx:key="id">
+      <text class="announcement-title">{{item.title}}</text>
+      <text class="announcement-content">{{item.content}}</text>
+    </view>
+  </block>
 </view>
