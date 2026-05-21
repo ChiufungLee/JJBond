@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "我的",
-  "usingComponents": {
-    "empty": "/components/empty/empty",
-    "loading": "/components/loading/loading"
-  }
-}

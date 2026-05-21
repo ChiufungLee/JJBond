@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "自选",
-  "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark",
-  "usingComponents": {
-    "empty": "/components/empty/empty"
-  }
-}

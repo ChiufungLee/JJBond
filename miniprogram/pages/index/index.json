@@ -1,9 +1,0 @@
-{
-  "navigationBarTitleText": "持有",
-  "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark",
-  "usingComponents": {
-    "empty": "/components/empty/empty",
-    "loading": "/components/loading/loading"
-  }
-}

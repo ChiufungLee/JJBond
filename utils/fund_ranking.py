@@ -49,11 +49,46 @@ class FundRankingManager:
     """基金排行榜管理器"""
 
     def __init__(self):
-        pass
+        self._auto_syncing = False
 
     def _is_redis_available(self) -> bool:
         """检查 Redis 是否可用"""
         return get_redis() is not None
+
+    def _maybe_auto_sync(self):
+        """检测缓存是否过时，过时则在后台触发同步（非阻塞）"""
+        if self._auto_syncing:
+            return
+
+        redis = get_redis()
+        if redis is None:
+            return
+
+        async def _do_auto_sync():
+            try:
+                meta = await redis.hgetall(META_KEY)
+                last_update = meta.get("lastUpdate", "")
+                if not last_update:
+                    logger.info("排行榜无缓存元数据，触发自动同步")
+                    await self.sync_ranking_data()
+                    return
+
+                last_date = datetime.strptime(last_update, "%Y-%m-%d %H:%M:%S").date()
+                now = datetime.now(SHANGHAI_TZ)
+                today = now.date()
+
+                # 工作日 + lastUpdate 早于今天 + 已过同步时间（21:05 后才有当日新数据）
+                after_sync = now.time() >= time(21, 5)
+                if last_date < today and today.weekday() < 5 and after_sync:
+                    logger.info(f"排行榜数据过时（lastUpdate={last_update}），触发自动同步")
+                    await self.sync_ranking_data()
+            except Exception as e:
+                logger.error(f"自动同步排行榜数据失败: {e}")
+            finally:
+                self._auto_syncing = False
+
+        self._auto_syncing = True
+        asyncio.create_task(_do_auto_sync())
 
     def _get_ranking_key(self, ranking_type: RankingType) -> str:
         """获取排行榜的 Redis Key"""
@@ -269,8 +304,8 @@ class FundRankingManager:
                 "totalCount": str(len(all_fund_details)),
             })
 
-            # 设置 48 小时过期，防止同步失败后旧数据永不过期
-            expire_seconds = 48 * 3600
+            # 设置 25 小时过期，覆盖一个完整自然日 + 余量
+            expire_seconds = 25 * 3600
             for ranking_type in RANKING_FIELD_MAP.keys():
                 pipe.expire(self._get_ranking_key(ranking_type), expire_seconds)
             pipe.expire(META_KEY, expire_seconds)
@@ -310,6 +345,9 @@ class FundRankingManager:
         redis = get_redis()
         if redis is None:
             return None
+
+        # 检测缓存是否过时，过时则后台触发同步（非阻塞）
+        self._maybe_auto_sync()
 
         try:
             key = self._get_ranking_key(ranking_type)

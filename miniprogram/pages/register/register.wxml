@@ -1,7 +1,0 @@
-<!--pages/register/register.wxml-->
-<view class="register-container">
-  <view class="register-header">
-    <text class="title">请使用微信登录</text>
-    <text class="subtitle">当前小程序仅支持微信快捷登录，正在为您跳转</text>
-  </view>
-</view>

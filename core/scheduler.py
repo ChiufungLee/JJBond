@@ -72,7 +72,7 @@ def setup_scheduler():
     - 每个交易日 15:30 同步数据（收盘后30分钟）
     - 周六日不执行
     """
-    # 每个工作日（周一到周五）15:30 执行同步
+    # 每个工作日（周一到周五）17:30 执行同步
     scheduler.add_job(
         sync_ranking_job,
         trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=30, timezone=SHANGHAI_TZ),
@@ -80,6 +80,16 @@ def setup_scheduler():
         name="同步排行榜数据",
         replace_existing=True,
         misfire_grace_time=3600,  # 错过执行时间1小时内仍然执行
+    )
+
+    # 备用同步：21:05 再执行一次，兜底 17:30 失败的情况
+    scheduler.add_job(
+        sync_ranking_job,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=21, minute=5, timezone=SHANGHAI_TZ),
+        id="sync_ranking_data_retry",
+        name="同步排行榜数据（备用）",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     # 每天 09:30 和 13:30 同步热搜基金数据
