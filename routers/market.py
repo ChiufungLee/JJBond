@@ -23,7 +23,41 @@ router = APIRouter(prefix="/market", tags=["股市行情"])
 CACHE_KEY = "market:indices"
 CACHE_TTL = 300
 
-# 展示分组定义：(腾讯代码, 东方财富 fs 代码, 输出代码)
+# 展示分组定义：(腾讯代码, 东方财富 secid, 输出代码)
+#
+# 腾讯财经有两种代码格式，返回的数据结构不同：
+#   1. 长格式（33+字段）：A股用 sh/sz 前缀，港股用 hk 前缀，美股用 us 前缀
+#   2. 短格式（8字段）：全球指数用 gz 前缀，字段为 code~name~datetime~price~change~change_pct~region~
+#
+# ========== 可用指数代码速查表 ==========
+#
+# A股（长格式）：
+#   sh000001  上证指数      sz399001  深证成指      sz399006  创业板指
+#   sz399005  中小板指      sh000300  沪深300       sh000016  上证50
+#   sh000905  中证500       sz399673  创业板50
+#
+# 港股（长格式）：
+#   hkHSI     恒生指数      hkHSCEI   恒生国企      hkHSCCI   恒生综指
+#
+# 美股（长格式）：
+#   us.DJI    道琼斯        usINX     标普500       usNDX     纳斯达克100
+#   us.IXIC   纳斯达克综合
+#
+# 亚太（gz 短格式，东方财富 secid 通常为 100.输出代码）：
+#   gzN225    日经225       gzKS11    韩国KOSPI     gzKOSDAQ  韩国KOSDAQ
+#   gzTWII    台湾加权      gzHSI     恒生指数      gzSET     泰国SET
+#   gzFBMKLCI 富时大马KLCI  gzVNINDEX 越南胡志明     gzJKSE    印尼雅加达
+#
+# 欧洲（gz 短格式）：
+#   gzFTSE    英国富时100   gzGDAXI   德国DAX30     gzFCHI    法国CAC40
+#   gzSSMI    瑞士SPI       gzIBEX    西班牙IBEX35  gzAEX     荷兰AEX
+#   gzOMX     瑞典OMX30     gzOSEBX   挪威OSE
+#
+# 美洲（gz 短格式）：
+#   gzSPX     标普500       gzNDX     纳斯达克100   gzMXX     墨西哥BOLSA
+#
+# 东方财富备用 secid 格式：A股 "1.000001"，港股 "100.HSI"，全球 "100.N225"
+# ============================================================
 INDEX_GROUPS = [
     {
         "name": "A股指数",
@@ -47,6 +81,8 @@ INDEX_GROUPS = [
             ("us.DJI", "100.DJIA", "DJIA"),
             ("usINX", "100.SPX", "SPX"),
             ("usNDX", "100.NDX", "NDX"),
+            ("gzN225", "100.N225", "N225"),
+            ("gzKS11", "100.KS11", "KS11"),
         ],
     },
 ]
@@ -78,16 +114,50 @@ def _parse_qt_line(line: str) -> dict | None:
     }
 
 
+def _parse_gz_line(line: str) -> dict | None:
+    line = line.strip().rstrip(";")
+    if not line:
+        return None
+    key, _, val = line.partition("=")
+    val = val.strip('"')
+    if not val:
+        return None
+    parts = val.split("~")
+    if len(parts) < 6:
+        return None
+    qt_code = key.removeprefix("v_")
+    return {
+        "qt_code": qt_code,
+        "name": parts[1],
+        "price": float(parts[3]),
+        "change": float(parts[4]),
+        "change_pct": float(parts[5]),
+    }
+
+
 async def _fetch_from_tencent(session) -> dict:
-    url = "https://qt.gtimg.cn/q=" + ",".join(ALL_QT_CODES)
-    async with session.get(url, headers={"User-Agent": UA_DESKTOP}) as resp:
-        text = await resp.text()
+    regular_codes = [qt for qt in ALL_QT_CODES if not qt.startswith("gz")]
+    gz_codes = [qt for qt in ALL_QT_CODES if qt.startswith("gz")]
 
     qt_map = {}
-    for line in text.split(";"):
-        parsed = _parse_qt_line(line)
-        if parsed:
-            qt_map[parsed["qt_code"]] = parsed
+
+    if regular_codes:
+        url = "https://qt.gtimg.cn/q=" + ",".join(regular_codes)
+        async with session.get(url, headers={"User-Agent": UA_DESKTOP}) as resp:
+            text = await resp.text()
+        for line in text.split(";"):
+            parsed = _parse_qt_line(line)
+            if parsed:
+                qt_map[parsed["qt_code"]] = parsed
+
+    if gz_codes:
+        url = "https://qt.gtimg.cn/q=" + ",".join(gz_codes)
+        async with session.get(url, headers={"User-Agent": UA_DESKTOP}) as resp:
+            text = await resp.text()
+        for line in text.split(";"):
+            parsed = _parse_gz_line(line)
+            if parsed:
+                qt_map[parsed["qt_code"]] = parsed
 
     groups = []
     for group_def in INDEX_GROUPS:

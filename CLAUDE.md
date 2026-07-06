@@ -230,7 +230,61 @@ miniprogram/
 **颜色规范**（基金涨跌）：
 - 正收益/上涨：红色 `#ff4d4f`
 - 负收益/下跌：绿色 `#52c41a`
-- 主题色：紫色 `#722ed1`
+- 主题色：浅蓝色 `#3379f6`（CSS 变量化，见下方主题色配置）
+
+**主题色配置**：
+
+主题色已全面 CSS 变量化，支持运行时动态切换。用户可通过「我的」→「主题颜色」选择预设主题。
+
+**当前预设方案**：
+
+| 方案 | 主色 | 浅色 | 背景色 | 主题类名 |
+|------|------|------|--------|---------|
+| 经典紫（默认） | `#722ed1` | `#b37feb` | `#f9f0ff` | 无（默认） |
+| 浅蓝色 | `#3379f6` | `#6ba3ff` | `#ebf2fe` | `.theme-blue` |
+
+**技术架构**：
+
+```css
+/* app.wxss — 默认经典紫 */
+page {
+  --primary-color: #722ed1;
+  --primary-light: #b37feb;
+  --primary-bg-light: #f9f0ff;
+  --primary-gradient: linear-gradient(135deg, #722ed1 0%, #b37feb 100%);
+  --primary-transparent: rgba(114, 46, 209, 0.8);
+}
+
+/* 浅蓝主题覆盖 */
+.theme-blue {
+  --primary-color: #3379f6;
+  --primary-light: #6ba3ff;
+  --primary-bg-light: #ebf2fe;
+  --primary-gradient: linear-gradient(135deg, #3379f6 0%, #6ba3ff 100%);
+  --primary-transparent: rgba(51, 121, 246, 0.8);
+}
+```
+
+**运行时机制**：
+- `app.js` 中 `getTheme()` / `setTheme()` 管理主题状态，存储于 `wx.storage`（key: `app_theme`）
+- `setTheme()` 同步调用 `wx.setTabBarStyle` 切换 TabBar 颜色
+- 所有页面根 `<view>` 绑定 `class="theme-{{theme}}"`，CSS 变量自动级联
+- 每个页面 `onLoad` / `onShow` 从 `app.getTheme()` 读取当前主题
+
+**SVG 图标双套方案**：
+- `icons/*.svg` — 蓝色版
+- `icons/blue/*.svg` — 蓝色版
+- 页面通过 `iconPrefix` 变量动态切换路径（如 `src="/icons/{{iconPrefix}}{{item.icon}}.svg"`）
+
+**新增主题方案步骤**：
+1. `app.wxss` 中添加新 `.theme-xxx` 类，覆盖 5 个 `--primary-*` 变量
+2. `app.js` 的 `applyTheme()` 中补充分页的 `navBg` / `tabSelected`
+3. `pages/theme-setting/theme-setting.js` 的 `onSelect` 中增加对应选项
+4. 如需配套 SVG 图标，在 `icons/xxx/` 下创建对应颜色版本
+
+**禁止**在新增页面或组件的 wxss 中硬编码主题色，必须使用 `var(--primary-color)` 等变量。
+
+**注意**：基金涨跌色（红 `#ff4d4f` / 绿 `#52c41a`）不属于主题色，保持不变。
 
 **收益日历页 calendar 特别说明**：
 - 后端 `revenue-calendar` 接口返回的 `CalendarDay` 包含 `fund_details`（各基金当日明细）

@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -28,3 +30,18 @@ async def create_feedback(
     db.commit()
     db.refresh(db_feedback)
     return db_feedback
+
+
+@router.get("/", response_model=List[Feedback])
+async def get_my_feedbacks(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前用户的建议列表"""
+    feedbacks = (
+        db.query(FeedbackSuggestion)
+        .filter(FeedbackSuggestion.user_id == current_user.id)
+        .order_by(FeedbackSuggestion.created_at.desc())
+        .all()
+    )
+    return feedbacks

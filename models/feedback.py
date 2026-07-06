@@ -10,4 +10,5 @@ class FeedbackSuggestion(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     content = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default='待受理')
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
