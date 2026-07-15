@@ -303,12 +303,19 @@ class FundCalculator:
             if not lsjz_list:
                 break
 
+            reached_start = False
             for item in lsjz_list:
                 nav_date = item.get('FSRQ', '')
                 unit_nav_str = item.get('DWJZ', '')
                 daily_growth_str = item.get('JZZZL', '')
 
                 if not nav_date or not unit_nav_str:
+                    continue
+                # 客户端日期过滤：接口可能无视 startDate/endDate 参数
+                if nav_date < start_date:
+                    reached_start = True
+                    continue
+                if nav_date > end_date:
                     continue
                 try:
                     unit_nav = float(unit_nav_str)
@@ -334,7 +341,8 @@ class FundCalculator:
             total_count = data.get('TotalCount', 0)
             total_pages = (total_count + page_size - 1) // page_size if total_count else 1
 
-            if page >= total_pages or len(lsjz_list) < page_size:
+            # 数据按日期降序返回，遇到早于 start_date 的记录即可停止翻页
+            if reached_start or page >= total_pages or len(lsjz_list) < page_size:
                 break
             page += 1
 
@@ -390,19 +398,29 @@ class FundCalculator:
             if not nav_list:
                 break
 
+            reached_start = False
             for item in nav_list:
                 fbrq = item.get('fbrq', '')  # "2026-07-15 00:00:00"
                 jjjz = item.get('jjjz', '')
 
                 if not fbrq or not jjjz:
                     continue
+
+                nav_date = fbrq.split(' ')[0]
+                # 客户端日期过滤
+                if nav_date < start_date:
+                    reached_start = True
+                    continue
+                if nav_date > end_date:
+                    continue
+
                 try:
                     unit_nav = float(jjjz)
                 except (ValueError, TypeError):
                     continue
 
                 result.append({
-                    "date": fbrq.split(' ')[0],
+                    "date": nav_date,
                     "unit_nav": unit_nav,
                     "daily_growth": "--",
                     "daily_growth_value": None
@@ -411,7 +429,8 @@ class FundCalculator:
             total_num = int(result_data.get('data', {}).get('total_num', 0))
             total_pages = (total_num + 19) // 20 if total_num else 1
 
-            if page >= total_pages or len(nav_list) == 0:
+            # 数据按日期降序返回，遇到早于 start_date 的记录即可停止翻页
+            if reached_start or page >= total_pages or len(nav_list) == 0:
                 break
             page += 1
 
