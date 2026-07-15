@@ -4,7 +4,6 @@ import json
 import re
 from datetime import datetime, date, timedelta
 from calendar import monthrange
-from lxml import etree
 from bs4 import BeautifulSoup
 import logging
 from typing import Dict, Optional, List, Any
@@ -257,6 +256,178 @@ class FundCalculator:
 
         return await self._request_with_retry("GET", url, _parse, headers=headers, timeout=10, retries=3, backoff=1.0)
 
+    async def _fetch_nav_eastmoney(
+        self, fund_code: str, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
+        """使用东方财富 JSONP 接口获取历史净值（主方案）"""
+        headers = {
+            'User-Agent': UA_DESKTOP,
+            'Referer': REFERER_EASTMONEY,
+        }
+        result = []
+        page = 1
+        page_size = 50
+
+        while True:
+            ts = int(datetime.now().timestamp() * 1000)
+            callback = f"jQuery_{ts}"
+            url = (
+                f"https://api.fund.eastmoney.com/f10/lsjz"
+                f"?callback={callback}&fundCode={fund_code}"
+                f"&pageIndex={page}&pageSize={page_size}"
+                f"&startDate={start_date}&endDate={end_date}"
+                f"&_={ts}"
+            )
+
+            text = await self._request_with_retry("GET", url, lambda r: r.text(), headers=headers)
+            if text is None:
+                break
+
+            start = text.find('(')
+            end = text.rfind(')')
+            if start == -1 or end == -1 or end <= start:
+                logger.warning(f"东方财富净值JSONP解析失败: {fund_code}")
+                break
+
+            try:
+                data = json.loads(text[start + 1:end])
+            except json.JSONDecodeError:
+                logger.warning(f"东方财富净值JSON解析失败: {fund_code}")
+                break
+
+            if data.get('ErrCode') != 0:
+                logger.warning(f"东方财富净值接口错误: {fund_code}, ErrCode={data.get('ErrCode')}")
+                break
+
+            lsjz_list = data.get('Data', {}).get('LSJZList', [])
+            if not lsjz_list:
+                break
+
+            for item in lsjz_list:
+                nav_date = item.get('FSRQ', '')
+                unit_nav_str = item.get('DWJZ', '')
+                daily_growth_str = item.get('JZZZL', '')
+
+                if not nav_date or not unit_nav_str:
+                    continue
+                try:
+                    unit_nav = float(unit_nav_str)
+                except (ValueError, TypeError):
+                    continue
+
+                daily_growth_value = None
+                if daily_growth_str:
+                    try:
+                        daily_growth_value = float(daily_growth_str)
+                    except (ValueError, TypeError):
+                        pass
+
+                daily_growth = f"{daily_growth_str}%" if daily_growth_str else "--"
+
+                result.append({
+                    "date": nav_date,
+                    "unit_nav": unit_nav,
+                    "daily_growth": daily_growth,
+                    "daily_growth_value": daily_growth_value
+                })
+
+            total_count = data.get('TotalCount', 0)
+            total_pages = (total_count + page_size - 1) // page_size if total_count else 1
+
+            if page >= total_pages or len(lsjz_list) < page_size:
+                break
+            page += 1
+
+        return result
+
+    async def _fetch_nav_sina(
+        self, fund_code: str, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
+        """使用新浪财经 JSONP 接口获取历史净值（备选方案）"""
+        headers = {
+            'User-Agent': UA_DESKTOP,
+            'Referer': 'https://finance.sina.com.cn/',
+        }
+        result = []
+        page = 1
+
+        while True:
+            ts = int(datetime.now().timestamp() * 1000)
+            callback = f"jQuery_{ts}"
+            url = (
+                f"https://stock.finance.sina.com.cn/fundInfo/api/openapi.php/"
+                f"CaihuiFundInfoService.getNav"
+                f"?callback={callback}&symbol={fund_code}"
+                f"&datefrom={start_date}&dateto={end_date}"
+                f"&page={page}&_={ts}"
+            )
+
+            text = await self._request_with_retry("GET", url, lambda r: r.text(), headers=headers)
+            if text is None:
+                break
+
+            # 去除反盗链脚本注释前缀
+            text = re.sub(r'^/\*.*?\*/\s*', '', text, flags=re.DOTALL)
+
+            start = text.find('(')
+            end = text.rfind(')')
+            if start == -1 or end == -1 or end <= start:
+                logger.warning(f"新浪净值JSONP解析失败: {fund_code}")
+                break
+
+            try:
+                data = json.loads(text[start + 1:end])
+            except json.JSONDecodeError:
+                logger.warning(f"新浪净值JSON解析失败: {fund_code}")
+                break
+
+            result_data = data.get('result', {})
+            if result_data.get('status', {}).get('code') != 0:
+                logger.warning(f"新浪净值接口错误: {fund_code}")
+                break
+
+            nav_list = result_data.get('data', {}).get('data', [])
+            if not nav_list:
+                break
+
+            for item in nav_list:
+                fbrq = item.get('fbrq', '')  # "2026-07-15 00:00:00"
+                jjjz = item.get('jjjz', '')
+
+                if not fbrq or not jjjz:
+                    continue
+                try:
+                    unit_nav = float(jjjz)
+                except (ValueError, TypeError):
+                    continue
+
+                result.append({
+                    "date": fbrq.split(' ')[0],
+                    "unit_nav": unit_nav,
+                    "daily_growth": "--",
+                    "daily_growth_value": None
+                })
+
+            total_num = int(result_data.get('data', {}).get('total_num', 0))
+            total_pages = (total_num + 19) // 20 if total_num else 1
+
+            if page >= total_pages or len(nav_list) == 0:
+                break
+            page += 1
+
+        if result:
+            # 新浪无日增长率字段，由相邻净值推算
+            result.sort(key=lambda x: x["date"])
+            for i in range(1, len(result)):
+                prev_nav = result[i - 1]["unit_nav"]
+                curr_nav = result[i]["unit_nav"]
+                if prev_nav and prev_nav != 0:
+                    growth = (curr_nav - prev_nav) / prev_nav * 100
+                    result[i]["daily_growth_value"] = round(growth, 2)
+                    result[i]["daily_growth"] = f"{growth:+.2f}%"
+
+        return result
+
     async def get_change_recent_days(self, fund_code: str) -> str:
         """获取基金最近涨跌情况（异步）"""
         cache_key = f"fund_recent:{fund_code}"
@@ -266,27 +437,16 @@ class FundCalculator:
 
         yesterday = str(date.today() + timedelta(days=-1))
         six_days_ago = str(date.today() + timedelta(days=-11))
-        url = (f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
-               f"?type=lsjz&code={fund_code}&page=1"
-               f"&sdate={six_days_ago}&edate={yesterday}&per=20")
-        headers = {
-            'User-Agent': UA_DESKTOP,
-            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
-        }
-        async def _parse(resp):
-            text = await resp.text()
-            matched = re.findall(r'content:"(.*?)",records:', text)
-            if not matched:
-                return "无数据"
-            html = await asyncio.to_thread(etree.HTML, matched[0])
-            html_data = html.xpath('//tr/td/text()')
-            rise_fall_list = [num for num in html_data if num.endswith('%')]
-            rise_fall_list.reverse()
-            return ' , '.join(rise_fall_list)
 
-        result = await self._request_with_retry("GET", url, _parse, headers=headers, retries=2)
-        if result is None:
-            return "获取失败"
+        nav_list = await self._fetch_nav_eastmoney(fund_code, six_days_ago, yesterday)
+        if not nav_list:
+            return "无数据"
+
+        nav_list.sort(key=lambda x: x["date"])
+        rise_fall_list = [x["daily_growth"] for x in nav_list if x["daily_growth_value"] is not None]
+        rise_fall_list.reverse()
+        result = ' , '.join(rise_fall_list) if rise_fall_list else "无数据"
+
         await self._cache_set(cache_key, result, 3600)
         return result
 
@@ -374,7 +534,7 @@ class FundCalculator:
         return result
 
     async def get_fund_nav_history_simple(self, fund_code: str, days: int = 30) -> List[Dict[str, Any]]:
-        """获取基金历史净值数据（异步，仅提取日期、单位净值、增长率）"""
+        """获取基金历史净值数据（东方财富主方案，新浪财经备选）"""
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=days)
         sdate = start_date.strftime("%Y-%m-%d")
@@ -388,83 +548,22 @@ class FundCalculator:
             except json.JSONDecodeError:
                 pass
 
-        headers = {
-            'User-Agent': UA_DESKTOP,
-            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
-        }
-        result = []
-        try:
-            page = 1
-            seen_dates = set()
-            reached_start_date = False
+        # 主方案：东方财富 JSONP 接口
+        result = await self._fetch_nav_eastmoney(fund_code, sdate, edate)
 
-            while True:
-                url = (
-                    f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
-                    f"?type=lsjz&code={fund_code}&page={page}&sdate={sdate}&edate={edate}&per=50"
-                )
-                text = await self._request_with_retry("GET", url, lambda r: r.text(), headers=headers)
-                if text is None:
-                    break
+        # 备选方案：新浪财经 JSONP 接口
+        if not result:
+            logger.warning(f"东方财富净值接口失败，尝试新浪备选: {fund_code}")
+            result = await self._fetch_nav_sina(fund_code, sdate, edate)
 
-                match = re.search(r'content:"(.*?)",records:(\d+),pages:(\d+)', text, re.DOTALL)
-                if not match:
-                    if page == 1:
-                        logger.warning(f"未匹配到基金净值数据: {fund_code}")
-                    break
-
-                raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
-                total_pages = int(match.group(3))
-                html = await asyncio.to_thread(etree.HTML, raw_html)
-                page_rows = 0
-
-                for row in html.xpath('//tr')[1:]:
-                    cells = row.xpath('./td')
-                    if len(cells) < 4:
-                        continue
-                    try:
-                        nav_date = cells[0].xpath('string(.)').strip()
-                        if not nav_date or nav_date in seen_dates:
-                            continue
-
-                        nav_date_obj = datetime.strptime(nav_date, "%Y-%m-%d").date()
-                        if nav_date_obj < start_date:
-                            reached_start_date = True
-                            continue
-
-                        unit_nav_str = cells[1].xpath('string(.)').strip()
-                        daily_growth = cells[3].xpath('string(.)').strip()
-                        unit_nav = float(unit_nav_str) if unit_nav_str and unit_nav_str != '-' else None
-                        daily_growth_value = None
-                        if daily_growth and daily_growth != '-':
-                            try:
-                                daily_growth_value = float(daily_growth.rstrip('%'))
-                            except ValueError:
-                                pass
-                        if unit_nav is not None:
-                            seen_dates.add(nav_date)
-                            result.append({
-                                "date": nav_date,
-                                "unit_nav": unit_nav,
-                                "daily_growth": daily_growth,
-                                "daily_growth_value": daily_growth_value
-                            })
-                            page_rows += 1
-                    except Exception as e:
-                        logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
-
-                if page >= total_pages or page_rows == 0 or reached_start_date:
-                    break
-                page += 1
-
+        if result:
             result.sort(key=lambda x: x["date"], reverse=True)
             await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 3600)
             logger.info(f"获取基金净值历史成功: {fund_code}, 记录数: {len(result)}")
-            return result
+        else:
+            logger.error(f"获取基金净值历史失败（所有数据源均不可用）: {fund_code}")
 
-        except Exception as e:
-            logger.error(f"获取基金净值历史失败: {fund_code}, 错误: {str(e)}")
-            return []
+        return result
 
 
     # 兼容旧调用，委托给共享函数
@@ -909,11 +1008,10 @@ class FundCalculator:
     async def get_fund_nav_history_by_month(
         self, fund_code: str, year: int, month: int, include_prev_trading_day: bool = False
     ) -> List[Dict[str, Any]]:
-        """获取指定月份的基金历史净值数据"""
+        """获取指定月份的基金历史净值数据（东方财富主方案，新浪财经备选）"""
         start_date = date(year, month, 1)
         if include_prev_trading_day:
             start_date = start_date - timedelta(days=7)
-        # 获取该月最后一天
         _, last_day = monthrange(year, month)
         end_date = date(year, month, last_day)
 
@@ -928,41 +1026,24 @@ class FundCalculator:
             except json.JSONDecodeError:
                 pass
 
-        url = (f"http://fund.eastmoney.com/f10/F10DataApi.aspx"
-               f"?type=lsjz&code={fund_code}&page=1&sdate={sdate}&edate={edate}&per=50")
-        headers = {
-            'User-Agent': UA_DESKTOP,
-            'Referer': f'http://fund.eastmoney.com/{fund_code}.html',
-        }
-        async def _parse(resp):
-            text = await resp.text()
-            match = re.search(r'content:"(.*?)",records:', text, re.DOTALL)
-            if not match:
-                return []
-            raw_html = match.group(1).replace('\\r\\n', '\n').replace('\\t', '\t')
-            html = await asyncio.to_thread(etree.HTML, raw_html)
-            rows = []
-            for row in html.xpath('//tr')[1:]:
-                cells = row.xpath('./td')
-                if len(cells) < 4:
-                    continue
-                try:
-                    nav_date = cells[0].xpath('string(.)').strip()
-                    unit_nav_str = cells[1].xpath('string(.)').strip()
-                    unit_nav = float(unit_nav_str) if unit_nav_str and unit_nav_str != '-' else None
-                    if unit_nav is not None:
-                        rows.append({"date": nav_date, "unit_nav": unit_nav})
-                except Exception as e:
-                    logger.warning(f"解析净值行失败: {fund_code}, 错误: {str(e)}")
-            rows.sort(key=lambda x: x["date"])
-            return rows
+        # 主方案：东方财富
+        result = await self._fetch_nav_eastmoney(fund_code, sdate, edate)
 
-        result = await self._request_with_retry("GET", url, _parse, headers=headers, retries=2)
-        if result is None:
-            logger.error(f"获取基金净值历史失败: {fund_code}")
+        # 备选方案：新浪财经
+        if not result:
+            logger.warning(f"东方财富净值接口失败，尝试新浪备选: {fund_code}")
+            result = await self._fetch_nav_sina(fund_code, sdate, edate)
+
+        # 转换为简化格式（仅 date + unit_nav）
+        rows = [{"date": x["date"], "unit_nav": x["unit_nav"]} for x in result]
+        rows.sort(key=lambda x: x["date"])
+
+        if not rows:
+            logger.error(f"获取基金净值历史失败（所有数据源均不可用）: {fund_code}")
             return []
-        await self._cache_set(cache_key, json.dumps(result, ensure_ascii=False), 3600)
-        return result
+
+        await self._cache_set(cache_key, json.dumps(rows, ensure_ascii=False), 3600)
+        return rows
 
     def _build_daily_shares_snapshot(
         self, transactions: List, fund_codes: set, year: int, month: int
