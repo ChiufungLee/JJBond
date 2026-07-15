@@ -266,7 +266,6 @@ class FundCalculator:
         }
         result = []
         page = 1
-        page_size = 50
 
         while True:
             ts = int(datetime.now().timestamp() * 1000)
@@ -274,7 +273,7 @@ class FundCalculator:
             url = (
                 f"https://api.fund.eastmoney.com/f10/lsjz"
                 f"?callback={callback}&fundCode={fund_code}"
-                f"&pageIndex={page}&pageSize={page_size}"
+                f"&pageIndex={page}&pageSize=50"
                 f"&startDate={start_date}&endDate={end_date}"
                 f"&_={ts}"
             )
@@ -311,7 +310,6 @@ class FundCalculator:
 
                 if not nav_date or not unit_nav_str:
                     continue
-                # 客户端日期过滤：接口可能无视 startDate/endDate 参数
                 if nav_date < start_date:
                     reached_start = True
                     continue
@@ -338,11 +336,13 @@ class FundCalculator:
                     "daily_growth_value": daily_growth_value
                 })
 
+            # 使用 API 响应中的真实分页信息，而非请求中传入的 pageSize
+            actual_page_size = data.get('PageSize', len(lsjz_list))
             total_count = data.get('TotalCount', 0)
-            total_pages = (total_count + page_size - 1) // page_size if total_count else 1
+            total_pages = (total_count + actual_page_size - 1) // actual_page_size if total_count else 1
+            current_page = data.get('PageIndex', page)
 
-            # 数据按日期降序返回，遇到早于 start_date 的记录即可停止翻页
-            if reached_start or page >= total_pages or len(lsjz_list) < page_size:
+            if reached_start or current_page >= total_pages:
                 break
             page += 1
 
