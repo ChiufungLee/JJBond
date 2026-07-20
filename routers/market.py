@@ -254,6 +254,9 @@ async def get_market_indices():
     """获取股市指数行情（A股、港股、全球指数）
     主数据源: 腾讯财经 | 备用: 东方财富（需配置 cookie）
     """
+    if not settings.MARKET_INDICES_ENABLED:
+        return {"groups": [], "feature_enabled": False}
+
     redis = get_redis()
     if redis is not None:
         try:

@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     SECTOR_FEATURE_ENABLED: bool = True  # 板块功能（审核期间设为 false）
     RANKING_FEATURE_ENABLED: bool = True  # 排行榜功能（审核期间设为 false）
     HOT_SEARCH_FEATURE_ENABLED: bool = True  # 热搜基金功能（审核期间设为 false）
+    MARKET_INDICES_ENABLED: bool = True  # 股市指数功能（审核期间设为 false）
 
     # 微信小程序配置
     WECHAT_APPID: str = ""  # 微信小程序 AppID
