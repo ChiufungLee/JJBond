@@ -7,7 +7,8 @@ from .user import (
     RevenueCalendar, CalendarDay, CalendarFundDetail,
     Transaction, LogoutResponse, UsernameUpdate, UserInfoUpdate,
     FundSectorItem, FundSectorResponse,
-    SectorDistributionItem, SectorDistribution
+    SectorDistributionItem, SectorDistribution,
+    AutoInvestPlanCreate, AutoInvestPlanUpdate, AutoInvestPlanOut, AutoInvestRecordOut
 )
 from .feedback import FeedbackCreate, Feedback
 from .announcement import AnnouncementOut

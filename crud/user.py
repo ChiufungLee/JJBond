@@ -1,11 +1,13 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from models.user import User
 from models.fund import UserFund
 from models.watchlist import WatchlistFund, FundTransaction
+from models.auto_invest import AutoInvestPlan, AutoInvestRecord
 from schemas.user import UserCreate, FundCreate, FundUpdate
 from utils.password import get_password_hash, verify_password
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, date
 from calendar import monthrange
 from zoneinfo import ZoneInfo
@@ -350,3 +352,135 @@ def get_holding_fund_codes(db: Session, user_id: int) -> List[str]:
     """获取用户已持有的基金代码列表"""
     funds = db.query(UserFund.fund_code).filter(UserFund.user_id == user_id).all()
     return [f[0] for f in funds]
+
+
+# ---------- 定投计划 ----------
+
+def create_auto_invest_plan(
+    db: Session, user_id: int, fund_code: str, fund_name: str, amount: float
+) -> Optional[AutoInvestPlan]:
+    """创建定投计划。同一用户同一基金只能有一个计划。"""
+    existing = db.query(AutoInvestPlan).filter(
+        AutoInvestPlan.user_id == user_id,
+        AutoInvestPlan.fund_code == fund_code,
+    ).first()
+    if existing:
+        return None
+
+    plan = AutoInvestPlan(
+        user_id=user_id,
+        fund_code=fund_code,
+        fund_name=fund_name,
+        amount=amount,
+        status='active',
+    )
+    db.add(plan)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return None
+    db.refresh(plan)
+    return plan
+
+
+def get_auto_invest_plans(db: Session, user_id: int) -> List[AutoInvestPlan]:
+    """获取用户所有定投计划（含累计统计）"""
+    plans = db.query(AutoInvestPlan).filter(
+        AutoInvestPlan.user_id == user_id
+    ).order_by(AutoInvestPlan.created_at.desc()).all()
+
+    for plan in plans:
+        stats = db.query(
+            func.coalesce(func.sum(AutoInvestRecord.amount), 0),
+            func.coalesce(func.sum(AutoInvestRecord.shares), 0),
+        ).filter(
+            AutoInvestRecord.plan_id == plan.id,
+            AutoInvestRecord.status == 'success',
+        ).first()
+        plan.total_invested = round(float(stats[0]), 2)
+        plan.total_shares = round(float(stats[1]), 2)
+
+    return plans
+
+
+def get_auto_invest_plan(db: Session, plan_id: int, user_id: int) -> Optional[AutoInvestPlan]:
+    """获取单个定投计划"""
+    return db.query(AutoInvestPlan).filter(
+        AutoInvestPlan.id == plan_id,
+        AutoInvestPlan.user_id == user_id,
+    ).first()
+
+
+def update_auto_invest_plan(
+    db: Session, plan_id: int, user_id: int,
+    amount: Optional[float] = None, status: Optional[str] = None,
+) -> Optional[AutoInvestPlan]:
+    """更新定投计划（金额或状态）"""
+    plan = get_auto_invest_plan(db, plan_id, user_id)
+    if not plan:
+        return None
+    if amount is not None:
+        plan.amount = amount
+    if status is not None:
+        plan.status = status
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+def delete_auto_invest_plan(db: Session, plan_id: int, user_id: int) -> bool:
+    """删除定投计划"""
+    plan = get_auto_invest_plan(db, plan_id, user_id)
+    if not plan:
+        return False
+    db.delete(plan)
+    db.commit()
+    return True
+
+
+def get_auto_invest_records(
+    db: Session, plan_id: int, user_id: int, limit: int = 20, offset: int = 0
+) -> List[AutoInvestRecord]:
+    """获取定投执行记录（分页）"""
+    return db.query(AutoInvestRecord).filter(
+        AutoInvestRecord.plan_id == plan_id,
+        AutoInvestRecord.user_id == user_id,
+    ).order_by(AutoInvestRecord.execute_date.desc()).offset(offset).limit(limit).all()
+
+
+def add_shares_from_auto_invest(
+    db: Session, user_id: int, fund_code: str, fund_name: str,
+    amount: float, nav: float,
+) -> Optional[Dict]:
+    """
+    定投执行：更新持仓份额 + 成本价（加权平均）+ 写交易记录。
+    在调用方的事务中执行，不自行 commit。
+    返回 {"fund": UserFund, "shares": float} 或 None。
+    """
+    fund = db.query(UserFund).filter(
+        UserFund.user_id == user_id,
+        UserFund.fund_code == fund_code,
+    ).first()
+    if not fund:
+        return None
+
+    new_shares = round(amount / nav, 2)
+    if new_shares <= 0:
+        return None
+
+    old_cost = fund.cost_price * fund.shares
+    fund.shares = round(fund.shares + new_shares, 2)
+    fund.cost_price = round((old_cost + amount) / fund.shares, 4)
+
+    _add_transaction(
+        db=db,
+        user_id=user_id,
+        fund_code=fund_code,
+        fund_name=fund_name,
+        transaction_type='buy',
+        shares=new_shares,
+        price=nav,
+    )
+
+    return {"fund": fund, "shares": new_shares}

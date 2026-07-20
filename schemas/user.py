@@ -241,3 +241,49 @@ class SectorDistribution(BaseModel):
     """持仓板块分布响应"""
     total_value: float
     sectors: List[SectorDistributionItem]
+
+
+# 定投计划
+class AutoInvestPlanCreate(BaseModel):
+    """创建定投计划"""
+    fund_code: str = Field(..., min_length=1, max_length=20)
+    amount: float = Field(..., gt=0, description="每日定投金额")
+
+
+class AutoInvestPlanUpdate(BaseModel):
+    """更新定投计划"""
+    amount: Optional[float] = Field(None, gt=0)
+    status: Optional[str] = Field(None, pattern="^(active|paused|stopped)$")
+
+
+class AutoInvestPlanOut(BaseModel):
+    """定投计划响应"""
+    id: int
+    fund_code: str
+    fund_name: str
+    amount: float
+    status: str
+    total_invested: Optional[float] = None  # 累计投入
+    total_shares: Optional[float] = None     # 累计份额
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AutoInvestRecordOut(BaseModel):
+    """定投执行记录响应"""
+    id: int
+    plan_id: int
+    fund_code: str
+    execute_date: str
+    amount: float
+    nav: Optional[float] = None
+    shares: Optional[float] = None
+    status: str
+    error_msg: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

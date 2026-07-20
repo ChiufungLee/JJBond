@@ -9,6 +9,7 @@ from apscheduler.triggers.cron import CronTrigger
 from utils.fund_ranking import fund_ranking_manager
 from utils.hot_search_manager import hot_search_manager
 from utils.fund_sector_sync import sync_fund_sectors
+from utils.auto_invest_executor import execute_all_plans
 from core.database import get_redis, SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,16 @@ async def sync_fund_sectors_job():
         db.close()
 
 
+async def sync_auto_invest_job():
+    """定时执行定投计划"""
+    logger.info("开始执行定投计划...")
+    try:
+        result = await execute_all_plans()
+        logger.info(f"定投计划执行完成: {result}")
+    except Exception as e:
+        logger.error(f"定投计划执行出错: {e}")
+
+
 def setup_scheduler():
     """
     配置定时任务
@@ -72,6 +83,16 @@ def setup_scheduler():
     - 每个交易日 15:30 同步数据（收盘后30分钟）
     - 周六日不执行
     """
+    # 每个工作日（周一到周五）10:17 执行定投（此时前一日净值已确认）
+    scheduler.add_job(
+        sync_auto_invest_job,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=10, minute=17, timezone=SHANGHAI_TZ),
+        id="sync_auto_invest",
+        name="执行定投计划",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     # 每个工作日（周一到周五）17:30 执行同步
     scheduler.add_job(
         sync_ranking_job,

@@ -9,3 +9,4 @@ from .fund import UserFund, FundLib, FundSector
 from .watchlist import WatchlistFund, FundTransaction
 from .feedback import FeedbackSuggestion
 from .announcement import Announcement
+from .auto_invest import AutoInvestPlan, AutoInvestRecord
