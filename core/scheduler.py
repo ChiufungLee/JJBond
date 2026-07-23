@@ -80,7 +80,8 @@ def setup_scheduler():
     配置定时任务
 
     任务安排：
-    - 每个交易日 15:30 同步数据（收盘后30分钟）
+    - 每个工作日 5:30 早间补同步（兜底前一晚 API 延迟）
+    - 每个工作日 21:05 同步（收盘后净值已基本公布）
     - 周六日不执行
     """
     # 每个工作日（周一到周五）10:17 执行定投（此时前一日净值已确认）
@@ -93,22 +94,22 @@ def setup_scheduler():
         misfire_grace_time=3600,
     )
 
-    # 每个工作日（周一到周五）17:30 执行同步
+    # 每个工作日（周一到周五）5:30 早间补同步，兜底前一晚 API 未及时刷新的情况
     scheduler.add_job(
         sync_ranking_job,
-        trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=30, timezone=SHANGHAI_TZ),
-        id="sync_ranking_data",
-        name="同步排行榜数据",
+        trigger=CronTrigger(day_of_week="mon-fri", hour=5, minute=30, timezone=SHANGHAI_TZ),
+        id="sync_ranking_morning",
+        name="同步排行榜数据（早间补同步）",
         replace_existing=True,
-        misfire_grace_time=3600,  # 错过执行时间1小时内仍然执行
+        misfire_grace_time=3600,
     )
 
-    # 备用同步：21:05 再执行一次，兜底 17:30 失败的情况
+    # 每个工作日（周一到周五）21:05 执行同步
     scheduler.add_job(
         sync_ranking_job,
         trigger=CronTrigger(day_of_week="mon-fri", hour=21, minute=5, timezone=SHANGHAI_TZ),
-        id="sync_ranking_data_retry",
-        name="同步排行榜数据（备用）",
+        id="sync_ranking_data",
+        name="同步排行榜数据",
         replace_existing=True,
         misfire_grace_time=3600,
     )
@@ -141,7 +142,7 @@ def setup_scheduler():
         misfire_grace_time=3600,
     )
 
-    logger.info("定时任务调度器已配置: 周一至周五 17:30 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据, 每周一 02:00 同步基金板块")
+    logger.info("定时任务调度器已配置: 周一至周五 5:30/21:05 同步排行榜数据, 每天 09:30/13:30 同步热搜基金数据, 每周一 02:00 同步基金板块")
 
 
 def start_scheduler():
