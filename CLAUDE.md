@@ -181,12 +181,12 @@ result = await calculator.get_fund_info(code)
 
 | 用途 | URL |
 |------|-----|
-| 普通基金实时净值 | `http://fundgz.1234567.com.cn/js/{code}.js` |
-| 备用基金信息 | `https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew` |
+| 基金实时估值 | `https://hq.sinajs.cn/?list=fu_{code},f_{code}`（新浪财经） |
+| 基金历史净值 | `https://fundcomapi.tiantianfunds.com/mm/newCore/FundCoreDiyNew`（天天基金兜底） |
 | LOF基金信息 | `http://fund.eastmoney.com/{code}.html`（HTML 解析） |
 | 历史净值 | `http://fund.eastmoney.com/f10/F10DataApi.aspx` |
 | 排行榜数据 | `https://condition.tiantianfunds.com/condition/conditionFund/fundSelect` |
-| 基金搜索 | `http://fundgz.1234567.com.cn/js/{keyword}.js` |
+| 基金搜索 | Redis 缓存 + 数据库 LIKE 降级 |
 
 ---
 

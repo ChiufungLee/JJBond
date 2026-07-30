@@ -114,83 +114,72 @@ class FundCalculator:
             return None
 
     async def _get_common_fund_info(self, fund_code: str) -> Optional[Dict]:
-        """获取普通基金信息（异步，复用 ClientSession 重试）"""
-        url = f"http://fundgz.1234567.com.cn/js/{fund_code}.js"
-        headers = {'User-Agent': UA_DESKTOP, 'Referer': REFERER_EASTMONEY}
-
-        async def _parse(resp):
-            text = await resp.text()
-            matched = re.findall(r'^jsonpgz\((.*)\)', text)
-            return json.loads(matched[0]) if matched else None
-
-        result = await self._request_with_retry("GET", url, _parse, headers=headers, timeout=5, retries=2, backoff=0.5)
-        if result:
-            return result
-
-        # 常规接口失败，尝试新浪财经接口
-        logger.info(f"常规接口获取失败，尝试新浪财经接口: {fund_code}")
+        """获取普通基金信息（新浪实时估值 → 天天基金历史净值兜底）"""
+        # 新浪财经行情接口（提供实时估值 gsz/gszzl）
         result = await self._get_fund_info_sina(fund_code)
         if result:
             return result
 
-        # 新浪接口也失败，尝试天天基金备用接口
-        logger.info(f"新浪财经接口获取失败，尝试天天基金备用接口: {fund_code}")
+        # 新浪无实时估值（QDII等），降级到天天基金历史净值
+        logger.info(f"新浪财经无实时估值数据，降级到天天基金历史净值: {fund_code}")
         return await self._get_fund_info_backup(fund_code)
 
     async def _get_fund_info_sina(self, fund_code: str) -> Optional[Dict]:
-        """通过新浪财经行情接口获取基金估值信息（JSONP）"""
+        """通过新浪财经行情接口获取基金实时估值（fu_ 行），无实时估值或数据过期时返回 None"""
         url = f"https://hq.sinajs.cn/?list=fu_{fund_code},f_{fund_code}"
         headers = {'User-Agent': UA_DESKTOP, 'Referer': 'https://finance.sina.com.cn/'}
 
         async def _parse(resp):
             raw = await resp.read()
-            # 新浪接口返回 gb2312 编码
             try:
                 text = raw.decode('gb2312')
             except UnicodeDecodeError:
                 text = raw.decode('gbk', errors='replace')
 
-            # 解析 fu_ 行（估值）: 名称,时间,估值,昨日净值,单位净值,涨跌额,涨跌幅%,日期,,
-            fu_match = re.search(r'hq_str_fu_\d+="(.+?)"', text)
-            # 解析 f_ 行（净值）: 名称,单位净值,累计净值,昨日净值,日期,规模(亿)
+            # 先解析 f_ 行获取最新净值日期: 名称,单位净值,累计净值,昨日净值,日期,规模(亿)
             f_match = re.search(r'hq_str_f_\d+="(.+?)"', text)
-
-            if not fu_match and not f_match:
-                return None
-
-            fund_name = ''
-            gsz = None
-            gszzl = None
-            dwjz = None
-            gztime = ''
-
-            if fu_match:
-                fu_fields = fu_match.group(1).split(',')
-                if len(fu_fields) >= 8:
-                    fund_name = fu_fields[0]
-                    gztime = f"{fu_fields[7]} {fu_fields[1]}" if len(fu_fields) > 7 and fu_fields[7] else fu_fields[1]
-                    gsz = fu_fields[2] if fu_fields[2] else None
-                    dwjz = fu_fields[3] if fu_fields[3] else None
-                    gszzl = fu_fields[6] if fu_fields[6] else None
-
-            # f_ 行补充净值信息
+            f_date = ''
+            f_dwjz = None
             if f_match:
                 f_fields = f_match.group(1).split(',')
-                if len(f_fields) >= 4:
-                    if not fund_name:
-                        fund_name = f_fields[0]
-                    if not dwjz:
-                        dwjz = f_fields[1]
+                if len(f_fields) >= 5:
+                    f_date = f_fields[4]  # 最新净值日期
+                    f_dwjz = f_fields[1] if f_fields[1] else None
 
-            if not gsz and not dwjz:
+            # fu_ 行（实时估值）: 名称,时间,估值,昨日净值,单位净值,涨跌额,涨跌幅%,日期,,
+            fu_match = re.search(r'hq_str_fu_\d+="(.+?)"', text)
+            if not fu_match:
+                return None  # 无实时估值数据，交由调用方降级
+
+            fu_fields = fu_match.group(1).split(',')
+            if len(fu_fields) < 8:
                 return None
+
+            fund_name = fu_fields[0]
+            gsz = fu_fields[2] if fu_fields[2] and fu_fields[2] != '0.0000' else None
+            dwjz = fu_fields[3] if fu_fields[3] and fu_fields[3] != '0.0000' else None
+            gszzl = fu_fields[6] if fu_fields[6] else None
+            fu_date = fu_fields[7] if len(fu_fields) > 7 else ''
+
+            if not gsz:
+                return None
+
+            # 估值日期早于最新净值日期 → 数据过期（QDII基金常见），降级到历史净值
+            if fu_date and f_date and fu_date < f_date:
+                return None
+
+            gztime = f"{fu_date} {fu_fields[1]}" if fu_date else fu_fields[1]
+
+            # f_ 行补充净值信息（当 fu_ 行 dwjz 为空时）
+            if not dwjz:
+                dwjz = f_dwjz
 
             return {
                 'fundcode': fund_code,
                 'name': fund_name,
                 'jzrq': gztime.split(' ')[0] if ' ' in gztime else gztime,
                 'dwjz': str(dwjz) if dwjz else '0',
-                'gsz': str(gsz) if gsz else str(dwjz),
+                'gsz': str(gsz),
                 'gszzl': str(gszzl) if gszzl else '0',
                 'gztime': gztime,
             }
